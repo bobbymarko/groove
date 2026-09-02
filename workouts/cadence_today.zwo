@@ -1,0 +1,30 @@
+<workout_file>
+    <author>Cadence</author>
+    <name>Cadence: Corner Exit</name>
+    <description>First top-end session of the enduro block — indoors on Zwift, Wednesday as always. Short, punchy 1-minute efforts with full recovery: exactly the repeatable snap an enduro rewards when you sprint out of a corner or over a roller. It's still Week 1, so this is a re-introduction, not a beatdown — all six reps done by minute 28, and if the legs are still heavy from BWCA, ride them by feel. Nothing after the last rep is mandatory.</description>
+    <sportType>bike</sportType>
+    <tags/>
+    <workout>
+        <Warmup Duration="600" PowerLow="0.45" PowerHigh="0.70">
+            <textevent timeoffset="10" message="Wednesday = Zwift intensity. Easy build to open the legs."/>
+            <textevent timeoffset="300" message="Halfway through warmup. Punchy reps coming."/>
+            <textevent timeoffset="480" message="Couple of quick spin-ups now if you like — get sharp."/>
+            <textevent timeoffset="560" message="Here we go. Short and sharp. Go by feel if legs are heavy."/>
+        </Warmup>
+        <IntervalsT Repeat="6" OnDuration="60" OffDuration="120" OnPower="1.06" OffPower="0.50" Cadence="95">
+            <textevent timeoffset="0" message="Rep 1 — punch it, this is the corner-exit snap."/>
+            <textevent timeoffset="180" message="Rep 2 — strong and smooth, full recovery earns the next one."/>
+            <textevent timeoffset="360" message="Rep 3 — halfway. Feeling the snap come back?"/>
+            <textevent timeoffset="540" message="Rep 4 — this is enduro fitness. Repeat the effort."/>
+            <textevent timeoffset="720" message="Rep 5 — one more after this. Stay sharp."/>
+            <textevent timeoffset="900" message="Rep 6 — last one, best one. Send it out of the corner."/>
+        </IntervalsT>
+        <SteadyState Duration="360" Power="0.60">
+            <textevent timeoffset="10" message="Work is DONE. Bail here and you nailed it. Rest is bonus."/>
+            <textevent timeoffset="180" message="Easy spin, let the HR come down. Great re-entry to intensity."/>
+        </SteadyState>
+        <Cooldown Duration="180" PowerLow="0.55" PowerHigh="0.40">
+            <textevent timeoffset="10" message="Spin it out. Week 1 top-end: in the bank."/>
+        </Cooldown>
+    </workout>
+</workout_file>

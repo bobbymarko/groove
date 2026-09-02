@@ -22,6 +22,25 @@ The first launch asks for Bluetooth permission for "RideDev". Allow it. Output g
 Opening the project in the normal Godot editor is fine for everything that does not
 touch Bluetooth.
 
+## Tests and screenshots
+
+```bash
+tools/test.sh                      # headless unit tests (tests/unit/test_*.gd)
+```
+
+To eyeball a screen without clicking through the app:
+
+```bash
+/Applications/Godot.app/Contents/MacOS/Godot --path . --resolution 1280x800 \
+  -s tools/screenshot.gd -- res://ui/screens/ride_screen.tscn build/ride.png ride
+```
+
+## Riding on the simulator
+
+Open the project in Godot and press Play, or run `tools/run-dev.sh`. Pick a workout,
+set FTP, press "Ride on simulator". Keys on the ride screen: Space pause/resume,
+Right skip segment, Up/Down bias ±1%, E toggle ERG, Esc end, F fast-forward (dev only).
+
 ## Bluetooth extension
 
 `addons/gdble/` is GDBLE 0.5.5 (MIT), a Rust GDExtension over btleplug. Prebuilt

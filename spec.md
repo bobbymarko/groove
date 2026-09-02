@@ -204,7 +204,7 @@ Riskiest first. Each milestone ends with something that runs.
 | # | Milestone | Done when |
 |---|---|---|
 | 0 | **Bluetooth spike** ✅ 2026-09-02 | A bare Godot scene connects to the KICKR CORE via GDBLE on the Mac, prints live power and cadence, and holds 150 W then 200 W in ERG. Go/no-go for the stack. **Passed.** Spike lives in `spike/`; the KICKR also exposes Cycling Power (0x1818) and Wahoo's proprietary service, neither needed. |
-| 1 | **Engine on simulator** | Load a `.zwo`, ride it against the simulated trainer with a text-only HUD. All R6 to R9 controls work. Tests cover the parser and runner. |
+| 1 | **Engine on simulator** ✅ 2026-09-02 | Load a `.zwo`, ride it against the simulated trainer with a text-only HUD. All R6 to R9 controls work. Tests cover the parser and runner. **Done.** 27 unit tests pass headless via `tools/test.sh`. Fixture is Bob's real "Cadence: Corner Exit" workout. |
 | 2 | **Real devices** | Pairing screen, real trainer and heart-rate strap, auto-reconnect, dropout does not end the ride. |
 | 3 | **Record and upload** | Journal, FIT export validated by the FIT SDK tool, summary screen, Strava OAuth and upload with retry. First real workout ridden and posted. |
 | 4 | **Scene v1** | Winter trail, rider pedaling at real cadence, handheld camera, pixel post-process. 60 fps. HUD overlaid on the scene. |
@@ -216,7 +216,7 @@ Riskiest first. Each milestone ends with something that runs.
 
 ## 6. Testing and feedback loop
 
-- gdUnit4 for unit tests, run headless in CI on every push.
+- Unit tests run headless with `tools/test.sh`. Milestone 1 shipped a 60-line in-repo runner (`tests/run_tests.gd`, `tests/test_case.gd`) instead of gdUnit4 to avoid a dependency download; swap to gdUnit4 if the suite outgrows it.
 - The simulated trainer makes the full ride flow testable: parser, runner, recorder, FIT output, upload queue.
 - Golden files: known `.zwo` inputs with expected target-power timelines; FIT outputs decoded by the FIT SDK CSV tool and compared to expected samples.
 - Manual test script for hardware milestones, kept in `tests/manual.md`.
