@@ -3,6 +3,10 @@ extends Node
 ## The only file that talks to the GDBLE extension. Scans for devices and
 ## opens BlePeripheral handles. Swapping the Bluetooth backend (for iOS, say)
 ## means replacing this file and nothing else.
+##
+## Every call into GDBLE is deferred to the end of the frame. GDBLE emits its
+## signals from inside its own process() while it holds a mutable borrow on
+## itself; calling back into it synchronously from a handler panics.
 
 signal ready_changed(ok: bool, error: String)
 signal device_found(info: Dictionary)          ## {address, name, rssi}
@@ -50,12 +54,12 @@ func is_scanning() -> bool:
 
 func start_scan(seconds: float = 15.0) -> void:
 	if _bt != null and _ready_ok and not _scanning:
-		_bt.start_scan(seconds)
+		_bt.call_deferred("start_scan", seconds)
 
 
 func stop_scan() -> void:
 	if _bt != null and _scanning:
-		_bt.stop_scan()
+		_bt.call_deferred("stop_scan")
 
 
 func open(address: String, device_name := "") -> BlePeripheral:
@@ -101,7 +105,7 @@ func _on_device(info: Dictionary) -> void:
 	if _waiting.has(address):
 		var p: GdblePeripheral = _waiting[address]
 		_waiting.erase(address)
-		p.connect_peripheral()
+		p.connect_peripheral()   # itself deferred
 
 
 ## BlePeripheral over a GDBLE BleDevice. GDBLE keeps one BleDevice per address
@@ -121,6 +125,9 @@ class GdblePeripheral:
 		name = nm
 
 	func connect_peripheral() -> void:
+		_connect_now.call_deferred()
+
+	func _connect_now() -> void:
 		if _bt == null:
 			connection_failed.emit("Bluetooth adapter unavailable")
 			return
@@ -134,7 +141,7 @@ class GdblePeripheral:
 		if dev != _dev:
 			_dev = dev
 			_wire(_dev)
-		_dev.connect_async()
+		_dev.call_deferred("connect_async")
 
 	func _wire(dev: Variant) -> void:
 		_wire_one(dev.connected, _on_connected)
@@ -153,7 +160,7 @@ class GdblePeripheral:
 	func disconnect_peripheral() -> void:
 		_adapter.cancel_rediscovery(address)
 		if _bt != null and _connected:
-			_bt.disconnect_device(address)
+			_bt.call_deferred("disconnect_device", address)
 
 	func mark_lost() -> void:
 		if not _connected:
@@ -161,28 +168,28 @@ class GdblePeripheral:
 		# Best effort: GDBLE 0.5.5 only notices disconnects it initiated, so
 		# ask it to tear the stale link down before we reconnect.
 		if _bt != null:
-			_bt.disconnect_device(address)
+			_bt.call_deferred("disconnect_device", address)
 		super.mark_lost()
 
 	func discover_services() -> void:
 		if _dev != null:
-			_dev.discover_services()
+			_dev.call_deferred("discover_services")
 
 	func read(service_uuid: String, char_uuid: String) -> void:
 		if _dev != null:
-			_dev.read_characteristic(service_uuid, char_uuid)
+			_dev.call_deferred("read_characteristic", service_uuid, char_uuid)
 
 	func write(service_uuid: String, char_uuid: String, data: PackedByteArray, with_response: bool) -> void:
 		if _dev != null:
-			_dev.write_characteristic(service_uuid, char_uuid, data, with_response)
+			_dev.call_deferred("write_characteristic", service_uuid, char_uuid, data, with_response)
 
 	func subscribe(service_uuid: String, char_uuid: String) -> void:
 		if _dev != null:
-			_dev.subscribe_characteristic(service_uuid, char_uuid)
+			_dev.call_deferred("subscribe_characteristic", service_uuid, char_uuid)
 
 	func unsubscribe(service_uuid: String, char_uuid: String) -> void:
 		if _dev != null:
-			_dev.unsubscribe_characteristic(service_uuid, char_uuid)
+			_dev.call_deferred("unsubscribe_characteristic", service_uuid, char_uuid)
 
 	func _on_connected() -> void:
 		_connected = true
