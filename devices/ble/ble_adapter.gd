@@ -118,6 +118,15 @@ class GdblePeripheral:
 		if _bt != null and _connected:
 			_bt.disconnect_device(address)
 
+	func mark_lost() -> void:
+		if not _connected:
+			return
+		# Best effort: GDBLE 0.5.5 only notices disconnects it initiated, so
+		# ask it to tear the stale link down before we reconnect.
+		if _bt != null:
+			_bt.disconnect_device(address)
+		super.mark_lost()
+
 	func discover_services() -> void:
 		if _dev != null:
 			_dev.discover_services()

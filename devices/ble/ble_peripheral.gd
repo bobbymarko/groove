@@ -33,6 +33,17 @@ func is_peripheral_connected() -> bool:
 	return _connected
 
 
+## Called by a profile when the link has clearly died (no data for several
+## seconds) but the backend never reported it. Tears down local state and
+## emits `disconnected` so the normal reconnect path runs.
+func mark_lost() -> void:
+	if not _connected:
+		return
+	_connected = false
+	_services = []
+	disconnected.emit()
+
+
 func discover_services() -> void:
 	pass
 

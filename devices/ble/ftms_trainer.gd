@@ -8,6 +8,9 @@ extends Trainer
 const RECONNECT_DELAY := 3.0
 const RECONNECT_MAX := 30.0
 const WRITE_TIMEOUT := 2.5
+## Trainers stream Indoor Bike Data about once a second even at rest. Silence
+## this long means the link is gone, whether or not the backend says so.
+const DATA_TIMEOUT := 6.0
 
 var peripheral: BlePeripheral
 var auto_reconnect := true
@@ -23,6 +26,7 @@ var _write_elapsed := 0.0
 var _reconnect_wait := 0.0
 var _reconnect_attempts := 0
 var _power_range := Vector2i(0, 0)
+var _since_data := 0.0
 
 
 func attach(p: BlePeripheral) -> void:
@@ -111,6 +115,7 @@ func _on_services(_services: Array) -> void:
 	_has_control = false
 	_setup_done = true
 	_reconnect_attempts = 0
+	_since_data = 0.0
 	_enqueue(Gatt.ftms_request_control())
 	_enqueue(Gatt.ftms_start())
 	if _target >= 0:
@@ -143,6 +148,7 @@ func _on_connection_failed(err: String) -> void:
 
 
 func _on_notified(char_uuid: String, data: PackedByteArray) -> void:
+	_since_data = 0.0
 	match char_uuid:
 		Gatt.FTMS_INDOOR_BIKE_DATA:
 			var r := Gatt.parse_indoor_bike_data(data)
@@ -212,6 +218,11 @@ func _process(delta: float) -> void:
 
 ## Time-driven bookkeeping. Public so tests can drive it without a scene tree.
 func tick(delta: float) -> void:
+	if _setup_done:
+		_since_data += delta
+		if _since_data > DATA_TIMEOUT:
+			status_changed.emit("%s: no data for %d s, treating as disconnected" % [display_name(), int(DATA_TIMEOUT)])
+			peripheral.mark_lost()
 	if _in_flight:
 		_write_elapsed += delta
 		if _write_elapsed > WRITE_TIMEOUT:

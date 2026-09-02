@@ -35,3 +35,16 @@ func test_reconnects_after_dropout() -> void:
 	assert_true(not hr.is_device_connected())
 	hr.tick(BleHeartRate.RECONNECT_DELAY + 0.1)
 	assert_eq(p.connect_calls, 2)
+
+
+func test_data_silence_is_treated_as_disconnect() -> void:
+	var events: Array[String] = []
+	hr.disconnected.connect(func(): events.append("disconnected"))
+	hr.attach(p)
+	p.simulate_connect()
+	p.simulate_services()
+	hr.tick(BleHeartRate.DATA_TIMEOUT + 0.1)
+	assert_true(not hr.is_device_connected())
+	assert_eq(events, ["disconnected"])
+	hr.tick(BleHeartRate.RECONNECT_DELAY + 0.1)
+	assert_eq(p.connect_calls, 2)

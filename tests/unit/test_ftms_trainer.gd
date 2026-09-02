@@ -165,3 +165,29 @@ func test_device_without_ftms_is_not_ready() -> void:
 	_bring_up()
 	assert_true(not t.is_device_connected())
 	assert_eq(events, [])
+
+
+func test_data_silence_is_treated_as_disconnect() -> void:
+	_bring_up()
+	p.ack_last_write()
+	p.ack_last_write()
+	t.set_target_power(220)
+	p.ack_last_write()
+	# Data keeps the watchdog quiet.
+	for i in 3:
+		t.tick(4.0)
+		p.simulate_notify(Gatt.FTMS_INDOOR_BIKE_DATA, PackedByteArray([0x44, 0x00, 0, 0, 0, 0, 0xDC, 0x00]))
+	assert_true(t.is_device_connected())
+	assert_eq(events, ["connected"])
+	# Silence trips it.
+	t.tick(FtmsTrainer.DATA_TIMEOUT + 0.1)
+	assert_true(not t.is_device_connected())
+	assert_eq(events, ["connected", "disconnected"])
+	# ...and the normal reconnect path re-applies the target.
+	t.tick(FtmsTrainer.RECONNECT_DELAY + 0.1)
+	assert_eq(p.connect_calls, 2)
+	p.simulate_connect()
+	p.simulate_services()
+	p.ack_last_write()
+	p.ack_last_write()
+	assert_eq(p.writes[-1].decode_s16(1), 220)

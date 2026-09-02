@@ -4,6 +4,7 @@ extends HeartRateSensor
 
 const RECONNECT_DELAY := 3.0
 const RECONNECT_MAX := 30.0
+const DATA_TIMEOUT := 10.0
 
 var peripheral: BlePeripheral
 var auto_reconnect := true
@@ -12,6 +13,7 @@ var _want_connection := false
 var _ready_flag := false
 var _reconnect_wait := 0.0
 var _reconnect_attempts := 0
+var _since_data := 0.0
 
 
 func attach(p: BlePeripheral) -> void:
@@ -62,6 +64,7 @@ func _on_services(_services: Array) -> void:
 	peripheral.subscribe(Gatt.HEART_RATE_SERVICE, Gatt.HEART_RATE_MEASUREMENT)
 	_ready_flag = true
 	_reconnect_attempts = 0
+	_since_data = 0.0
 	connected.emit()
 
 
@@ -75,6 +78,7 @@ func _on_disconnected() -> void:
 
 
 func _on_notified(char_uuid: String, data: PackedByteArray) -> void:
+	_since_data = 0.0
 	if char_uuid == Gatt.HEART_RATE_MEASUREMENT:
 		var bpm := Gatt.parse_heart_rate(data)
 		if bpm >= 0:
@@ -86,6 +90,10 @@ func _process(delta: float) -> void:
 
 
 func tick(delta: float) -> void:
+	if _ready_flag:
+		_since_data += delta
+		if _since_data > DATA_TIMEOUT:
+			peripheral.mark_lost()
 	if _reconnect_wait > 0.0:
 		_reconnect_wait -= delta
 		if _reconnect_wait <= 0.0 and _want_connection and peripheral != null and not peripheral.is_peripheral_connected():

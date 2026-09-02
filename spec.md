@@ -28,6 +28,8 @@ A rider can do this end to end with no other software:
 |---|---|
 | Windows build | v1.1, once Mac is stable. Same codebase. |
 | Other seasons and workout-reactive scene | v1.1 |
+| Terrain that follows the workout: hard intervals climb, recoveries descend | v1.1, part of the reactive scene (Bob, 2026-09-02) |
+| Spoken coach notes: text events read aloud with text-to-speech | Later (Bob, 2026-09-02) |
 | COROS direct upload | When COROS grants API access. Fallback in 4.5. |
 | Garmin, Wahoo, TrainingPeaks, intervals.icu connectors | Later |
 | `.fit`, `.erg`, `.mrc` workout import; pulling workouts from services | Later |
@@ -177,7 +179,8 @@ Desktop OAuth: the app opens the Strava authorization page in the system browser
 - **Rider.** A low-poly rider and bike built from primitives, about 40 internal pixels tall on screen. Wheels and cranks rotate with measured cadence. Legs follow the pedals with `SkeletonIK3D`. The rider leans with trail curvature. Speed along the trail comes from power via a simple physics model so harder intervals visibly move faster.
 - **Camera.** Third-person follow camera with layered noise on position and rotation for the handheld feel, tuned so it reads as lively and never as nauseating. The user chooses one of three shake levels: off, low, or high. The amplitude behind each level is tuned during development and is not user-editable.
 - **Seasons.** A season is a palette, a weather preset, a scatter preset, and a ground shader preset. Winter ships in v1; the data structure is in place so spring, summer, and autumn are content, not code.
-- **Reactivity (v1.1).** Hooks exist from day one for gradient, speed, and camera amplitude to respond to power and interval type. Only speed is wired in v1.
+- **Reactivity (v1.1).** Hooks exist from day one for gradient, speed, and camera amplitude to respond to power and interval type. Only speed is wired in v1. The intended design: the trail's grade tracks the workout, so a hard interval is a climb and a recovery is a descent. The terrain generator should therefore take the upcoming target profile as input, not just noise.
+- **Spoken coach notes (later).** Text events are read aloud with text-to-speech, using the OS voices Godot exposes through `DisplayServer.tts_*`, with an on/off setting.
 
 ### 3.7 UI flow
 
@@ -193,6 +196,7 @@ Home (workout library, recent rides, device status) → Devices (scan, pair, for
 - **C4. COROS inbound sync requires partner API approval.** COROS accepts applications through a form and grants OAuth access to platforms meeting their requirements. Submit early. Until approved, COROS support means the user imports the FIT file through the COROS app manually, which COROS supports.
 - **C5. macOS Bluetooth permission and notarization.** Confirmed during milestone 0: the stock Godot editor has no Bluetooth usage description, so development runs through a patched copy built by `tools/make-dev-runner.sh` (see `docs/dev-setup.md`). Exported builds must set the usage description in the export preset. Distribution outside the App Store requires a Developer ID and notarization.
 - **C6. Token storage.** Godot has no keychain access. Tokens will be encrypted with a key derived from a per-install secret stored in `user://`. This is adequate for v1 and weaker than the OS keychain. A native keychain shim is a later improvement.
+- **C8. GDBLE 0.5.5 does not report remote disconnects.** Found in the milestone 2 hardware test: unplugging the trainer produced no event, because the 0.5.5 release only emits `disconnected` for disconnects it initiated. Mitigation shipped: the trainer and heart-rate profiles run a data watchdog (6 s and 10 s of silence respectively) and treat silence as a dropout, which also protects against any future backend with the same gap. GDBLE's master branch handles radio-level disconnects; adopting it needs a Rust toolchain (not installed) or the next release.
 - **C7. iOS Bluetooth adapter.** GDBLE does not build for iOS, though the library beneath it does. Options when iOS arrives: an iOS build of GDBLE, SwiftGodot with CoreBluetooth, or SimpleBLE (commercial license terms to check). No decision needed now; the adapter boundary keeps it contained.
 
 ---
