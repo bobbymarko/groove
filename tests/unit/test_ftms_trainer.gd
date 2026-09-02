@@ -206,3 +206,11 @@ func test_answered_probe_keeps_link_alive() -> void:
 	t.tick(FtmsTrainer.PROBE_TIMEOUT + 0.1)
 	assert_true(t.is_device_connected())
 	assert_eq(events, ["connected"])
+
+
+func test_hung_connect_attempt_is_retried() -> void:
+	t.attach(p)
+	assert_eq(p.connect_calls, 1)
+	t.tick(FtmsTrainer.CONNECT_TIMEOUT + 0.1)       # no connected/failed ever arrives
+	t.tick(FtmsTrainer.RECONNECT_DELAY + 0.1)
+	assert_eq(p.connect_calls, 2)

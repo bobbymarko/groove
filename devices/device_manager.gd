@@ -187,6 +187,7 @@ func _assign_roles(p: BlePeripheral) -> void:
 		var hr := BleHeartRate.new()
 		hr.name = "BleHeartRate"
 		add_child(hr)
+		hr.status_changed.connect(func(s: String) -> void: status.emit(s))
 		hr.attach(p)
 		heart_rate = hr
 		remembered["heart_rate"] = {"address": p.address, "name": p.name}

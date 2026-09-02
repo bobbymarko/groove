@@ -7,6 +7,8 @@ extends Trainer
 
 const RECONNECT_DELAY := 3.0
 const RECONNECT_MAX := 30.0
+## A connect attempt that neither succeeds nor fails in this long is retried.
+const CONNECT_TIMEOUT := 20.0
 const WRITE_TIMEOUT := 2.5
 ## Trainers stream Indoor Bike Data about once a second even at rest. Silence
 ## this long means the link is gone, whether or not the backend says so.
@@ -28,6 +30,7 @@ var _in_flight := false
 var _write_elapsed := 0.0
 var _reconnect_wait := 0.0
 var _reconnect_attempts := 0
+var _connecting_elapsed := 0.0
 var _power_range := Vector2i(0, 0)
 var _since_data := 0.0
 var _probing := false
@@ -52,6 +55,7 @@ func attach(p: BlePeripheral) -> void:
 			_on_services(p.get_services())
 	else:
 		p.connect_peripheral()
+		_connecting_elapsed = 0.0
 
 
 # --- Trainer interface ---------------------------------------------------------
@@ -64,6 +68,7 @@ func connect_device() -> void:
 	_want_connection = true
 	if peripheral != null and not peripheral.is_peripheral_connected():
 		peripheral.connect_peripheral()
+		_connecting_elapsed = 0.0
 
 
 func disconnect_device() -> void:
@@ -248,6 +253,13 @@ func tick(delta: float) -> void:
 		_reconnect_wait -= delta
 		if _reconnect_wait <= 0.0 and _want_connection and peripheral != null and not peripheral.is_peripheral_connected():
 			peripheral.connect_peripheral()
+			_connecting_elapsed = 0.0
+	elif _want_connection and peripheral != null and not peripheral.is_peripheral_connected():
+		_connecting_elapsed += delta
+		if _connecting_elapsed > CONNECT_TIMEOUT:
+			_connecting_elapsed = 0.0
+			status_changed.emit("%s: connection attempt timed out, retrying" % display_name())
+			_schedule_reconnect()
 
 
 func _schedule_reconnect() -> void:

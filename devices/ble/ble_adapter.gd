@@ -36,6 +36,15 @@ func _ready() -> void:
 	_bt.scan_started.connect(func() -> void: _scanning = true; scan_started.emit())
 	_bt.scan_stopped.connect(func() -> void: _scanning = false; scan_stopped.emit())
 	_bt.error_occurred.connect(func(msg: String) -> void: adapter_error.emit(msg))
+	if _bt.has_signal("ble_event"):
+		_bt.ble_event.connect(_on_ble_event)
+
+
+## GDBLE 0.6 reports every operation phase here. Log connection-level ones.
+func _on_ble_event(event: Dictionary) -> void:
+	var op := str(event.get("operation", ""))
+	if op in ["connect", "disconnect", "scan"]:
+		print("[ble] %s %s %s %s" % [op, str(event.get("phase", "")), str(event.get("device_address", "")), str(event.get("error", ""))])
 
 
 func initialize() -> void:
@@ -105,7 +114,8 @@ func _on_device(info: Dictionary) -> void:
 	if _waiting.has(address):
 		var p: GdblePeripheral = _waiting[address]
 		_waiting.erase(address)
-		p.connect_peripheral()   # itself deferred
+		print("[ble] %s rediscovered, connecting" % (p.name if p.name != "" else address))
+		p.connect_after_rediscovery()
 
 
 ## BlePeripheral over a GDBLE BleDevice. GDBLE keeps one BleDevice per address
@@ -117,6 +127,7 @@ class GdblePeripheral:
 	var _adapter: BleAdapter
 	var _bt: Variant
 	var _dev: Variant = null
+	var _needs_rediscovery := false   # set after a remote disconnect
 
 	func setup(adapter: BleAdapter, bt: Variant, addr: String, nm: String) -> void:
 		_adapter = adapter
@@ -127,17 +138,28 @@ class GdblePeripheral:
 	func connect_peripheral() -> void:
 		_connect_now.call_deferred()
 
+	## The adapter calls this once a scan has seen the device again.
+	func connect_after_rediscovery() -> void:
+		_needs_rediscovery = false
+		_connect_now.call_deferred()
+
 	func _connect_now() -> void:
 		if _bt == null:
 			connection_failed.emit("Bluetooth adapter unavailable")
 			return
+		if _needs_rediscovery:
+			# After a dropout the backend's handle may be stale and a connect
+			# would pend forever. Scan until the device advertises again.
+			print("[ble] %s waiting to be rediscovered" % (name if name != "" else address))
+			_adapter.request_rediscovery(self)
+			return
 		var dev: Variant = _bt.connect_device(address)
 		if dev == null:
-			# GDBLE forgets a device once it disconnects. Wait for a scan to see
-			# it again; the adapter calls connect_peripheral() when it does.
+			_needs_rediscovery = true
 			_adapter.request_rediscovery(self)
 			operation_failed.emit("connect", "%s is out of reach, waiting for it to reappear" % (name if name != "" else address))
 			return
+		print("[ble] connecting to %s" % (name if name != "" else address))
 		if dev != _dev:
 			_dev = dev
 			_wire(_dev)
@@ -169,6 +191,7 @@ class GdblePeripheral:
 		# ask it to tear the stale link down before we reconnect.
 		if _bt != null:
 			_bt.call_deferred("disconnect_device", address)
+		_needs_rediscovery = true
 		super.mark_lost()
 
 	func discover_services() -> void:
@@ -200,6 +223,7 @@ class GdblePeripheral:
 	func _on_disconnected() -> void:
 		_connected = false
 		_services = []
+		_needs_rediscovery = true
 		disconnected.emit()
 
 	func _on_connection_failed(err: String) -> void:

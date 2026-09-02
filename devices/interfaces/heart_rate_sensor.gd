@@ -5,6 +5,7 @@ extends Node
 signal connected
 signal disconnected
 signal heart_rate_changed(bpm: int)
+signal status_changed(text: String)
 
 
 func display_name() -> String:
