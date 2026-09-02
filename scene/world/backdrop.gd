@@ -9,9 +9,11 @@ var _layers: Array[Node3D] = []
 func _ready() -> void:
 	# distance, width, base height, peak amplitude: real mountain proportions so
 	# the ridges sit on the horizon instead of filling the sky.
-	_layers.append(_ridge(260.0, 900.0, 18.0, 30.0, 21, Palette.MOUNTAIN_NEAR, Palette.SNOW_SHADE))
-	_layers.append(_ridge(480.0, 1500.0, 40.0, 55.0, 31, Palette.MOUNTAIN_MID, Palette.SNOW))
-	_layers.append(_ridge(800.0, 2400.0, 70.0, 90.0, 41, Palette.MOUNTAIN_FAR, Palette.SNOW))
+	_layers.append(_ridge(240.0, 900.0, 14.0, 26.0, 21, Palette.MOUNTAIN_NEAR, Palette.SNOW_SHADE))
+	_layers.append(_ridge(380.0, 1300.0, 26.0, 40.0, 26, Palette.MOUNTAIN_MID2, Palette.SNOW_SHADE))
+	_layers.append(_ridge(560.0, 1800.0, 42.0, 58.0, 31, Palette.MOUNTAIN_MID, Palette.SNOW_MID))
+	_layers.append(_ridge(800.0, 2500.0, 62.0, 80.0, 36, Palette.MOUNTAIN_FAR2, Palette.SNOW))
+	_layers.append(_ridge(1100.0, 3400.0, 90.0, 110.0, 41, Palette.MOUNTAIN_FAR, Palette.SNOW))
 
 
 func follow(pos: Vector3) -> void:
@@ -47,6 +49,12 @@ func _ridge(dist: float, width: float, base_h: float, amp: float, seed_value: in
 		prev_cap = cap
 	var mi := MeshInstance3D.new()
 	mi.mesh = MeshLib.finish(st)
-	mi.material_override = MeshLib.cel_material(true)
+	# Unlit: the pastel layers are the art, not lit geometry. Fog still applies.
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	return mi

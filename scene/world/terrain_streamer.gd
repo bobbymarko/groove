@@ -9,12 +9,17 @@ const HALF_WIDTH := 70.0         # metres either side of the trail
 const RES := 2.0                 # metres per grid step
 const AHEAD := 9                 # chunks kept ahead of the rider
 const BEHIND := 2
-const TRAIL_HALF_WIDTH := 1.9
+const TRAIL_HALF_WIDTH := 0.75      # groomed fat-bike track, about 1.5 m wide
+const GROOVE_DEPTH := 0.22
+const BANK_WIDTH := 0.7
+const SHOULDER := 4.0                 # smooth rideable snow either side before the rough field
 
 var trail: Trail
 var _chunks: Dictionary = {}     # chunk index -> Node3D
 var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
+var _drift := FastNoiseLite.new()
+var _columns: PackedFloat64Array = []   # lateral grid offsets, dense near the trail
 var _pines: Array[Mesh] = []      # variants; MeshLib procedural pine as fallback
 var _rocks: Array[Mesh] = []
 var _dead_trees: Array[Mesh] = []
@@ -30,6 +35,14 @@ func _init(t: Trail) -> void:
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_detail.seed = 12
 	_detail.frequency = 0.25
+	_drift.seed = 13
+	_drift.frequency = 0.07
+	_drift.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	var x := -HALF_WIDTH
+	while x < HALF_WIDTH - 0.001:
+		_columns.append(x)
+		x += 0.5 if absf(x) < 6.0 else RES
+	_columns.append(HALF_WIDTH)
 	for i in range(1, 6):
 		var m := MeshLib.load_prop("res://assets/quaternius/Pine_%d.gltf" % i)
 		if m:
@@ -57,9 +70,17 @@ func height(x: float, z: float) -> float:
 	var d := x - tx
 	var ad := absf(d)
 	var base := trail.h_at(z)
-	var off := smoothstep(TRAIL_HALF_WIDTH, TRAIL_HALF_WIDTH + 5.0, ad)
-	var rough_fade := smoothstep(TRAIL_HALF_WIDTH, TRAIL_HALF_WIDTH + 18.0, ad)
+	# Groomed groove with a small bank on each side.
+	var groove := 0.0
+	if ad < TRAIL_HALF_WIDTH:
+		groove = -GROOVE_DEPTH * (1.0 - pow(ad / TRAIL_HALF_WIDTH, 2.0))
+	elif ad < TRAIL_HALF_WIDTH + BANK_WIDTH:
+		groove = 0.09 * sin(PI * (ad - TRAIL_HALF_WIDTH) / BANK_WIDTH)
+	var off := smoothstep(TRAIL_HALF_WIDTH + BANK_WIDTH, TRAIL_HALF_WIDTH + SHOULDER, ad)
+	var rough_fade := smoothstep(SHOULDER, SHOULDER + 18.0, ad)
 	var rough := (_noise.get_noise_2d(x, z) * 2.2 + _detail.get_noise_2d(x, z) * 0.35) * rough_fade
+	var drifts := _drift.get_noise_2d(x, z) * 0.35 * smoothstep(TRAIL_HALF_WIDTH + BANK_WIDTH, SHOULDER, ad)
+	base += groove + drifts
 	var hillside := 0.0
 	if d < 0.0:
 		hillside = (ad - TRAIL_HALF_WIDTH) * 0.32 + pow(maxf(ad - 25.0, 0.0), 1.3) * 0.18   # uphill side
@@ -84,14 +105,13 @@ func _build_chunk(index: int) -> Node3D:
 	root.name = "Chunk%d" % index
 	var z0 := index * CHUNK_LEN
 	var st := MeshLib.begin()
-	var nz := int(CHUNK_LEN / RES)
-	var nx := int(HALF_WIDTH * 2.0 / RES)
+	var nz := int(CHUNK_LEN / 1.0)
 	for iz in nz:
-		var za := z0 + iz * RES
-		var zb := za + RES
-		for ix in nx:
-			var xa := -HALF_WIDTH + ix * RES
-			var xb := xa + RES
+		var za := z0 + iz * 1.0
+		var zb := za + 1.0
+		for ix in _columns.size() - 1:
+			var xa := _columns[ix]
+			var xb := _columns[ix + 1]
 			# Grid is centred on the trail so the trail is always covered.
 			var cx := trail.x_at((za + zb) * 0.5)
 			var p00 := Vector3(cx + xa, height(cx + xa, za), za)
@@ -113,10 +133,14 @@ func _build_chunk(index: int) -> Node3D:
 
 func _color_for(p: Vector3) -> Color:
 	var ad := absf(p.x - trail.x_at(p.z))
+	if ad < TRAIL_HALF_WIDTH * 0.6:
+		return Palette.TRAIL_DARK      # packed centre of the groove
 	if ad < TRAIL_HALF_WIDTH:
-		return Palette.TRAIL_DARK if _detail.get_noise_2d(p.x * 2.0, p.z * 2.0) > 0.35 else Palette.TRAIL
-	if ad < TRAIL_HALF_WIDTH + 1.2:
-		return Palette.SNOW_SHADE
+		return Palette.TRAIL
+	if ad < TRAIL_HALF_WIDTH + BANK_WIDTH:
+		return Palette.SNOW_SHADE      # bank
+	if ad < TRAIL_HALF_WIDTH + BANK_WIDTH + 0.6:
+		return Palette.SNOW_MID
 	# Slope from finite differences.
 	var dzx := (height(p.x + 2.0, p.z) - height(p.x - 2.0, p.z)) / 4.0
 	var dzz := (height(p.x, p.z + 2.0) - height(p.x, p.z - 2.0)) / 4.0
@@ -125,11 +149,13 @@ func _color_for(p: Vector3) -> Color:
 		return Palette.ROCK_DARK
 	if slope > 0.95:
 		return Palette.ROCK
+	# Drifts and wind texture: large soft patches plus finer ripples.
+	var d := _drift.get_noise_2d(p.x, p.z)
 	var n := _detail.get_noise_2d(p.x * 2.5, p.z * 2.5)
-	if n > 0.35:
+	if d > 0.32 or n > 0.55:
 		return Palette.SNOW_SHADE
-	if n < -0.55:
-		return Palette.SNOW_SHADOW
+	if d < -0.25:
+		return Palette.SNOW_MID
 	return Palette.SNOW
 
 

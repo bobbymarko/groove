@@ -47,7 +47,7 @@ func _ready() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-32.0, 40.0, 0.0)   # low winter sun from front-left
 	sun.light_color = Color(1.0, 0.96, 0.92)
-	sun.light_energy = 1.1
+	sun.light_energy = 0.8
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_max_distance = 140.0
@@ -148,6 +148,7 @@ func _process(delta: float) -> void:
 
 func _place_rider() -> void:
 	var pos := trail.position_at(distance)
+	pos.y = terrain.height(pos.x, pos.z)
 	rider.global_position = pos
 	var heading := trail.heading_at(distance)
 	var flat := Vector3(heading.x, 0.0, heading.z).normalized()
@@ -183,7 +184,7 @@ func _environment() -> WorldEnvironment:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Palette.SNOW_SHADOW
-	env.ambient_light_energy = 0.9
+	env.ambient_light_energy = 0.4
 	env.fog_enabled = true
 	env.fog_light_color = Palette.FOG
 	env.fog_density = 0.0028

@@ -49,8 +49,14 @@ void fragment() {
 	ALBEDO = up > snow_threshold ? snow_color : base;
 }
 
+// In shadow the surface keeps shadow_band of the sun instead of dropping to
+// ambient alone, so shadowed snow lands on the palette's blue snow-shadow
+// rather than the dark pine tones.
+uniform float shadow_band = 0.58;
+
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
 	float band = ndl > 0.3 ? 1.0 : (ndl > -0.15 ? shade_band : dark_band);
-	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * ATTENUATION * band;
+	float lit = mix(shadow_band, band, ATTENUATION);
+	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * lit;
 }

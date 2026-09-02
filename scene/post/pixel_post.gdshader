@@ -4,7 +4,7 @@ shader_type canvas_item;
 
 uniform int palette_size = 24;
 uniform vec3 palette[32];
-uniform float dither_strength : hint_range(0.0, 0.2) = 0.09;
+uniform float dither_strength : hint_range(0.0, 0.2) = 0.0;   // 0 = flat colour, no grain
 uniform float outline_threshold : hint_range(0.0, 1.5) = 0.45;
 uniform float outline_darken : hint_range(0.0, 1.0) = 0.0;   // 0 = no outlines
 uniform vec2 texel = vec2(0.0023474, 0.0041667);
