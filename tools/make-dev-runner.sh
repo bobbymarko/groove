@@ -13,6 +13,7 @@ set -euo pipefail
 
 GODOT_APP="${GODOT_APP:-/Applications/Godot.app}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+mkdir -p "$ROOT/build" && touch "$ROOT/build/.gdignore"   # keep Godot from scanning build/
 OUT="$ROOT/build/RideDev.app"
 ENT="$ROOT/build/godot.entitlements"
 

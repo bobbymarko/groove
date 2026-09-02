@@ -47,8 +47,17 @@ Right skip segment, Up/Down bias ±1%, E toggle ERG, Esc end, F fast-forward (de
 
 ## Bluetooth extension
 
-`addons/gdble/` is GDBLE 0.5.5 (MIT), a Rust GDExtension over btleplug. Prebuilt
-binaries for macOS, Windows, Linux, and Android are checked in. It is the only native
+`addons/gdble/` is GDBLE (MIT), a Rust GDExtension over btleplug. The macOS arm64
+library is built from source at a pinned master commit, because the 0.5.5 release does
+not report a device that disconnects on its own (unplugged trainer, strap out of range):
+
+```bash
+brew install rust        # once
+tools/build-gdble.sh     # clones, builds, installs addons/gdble/libgdble.macos.arm64.dylib
+```
+
+The Windows, Linux, and Android binaries in `addons/gdble/` are still the 0.5.5 release
+and must be rebuilt the same way when those platforms are tackled. It is the only native
 code in the project and is only referenced from `devices/ble/ble_adapter.gd`. Everything
 else in the device layer talks to the `BlePeripheral` abstraction, which `tests/fakes/`
 implements in memory, so the FTMS handshake and reconnect logic are unit-tested.
