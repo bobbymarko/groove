@@ -3,7 +3,7 @@
 **Input:** `intent.md` (approved 2026-09-02)
 **Author:** Claude, with Bob Marko as product owner
 **Date:** 2026-09-02
-**Status:** Draft, awaiting product owner review
+**Status:** Approved by product owner, 2026-09-02
 **Stage:** 2 — Design (AI-native SDLC)
 
 This document turns the intent into a buildable design. It records what the first version must do, how it is structured, what is deliberately deferred, and the concerns that need a decision before or during the build. It is paired with `intent.md`; where the two disagree, fix the intent first.
@@ -73,7 +73,7 @@ A rider can do this end to end with no other software:
 - R20. Keep all ride files in a local library the user can open in Finder.
 
 **Settings**
-- R21. FTP, weight, units, Strava connection, paired devices, scene options.
+- R21. FTP, weight, units, Strava connection, paired devices, camera shake (off, low, high), scene options.
 
 ### 2.2 Non-functional
 
@@ -162,7 +162,7 @@ The Bluetooth adapter wraps GDBLE's `BluetoothManager` and `BleDevice` behind si
 
 ### 3.4 Recording and FIT
 
-`RideRecorder` subscribes to the runner and the devices, samples once per second, and appends each sample as a line to a journal file in `user://rides/<id>.jsonl`. On finish, `FitEncoder` reads the journal and writes a FIT activity: file header, `file_id`, `device_info`, `event` start, one `record` per sample, `event` stop, `lap`, `session` (sport cycling, sub-sport indoor cycling, with a setting to mark it as a virtual ride), `activity`, and the CRC. If the app is relaunched with an unfinished journal, it offers to recover the ride.
+`RideRecorder` subscribes to the runner and the devices, samples once per second, and appends each sample as a line to a journal file in `user://rides/<id>.jsonl`. On finish, `FitEncoder` reads the journal and writes a FIT activity: file header, `file_id`, `device_info`, `event` start, one `record` per sample, `event` stop, `lap`, `session` (sport cycling, sub-sport virtual activity, so Strava tags it as a Virtual Ride like Zwift does), `activity`, and the CRC. If the app is relaunched with an unfinished journal, it offers to recover the ride.
 
 FIT is written by hand in GDScript. It is a well-documented binary format and the activity subset is small. Output is validated in tests against the reference FIT SDK's CSV tool.
 
@@ -175,7 +175,7 @@ Desktop OAuth: the app opens the Strava authorization page in the system browser
 - **Pixel pipeline.** The 3D world renders into a `SubViewport` at a fixed internal height of 240 pixels (width follows the window aspect). It is drawn to the window with nearest-neighbor scaling at an integer factor where possible. A post-process shader quantizes to a per-season palette of roughly 24 colors, applies ordered dithering on gradients, and draws single-pixel outlines from depth and normal edges. Lighting is two-band cel shading with flat colors and no textures.
 - **World.** A heightmap from layered noise, with a trail carved along a spline that meanders and climbs. Trees, rocks, and stumps are scattered as instanced low-poly meshes with density by slope and distance from the trail. Terrain streams ahead of the rider in chunks and is recycled behind. Snow is a particle system; ground snow is a shader layer.
 - **Rider.** A low-poly rider and bike built from primitives, about 40 internal pixels tall on screen. Wheels and cranks rotate with measured cadence. Legs follow the pedals with `SkeletonIK3D`. The rider leans with trail curvature. Speed along the trail comes from power via a simple physics model so harder intervals visibly move faster.
-- **Camera.** Third-person follow camera with layered noise on position and rotation for the handheld feel, tuned so it reads as lively and never as nauseating. Amplitude is a setting.
+- **Camera.** Third-person follow camera with layered noise on position and rotation for the handheld feel, tuned so it reads as lively and never as nauseating. The user chooses one of three shake levels: off, low, or high. The amplitude behind each level is tuned during development and is not user-editable.
 - **Seasons.** A season is a palette, a weather preset, a scatter preset, and a ground shader preset. Winter ships in v1; the data structure is in place so spring, summer, and autumn are content, not code.
 - **Reactivity (v1.1).** Hooks exist from day one for gradient, speed, and camera amplitude to respond to power and interval type. Only speed is wired in v1.
 
@@ -227,7 +227,9 @@ Riskiest first. Each milestone ends with something that runs.
 
 From the intent, still open and not blocking v1: platform order after Windows, workout formats beyond `.zwo`, scene reactivity design, free-ride mode, distribution and price, the exact Zwift parity list, the iOS adapter choice.
 
-New from this spec:
-- Should the ride be tagged in Strava as a Virtual Ride (like Zwift) or an indoor Ride? Proposed: setting, default Virtual Ride.
-- Camera shake amplitude default. Needs riding to tune.
+Decided during review (2026-09-02):
+- Rides are always tagged as Virtual Ride in the FIT file. No setting.
+- Camera shake is a three-level user setting: off, low, high. The amplitudes behind low and high are tuned by the team while riding.
+
+New from this spec, still open:
 - Whether v1 needs a cadence sensor separate from the trainer. The KICKR CORE reports cadence itself, so proposed: no.
