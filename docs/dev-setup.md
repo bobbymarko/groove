@@ -31,9 +31,13 @@ tools/test.sh                      # headless unit tests (tests/unit/test_*.gd)
 To eyeball a screen without clicking through the app:
 
 ```bash
-/Applications/Godot.app/Contents/MacOS/Godot --path . --resolution 1280x800 \
-  -s tools/screenshot.gd -- res://ui/screens/ride_screen.tscn build/ride.png ride
+tools/shot.sh res://ui/screens/ride_screen.tscn build/ride.png ride
 ```
+
+This goes through the dev runner with `open`, which matters: macOS applies the Bluetooth
+usage description only when the app is launched through LaunchServices. Executing
+`RideDev.app/Contents/MacOS/Godot` directly still crashes with a TCC abort as soon as the
+Devices autoload touches the radio.
 
 ## Riding on the simulator
 
@@ -45,7 +49,16 @@ Right skip segment, Up/Down bias ±1%, E toggle ERG, Esc end, F fast-forward (de
 
 `addons/gdble/` is GDBLE 0.5.5 (MIT), a Rust GDExtension over btleplug. Prebuilt
 binaries for macOS, Windows, Linux, and Android are checked in. It is the only native
-code in the project and is only referenced from `devices/ble/`.
+code in the project and is only referenced from `devices/ble/ble_adapter.gd`. Everything
+else in the device layer talks to the `BlePeripheral` abstraction, which `tests/fakes/`
+implements in memory, so the FTMS handshake and reconnect logic are unit-tested.
+
+Device roles are assigned from services: a peripheral with the Fitness Machine service
+becomes the trainer, one with the Heart Rate service becomes the heart-rate sensor.
+Paired devices are remembered in `user://devices.cfg` and auto-connected on launch.
+
+"ERG off" sends FTMS simulation mode with a fixed grade (0–8 %), so the trainer feels
+like a hill and power follows cadence and gear.
 
 ## Verified hardware
 

@@ -205,7 +205,7 @@ Riskiest first. Each milestone ends with something that runs.
 |---|---|---|
 | 0 | **Bluetooth spike** ✅ 2026-09-02 | A bare Godot scene connects to the KICKR CORE via GDBLE on the Mac, prints live power and cadence, and holds 150 W then 200 W in ERG. Go/no-go for the stack. **Passed.** Spike lives in `spike/`; the KICKR also exposes Cycling Power (0x1818) and Wahoo's proprietary service, neither needed. |
 | 1 | **Engine on simulator** ✅ 2026-09-02 | Load a `.zwo`, ride it against the simulated trainer with a text-only HUD. All R6 to R9 controls work. Tests cover the parser and runner. **Done.** 27 unit tests pass headless via `tools/test.sh`. Fixture is Bob's real "Cadence: Corner Exit" workout. |
-| 2 | **Real devices** | Pairing screen, real trainer and heart-rate strap, auto-reconnect, dropout does not end the ride. |
+| 2 | **Real devices** 🔄 built 2026-09-02, awaiting hardware test | Pairing screen, real trainer and heart-rate strap, auto-reconnect, dropout does not end the ride. Device layer: `BleAdapter` (only GDBLE user), `BlePeripheral` abstraction with a test fake, `FtmsTrainer`, `BleHeartRate`, `Devices` manager with remembered devices. 24 new tests. Manual procedure in `tests/manual.md`. |
 | 3 | **Record and upload** | Journal, FIT export validated by the FIT SDK tool, summary screen, Strava OAuth and upload with retry. First real workout ridden and posted. |
 | 4 | **Scene v1** | Winter trail, rider pedaling at real cadence, handheld camera, pixel post-process. 60 fps. HUD overlaid on the scene. |
 | 5 | **Polish and ship Mac** | Settings, library, workout graph HUD, signed and notarized build. Cancel Zwift. |

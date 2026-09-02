@@ -33,6 +33,7 @@ var _message: Label
 var _state_l: Label
 var _graph: WorkoutGraph
 var _start_btn: Button
+var _conn_l: Label
 
 
 func _ready() -> void:
@@ -54,6 +55,13 @@ func _ready() -> void:
 	if _trainer:
 		_trainer.power_changed.connect(func(w: int): _actual_power = w; _power.text = "%d" % w)
 		_trainer.cadence_changed.connect(func(c: int): _cadence = c; _cadence_l.text = "%d rpm" % c)
+		_trainer.connected.connect(_refresh_connection)
+		_trainer.disconnected.connect(_refresh_connection)
+		_trainer.status_changed.connect(func(_s: String) -> void: _refresh_connection())
+	if _hr:
+		_hr.connected.connect(_refresh_connection)
+		_hr.disconnected.connect(_refresh_connection)
+	_refresh_connection()
 	if _hr:
 		_hr.heart_rate_changed.connect(func(b: int): _bpm = b; _hr_l.text = "%d bpm" % b)
 
@@ -74,6 +82,18 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_E: _runner.set_erg(not _runner.erg_enabled)
 		KEY_ESCAPE: _runner.end_early()
 		KEY_F: _runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
+
+
+func _refresh_connection() -> void:
+	var problems: Array[String] = []
+	if _trainer == null:
+		problems.append("No trainer")
+	elif not _trainer.is_device_connected():
+		problems.append("%s disconnected, reconnecting…" % _trainer.display_name())
+	if _hr != null and not _hr.is_device_connected():
+		problems.append("%s disconnected, reconnecting…" % _hr.display_name())
+	_conn_l.text = "  ·  ".join(problems)
+	_conn_l.visible = not problems.is_empty()
 
 
 # --- runner events -----------------------------------------------------------
@@ -173,6 +193,9 @@ func _build_ui() -> void:
 	_state_l = _label(top, "Ready", 20)
 	_clock = _label(top, "0:00 / 0:00", 20)
 
+	_conn_l = _label(v, "", 18)
+	_conn_l.modulate = Color(1.0, 0.55, 0.45)
+	_conn_l.visible = false
 	_segment = _label(v, "", 26)
 	_next = _label(v, "", 16)
 	_next.modulate = Color(1, 1, 1, 0.6)

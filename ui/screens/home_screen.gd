@@ -10,11 +10,32 @@ var _ftp: SpinBox
 var _ride: Button
 var _error: Label
 var _dialog: FileDialog
+var _devices_l: Label
 
 
 func _ready() -> void:
 	_build_ui()
 	_refresh_list()
+	Devices.trainer_changed.connect(func(_t: Trainer) -> void: _refresh_devices())
+	Devices.heart_rate_sensor_changed.connect(func(_h: HeartRateSensor) -> void: _refresh_devices())
+	Devices.status.connect(func(_s: String) -> void: _refresh_devices())
+	_refresh_devices()
+
+
+func _refresh_devices() -> void:
+	var parts: Array[String] = []
+	var t := Devices.trainer
+	if t != null and not (t is SimulatedTrainer):
+		parts.append("%s %s" % [t.display_name(), "connected" if t.is_device_connected() else "reconnecting…"])
+	elif Devices.remembered.has("trainer"):
+		parts.append("Looking for %s…" % Devices.remembered.trainer.name)
+	else:
+		parts.append("No trainer paired")
+	var h := Devices.heart_rate
+	if h != null and not (h is SimulatedHeartRate):
+		parts.append("%s %s" % [h.display_name(), "connected" if h.is_device_connected() else "reconnecting…"])
+	_devices_l.text = "  ·  ".join(parts)
+	_ride.text = "Ride" if Devices.has_real_trainer() else "Ride on simulator"
 
 
 func _refresh_list() -> void:
@@ -76,7 +97,7 @@ func _on_file_chosen(path: String) -> void:
 func _on_ride_pressed() -> void:
 	if App.workout == null:
 		return
-	if not Devices.has_trainer():
+	if not Devices.has_real_trainer():
 		Devices.use_simulated_devices()
 	App.go_to("res://ui/screens/ride_screen.tscn")
 
@@ -144,6 +165,18 @@ func _build_ui() -> void:
 	_error = Label.new()
 	_error.modulate = Color(1, 0.5, 0.5)
 	right.add_child(_error)
+
+	var dev_row := HBoxContainer.new()
+	dev_row.add_theme_constant_override("separation", 12)
+	right.add_child(dev_row)
+	_devices_l = Label.new()
+	_devices_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_devices_l.modulate = Color(1, 1, 1, 0.7)
+	dev_row.add_child(_devices_l)
+	var dev_btn := Button.new()
+	dev_btn.text = "Devices…"
+	dev_btn.pressed.connect(func() -> void: App.go_to("res://ui/screens/devices_screen.tscn"))
+	dev_row.add_child(dev_btn)
 
 	_ride = Button.new()
 	_ride.text = "Ride on simulator"
