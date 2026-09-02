@@ -3,12 +3,80 @@ extends RefCounted
 ## Builds flat-shaded, vertex-coloured low-poly meshes for props. Every face
 ## gets its own vertices so normals stay hard, which is what the pixel look wants.
 
-static func cel_material(vertex_color := true, albedo := Color.WHITE) -> ShaderMaterial:
+static func cel_material(vertex_color := true, albedo := Color.WHITE, snow_threshold := 2.0) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = load("res://scene/post/cel.gdshader")
 	m.set_shader_parameter("use_vertex_color", vertex_color)
 	m.set_shader_parameter("albedo", Vector3(albedo.r, albedo.g, albedo.b))
+	m.set_shader_parameter("snow_threshold", snow_threshold)
+	m.set_shader_parameter("snow_color", Vector3(Palette.PINE_SNOW.r, Palette.PINE_SNOW.g, Palette.PINE_SNOW.b))
 	return m
+
+
+## Palette colour for a Quaternius material name.
+static func palette_for_material(mat_name: String) -> Color:
+	var n := mat_name.to_lower()
+	if "leaves" in n or "leaf" in n:
+		return Palette.PINE
+	if "bark" in n or "trunk" in n or "wood" in n:
+		return Palette.TRUNK
+	if "rock" in n or "stone" in n:
+		return Palette.ROCK
+	if "bush" in n or "grass" in n:
+		return Palette.PINE_DARK
+	return Palette.ROCK
+
+
+## Load an imported glTF prop as a single mesh with palette cel materials
+## baked per surface. Snow lands on upward faces of foliage and rock.
+## Returns null if the asset is missing so callers can fall back.
+static func load_prop(path: String, snow := true) -> Mesh:
+	if not ResourceLoader.exists(path):
+		return null
+	var packed: PackedScene = load(path)
+	if packed == null:
+		return null
+	var root := packed.instantiate()
+	var mi := _find_mesh_instance(root)
+	if mi == null:
+		root.free()
+		return null
+	var mesh: Mesh = mi.mesh.duplicate()
+	var xform := mi.transform
+	for i in mesh.get_surface_count():
+		var src := mesh.surface_get_material(i)
+		var mat_name := src.resource_name if src else ""
+		var col := palette_for_material(mat_name)
+		var is_bark := col == Palette.TRUNK
+		var m := cel_material(false, col, 0.86 if (snow and not is_bark) else 2.0)
+		mesh.surface_set_material(i, m)
+	root.free()
+	# Bake the node transform (Quaternius models are Y-up, metres) if it is not identity.
+	if not xform.is_equal_approx(Transform3D.IDENTITY):
+		var st := SurfaceTool.new()
+		var out := ArrayMesh.new()
+		for i in mesh.get_surface_count():
+			st.clear()
+			st.create_from(mesh, i)
+			var arrays := st.commit_to_arrays()
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			for v in verts.size():
+				verts[v] = xform * verts[v]
+			arrays[Mesh.ARRAY_VERTEX] = verts
+			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			out.surface_set_material(i, mesh.surface_get_material(i))
+		return out
+	return mesh
+
+
+static func _find_mesh_instance(n: Node) -> MeshInstance3D:
+	if n is MeshInstance3D:
+		return n
+	for c in n.get_children():
+		var r := _find_mesh_instance(c)
+		if r:
+			return r
+	return null
 
 
 ## Add a triangle with a flat normal and one colour. a, b, c are given

@@ -15,10 +15,12 @@ var trail: Trail
 var _chunks: Dictionary = {}     # chunk index -> Node3D
 var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
-var _pine_mesh: ArrayMesh
+var _pines: Array[Mesh] = []      # variants; MeshLib procedural pine as fallback
+var _rocks: Array[Mesh] = []
+var _dead_trees: Array[Mesh] = []
 var _shrub_mesh: ArrayMesh
-var _rock_mesh: ArrayMesh
 var _material: Material
+const PINE_SCALE := Vector2(0.45, 0.8)   # Quaternius pines are ~7 m tall at scale 1
 
 
 func _init(t: Trail) -> void:
@@ -28,9 +30,23 @@ func _init(t: Trail) -> void:
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_detail.seed = 12
 	_detail.frequency = 0.25
-	_pine_mesh = MeshLib.pine()
+	for i in range(1, 6):
+		var m := MeshLib.load_prop("res://assets/quaternius/Pine_%d.gltf" % i)
+		if m:
+			_pines.append(m)
+	for i in range(1, 4):
+		var m := MeshLib.load_prop("res://assets/quaternius/Rock_Medium_%d.gltf" % i)
+		if m:
+			_rocks.append(m)
+	for i in range(1, 6):
+		var m := MeshLib.load_prop("res://assets/quaternius/DeadTree_%d.gltf" % i, false)
+		if m:
+			_dead_trees.append(m)
+	if _pines.is_empty():
+		_pines.append(MeshLib.pine())
+	if _rocks.is_empty():
+		_rocks.append(MeshLib.rock())
 	_shrub_mesh = MeshLib.shrub()
-	_rock_mesh = MeshLib.rock()
 	_material = MeshLib.cel_material(true)
 
 
@@ -120,9 +136,16 @@ func _color_for(p: Vector3) -> Color:
 func _scatter(root: Node3D, z0: float) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(int(z0))
-	var pines: Array[Transform3D] = []
+	var pines: Array = []       # per variant: Array[Transform3D]
+	var rocks: Array = []
+	var dead: Array = []
+	for i in _pines.size():
+		pines.append([] as Array[Transform3D])
+	for i in _rocks.size():
+		rocks.append([] as Array[Transform3D])
+	for i in _dead_trees.size():
+		dead.append([] as Array[Transform3D])
 	var shrubs: Array[Transform3D] = []
-	var rocks: Array[Transform3D] = []
 	for i in 140:
 		var z := z0 + rng.randf() * CHUNK_LEN
 		var lateral := rng.randf_range(-HALF_WIDTH, HALF_WIDTH)
@@ -139,17 +162,24 @@ func _scatter(root: Node3D, z0: float) -> void:
 			shrubs.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.7, 1.2)), Vector3(x, y - 0.05, z)))
 		elif slope > 0.9:
 			if rng.randf() < 0.3:
-				rocks.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.6, 1.6)), Vector3(x, y - 0.1, z)))
+				rocks[rng.randi() % rocks.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.6, 1.4)), Vector3(x, y - 0.1, z)))
 		elif ad > 3.0:
 			var density := 0.55 if lateral < 0.0 else 0.35        # denser on the uphill side
-			if rng.randf() < density:
-				pines.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.55, 1.05)), Vector3(x, y - 0.1, z)))
-	_add_multimesh(root, _pine_mesh, pines)
+			var r := rng.randf()
+			if r < density:
+				pines[rng.randi() % pines.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(PINE_SCALE.x, PINE_SCALE.y)), Vector3(x, y - 0.05, z)))
+			elif r < density + 0.04 and not dead.is_empty():
+				dead[rng.randi() % dead.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.5, 0.8)), Vector3(x, y - 0.05, z)))
+	for i in _pines.size():
+		_add_multimesh(root, _pines[i], pines[i])
+	for i in _rocks.size():
+		_add_multimesh(root, _rocks[i], rocks[i])
+	for i in _dead_trees.size():
+		_add_multimesh(root, _dead_trees[i], dead[i])
 	_add_multimesh(root, _shrub_mesh, shrubs)
-	_add_multimesh(root, _rock_mesh, rocks)
 
 
-func _add_multimesh(root: Node3D, mesh: ArrayMesh, transforms: Array[Transform3D]) -> void:
+func _add_multimesh(root: Node3D, mesh: Mesh, transforms: Array[Transform3D]) -> void:
 	if transforms.is_empty():
 		return
 	var mm := MultiMesh.new()
@@ -160,5 +190,8 @@ func _add_multimesh(root: Node3D, mesh: ArrayMesh, transforms: Array[Transform3D
 		mm.set_instance_transform(i, transforms[i])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = _material
+	# Procedural meshes carry vertex colours and share the vertex-colour material;
+	# imported props have per-surface palette materials baked into the mesh.
+	if mesh is ArrayMesh and mesh.surface_get_material(0) == null:
+		mmi.material_override = _material
 	root.add_child(mmi)

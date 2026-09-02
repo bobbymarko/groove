@@ -7,6 +7,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RUNNER="$ROOT/build/RideDev.app"
 [ -d "$RUNNER" ] || "$ROOT/tools/make-dev-runner.sh"
 OUT="$2"; case "$OUT" in /*) ;; *) OUT="$ROOT/$OUT";; esac
+GODOT_BIN="$RUNNER/Contents/MacOS/Godot"
+"$GODOT_BIN" --headless --path "$ROOT" --import > "$ROOT/build/import.log" 2>&1 || true
 LOG="$ROOT/build/shot.log"; : > "$LOG"
 open -W -n "$RUNNER" --args --path "$ROOT" --resolution 1280x800 --log-file "$LOG" \
   -s tools/screenshot.gd -- "$1" "$OUT" "${@:3}"

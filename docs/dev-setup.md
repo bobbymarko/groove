@@ -70,6 +70,23 @@ tools/shot.sh x build/scene_top.png scene top    # top-down debug view
 tools/shot.sh x build/scene.png scene nocull     # debug: cel shader without culling
 ```
 
+## Assets (Quaternius, CC0)
+
+Props come from Quaternius's Stylized Nature MegaKit (standard edition, CC0), with
+textures stripped: our cel shader colours each surface from `scene/palette.gd` by material
+name (`MeshLib.palette_for_material`) and drops snow on upward-facing surfaces. To add
+models for another season:
+
+```bash
+tools/fetch-quaternius.sh                          # downloads/caches the kit, lists models
+tools/fetch-quaternius.sh CommonTree_1 CommonTree_2 Bush_Common_Flowers
+```
+
+Files land in `assets/quaternius/`. Load one with `MeshLib.load_prop("res://assets/quaternius/Name.gltf")`
+and add it to the variant lists in `scene/world/terrain_streamer.gd`. Model names in the kit:
+Pine_1–5, CommonTree_1–5, TwistedTree_1–5, DeadTree_1–5, Rock_Medium_1–3, Pebble_*, Bush_*,
+Grass_*, Flower_*, Plant_*, Mushroom_*, RockPath_*.
+
 ## Bluetooth extension
 
 `addons/gdble/` is GDBLE (MIT), a Rust GDExtension over btleplug. The macOS arm64

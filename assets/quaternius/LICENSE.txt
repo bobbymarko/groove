@@ -1,0 +1,3 @@
+Models in this folder are from the "Stylized Nature MegaKit" (standard edition) by Quaternius,
+https://quaternius.com — licensed CC0 1.0 Universal (public domain).
+Textures were removed; surfaces are coloured by the app's palette shader.
