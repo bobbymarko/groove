@@ -1,0 +1,8 @@
+# Godot
+.godot/
+*.tmp
+export_presets.cfg.credentials
+# Builds
+build/
+# macOS
+.DS_Store
