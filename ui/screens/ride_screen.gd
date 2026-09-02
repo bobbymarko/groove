@@ -36,6 +36,7 @@ var _state_l: Label
 var _graph: WorkoutGraph
 var _start_btn: Button
 var _conn_l: Label
+var _tuning: TuningPanel
 
 
 func _ready() -> void:
@@ -82,6 +83,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_E: _runner.set_erg(not _runner.erg_enabled)
 		KEY_ESCAPE: _runner.end_early()
 		KEY_F: _runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
+		KEY_T: _tuning.visible = not _tuning.visible
 
 
 func _bind_trainer(t: Trainer) -> void:
@@ -269,6 +271,15 @@ func _build_ui() -> void:
 	add_child(_scene)
 	_scene.set_shake(App.camera_shake)
 	_scene.target_fraction_ahead = _target_fraction_ahead
+	_tuning = TuningPanel.new()
+	_tuning.scene = _scene
+	_tuning.visible = false
+	_tuning.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
+	_tuning.position = Vector2(size.x - 560, 80)
+	_tuning.custom_minimum_size = Vector2(540, 0)
+	_tuning.modulate = Color(1, 1, 1, 0.92)
+	add_child(_tuning)
+	_tuning.z_index = 10
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

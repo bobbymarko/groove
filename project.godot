@@ -24,6 +24,21 @@ window/size/mode=2
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[shader_globals]
+
+cel_shade_band={
+"type": "float",
+"value": 0.66
+}
+cel_dark_band={
+"type": "float",
+"value": 0.5
+}
+cel_shadow_band={
+"type": "float",
+"value": 0.45
+}
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

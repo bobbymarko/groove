@@ -13,8 +13,8 @@ uniform bool alpha_cutout = false;
 uniform bool colorize = false;
 uniform vec3 shade_dark : source_color = vec3(0.12, 0.23, 0.27);
 uniform vec3 shade_light : source_color = vec3(0.30, 0.49, 0.55);
-uniform float shade_band = 0.66;
-uniform float dark_band = 0.5;
+global uniform float cel_shade_band;
+global uniform float cel_dark_band;
 // Snow settles on surfaces that face up: world-normal Y above the threshold.
 uniform float snow_threshold = 2.0;   // > 1 disables
 uniform vec3 snow_color : source_color = vec3(0.93, 0.94, 0.97);
@@ -52,11 +52,11 @@ void fragment() {
 // In shadow the surface keeps shadow_band of the sun instead of dropping to
 // ambient alone, so shadowed snow lands on the palette's blue snow-shadow
 // rather than the dark pine tones.
-uniform float shadow_band = 0.58;
+global uniform float cel_shadow_band;
 
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
-	float band = ndl > 0.3 ? 1.0 : (ndl > -0.15 ? shade_band : dark_band);
-	float lit = mix(shadow_band, band, ATTENUATION);
+	float band = ndl > 0.3 ? 1.0 : (ndl > -0.15 ? cel_shade_band : cel_dark_band);
+	float lit = mix(cel_shadow_band, band, ATTENUATION);
 	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * lit;
 }

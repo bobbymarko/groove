@@ -6,6 +6,7 @@ extends Control
 ## the upcoming workout profile.
 
 const INTERNAL_HEIGHT := 240
+var _internal_height := INTERNAL_HEIGHT
 
 var trail: Trail
 var terrain: TerrainStreamer
@@ -27,6 +28,8 @@ var debug_top_down := false
 var debug_material := ""
 
 var _viewport: SubViewport
+var _sun: DirectionalLight3D
+var _env: Environment
 var _world: Node3D
 var _screen: TextureRect
 var _post: ShaderMaterial
@@ -45,6 +48,7 @@ func _ready() -> void:
 	_viewport.add_child(_world)
 	_world.add_child(_environment())
 	var sun := DirectionalLight3D.new()
+	_sun = sun
 	sun.rotation_degrees = Vector3(-32.0, 40.0, 0.0)   # low winter sun from front-left
 	sun.light_color = Color(1.0, 0.96, 0.92)
 	sun.light_energy = 0.8
@@ -87,6 +91,9 @@ func _ready() -> void:
 	add_child(_screen)
 	resized.connect(_fit_viewport)
 	_fit_viewport()
+	var app := get_node_or_null("/root/App")
+	if app:
+		apply_tuning(app.scene_tuning)
 	_place_rider()
 	terrain.update_around(distance)
 	if debug_material != "":
@@ -119,11 +126,31 @@ func set_shake(level: String) -> void:
 	camera.shake_level = level
 
 
+## Apply the user's scene tuning (see App.TUNING_SPEC). Safe to call every change.
+func apply_tuning(t: Dictionary) -> void:
+	RenderingServer.global_shader_parameter_set("cel_shadow_band", 1.0 - float(t.get("shadow_strength", 0.55)))
+	RenderingServer.global_shader_parameter_set("cel_shade_band", float(t.get("shade_band", 0.66)))
+	RenderingServer.global_shader_parameter_set("cel_dark_band", float(t.get("shade_band", 0.66)) * 0.76)
+	_sun.rotation_degrees = Vector3(-float(t.get("sun_elevation", 32.0)), float(t.get("sun_azimuth", 40.0)), 0.0)
+	_sun.light_energy = float(t.get("sun_energy", 0.8))
+	_env.ambient_light_energy = float(t.get("ambient_energy", 0.4))
+	_env.fog_density = float(t.get("fog_density", 0.0028))
+	_post.set_shader_parameter("dither_strength", float(t.get("dither", 0.0)))
+	_post.set_shader_parameter("outline_darken", float(t.get("outline", 0.0)))
+	camera.follow_distance = float(t.get("camera_distance", 7.8))
+	camera.follow_height = float(t.get("camera_height", 2.7))
+	terrain.density_scale = float(t.get("tree_density", 1.0))
+	var h := int(t.get("internal_height", 240.0))
+	if h != _internal_height:
+		_internal_height = h
+		_fit_viewport()
+
+
 func _fit_viewport() -> void:
 	var aspect := size.x / maxf(size.y, 1.0)
-	var w := int(round(INTERNAL_HEIGHT * aspect))
-	_viewport.size = Vector2i(maxi(w, 64), INTERNAL_HEIGHT)
-	_post.set_shader_parameter("texel", Vector2(1.0 / _viewport.size.x, 1.0 / INTERNAL_HEIGHT))
+	var w := int(round(_internal_height * aspect))
+	_viewport.size = Vector2i(maxi(w, 64), _internal_height)
+	_post.set_shader_parameter("texel", Vector2(1.0 / _viewport.size.x, 1.0 / _internal_height))
 
 
 func _process(delta: float) -> void:
@@ -171,6 +198,7 @@ func _grade_at(z: float) -> float:
 
 func _environment() -> WorldEnvironment:
 	var env := Environment.new()
+	_env = env
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var mat := ProceduralSkyMaterial.new()

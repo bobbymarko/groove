@@ -20,6 +20,7 @@ var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
 var _drift := FastNoiseLite.new()
 var _columns: PackedFloat64Array = []   # lateral grid offsets, dense near the trail
+var density_scale := 1.0                 # tree density multiplier (new chunks only)
 var _pines: Array[Mesh] = []      # variants; MeshLib procedural pine as fallback
 var _rocks: Array[Mesh] = []
 var _dead_trees: Array[Mesh] = []
@@ -190,7 +191,7 @@ func _scatter(root: Node3D, z0: float) -> void:
 			if rng.randf() < 0.3:
 				rocks[rng.randi() % rocks.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.6, 1.4)), Vector3(x, y - 0.1, z)))
 		elif ad > 3.0:
-			var density := 0.55 if lateral < 0.0 else 0.35        # denser on the uphill side
+			var density := (0.55 if lateral < 0.0 else 0.35) * density_scale   # denser on the uphill side
 			var r := rng.randf()
 			if r < density:
 				pines[rng.randi() % pines.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(PINE_SCALE.x, PINE_SCALE.y)), Vector3(x, y - 0.05, z)))

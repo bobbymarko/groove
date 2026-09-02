@@ -11,15 +11,38 @@ var ftp: int = 200
 var camera_shake := "low"   # off | low | high
 var last_ride_journal := ""
 
+## Scene look, adjustable in Settings and on the ride screen (T). Applied by RideScene.apply_tuning().
+const TUNING_SPEC := [
+	# key, label, min, max, step, default
+	["shadow_strength", "Shadow strength", 0.0, 1.0, 0.01, 0.55],
+	["sun_elevation", "Sun elevation (°)", 8.0, 75.0, 1.0, 32.0],
+	["sun_azimuth", "Sun direction (°)", 0.0, 360.0, 1.0, 40.0],
+	["sun_energy", "Sun brightness", 0.2, 1.6, 0.01, 0.8],
+	["ambient_energy", "Ambient light", 0.0, 1.2, 0.01, 0.4],
+	["shade_band", "Shaded-side brightness", 0.3, 1.0, 0.01, 0.66],
+	["fog_density", "Fog", 0.0, 0.012, 0.0002, 0.0028],
+	["dither", "Dither", 0.0, 0.15, 0.005, 0.0],
+	["outline", "Outline", 0.0, 0.6, 0.01, 0.0],
+	["camera_distance", "Camera distance (m)", 4.0, 14.0, 0.1, 7.8],
+	["camera_height", "Camera height (m)", 1.0, 5.0, 0.1, 2.7],
+	["tree_density", "Tree density", 0.2, 2.0, 0.05, 1.0],
+	["internal_height", "Render height (px)", 144.0, 400.0, 8.0, 240.0],
+]
+var scene_tuning: Dictionary = {}
+
 var _cfg := ConfigFile.new()
 var _secrets := ConfigFile.new()
 
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(USER_WORKOUTS_DIR))
+	for row in TUNING_SPEC:
+		scene_tuning[row[0]] = float(row[5])
 	if _cfg.load(SETTINGS_PATH) == OK:
 		ftp = int(_cfg.get_value("rider", "ftp", ftp))
 		camera_shake = str(_cfg.get_value("scene", "camera_shake", camera_shake))
+		for key in scene_tuning:
+			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
 	Sync.configure_intervals.call_deferred(get_secret("intervals_api_key"))
 
@@ -70,7 +93,15 @@ func list_rides() -> Array[Dictionary]:
 func save_settings() -> void:
 	_cfg.set_value("rider", "ftp", ftp)
 	_cfg.set_value("scene", "camera_shake", camera_shake)
+	for key in scene_tuning:
+		_cfg.set_value("scene_tuning", key, scene_tuning[key])
 	_cfg.save(SETTINGS_PATH)
+
+
+func reset_tuning() -> void:
+	for row in TUNING_SPEC:
+		scene_tuning[row[0]] = float(row[5])
+	save_settings()
 
 
 ## Bundled and user-added workout files.

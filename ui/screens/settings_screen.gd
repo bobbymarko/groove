@@ -90,9 +90,23 @@ func _build_ui() -> void:
 	_shake.selected = ["off", "low", "high"].find(App.camera_shake)
 	shake_row.add_child(_shake)
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(spacer)
+	# Scene tuning with a live preview.
+	var tune_row := HBoxContainer.new()
+	tune_row.add_theme_constant_override("separation", 16)
+	tune_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(tune_row)
+	var preview := RideScene.new()
+	preview.custom_minimum_size = Vector2(560, 315)
+	preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview.riding = true
+	preview.power = 200.0
+	preview.cadence = 88.0
+	tune_row.add_child(preview)
+	var panel := TuningPanel.new()
+	panel.scene = preview
+	panel.custom_minimum_size.x = 520
+	tune_row.add_child(panel)
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	v.add_child(bar)
