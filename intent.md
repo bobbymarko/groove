@@ -32,7 +32,7 @@ Success means I can cancel Zwift and lose nothing I actually used, and that othe
 - Other cyclists who want structured indoor workouts without a full virtual-world subscription. This is meant to be a public product, so onboarding, reliability, and device compatibility matter.
 
 **Systems and devices**
-- Smart trainers: the app must both read from and control them.
+- Smart trainers: the app must both read from and control them. My Wahoo KICKR CORE, connected over Bluetooth with no dongle, is the reference device for the first version.
 - Sensors: power meters, cadence sensors, heart-rate monitors, and other standard cycling sensors.
 - Workout file formats: whatever people already have their structured workouts in (zwo to start).
 - Fitness services: Strava, Garmin, COROS, and other connectors, for posting completed rides. Strava and Coros are most important for me personally.
@@ -40,7 +40,13 @@ Success means I can cancel Zwift and lose nothing I actually used, and that othe
 
 ## Constraints
 
-None are firmly decided yet. The intent itself implies these:
+Decided so far:
+
+- **Bluetooth trainer control at launch.** The first version talks to the Wahoo KICKR CORE over Bluetooth, matching how I ride today. ANT+ and other trainer brands come later.
+- **No backend or accounts in the first version.** Workouts, ride history, and connector tokens live on the device. Posting to Strava and COROS uses the user's own OAuth authorization from the app.
+- **One codebase across platforms.** iOS and Android are further out, but adding them must not mean rebuilding the app. The workout engine, trainer abstraction, connectors, and scene rendering should be written once and reused, with only thin platform-specific layers.
+
+The intent also implies these:
 
 - **Cross-platform, Mac first.** The technology choice must not lock the app to macOS, but Mac is the platform that has to work on day one.
 - **Real hardware control.** Trainer control is not optional. A workout that cannot drive resistance is not a replacement for Zwift's workout mode.
@@ -51,11 +57,10 @@ None are firmly decided yet. The intent itself implies these:
 ## Open questions
 
 - **Workout formats.** Zwift's `.zwo` is the launch format. Which others follow, and when? Common ones are `.fit`, `.erg`, and `.mrc`. Should the app also pull workouts from TrainerRoad, TrainingPeaks, or intervals.icu?
-- **Trainer protocols.** Bluetooth FTMS and ANT+ FE-C are the two standard ways to control trainers. Is Bluetooth alone acceptable for the first version, or is ANT+ (which needs a USB dongle) required?
 - **Connector list.** Strava and COROS are required for launch. Is Garmin also required at launch, and which others (Wahoo, TrainingPeaks, intervals.icu, Apple Health) come later?
-- **Cross-platform scope.** Windows, Android, and iOS follow Mac. In what order? iOS and Android imply phone and tablet screens, which changes the UI layout and the Bluetooth story. Is Apple TV or a web build ever in scope?
+- **Cross-platform framework.** Windows, Android, and iOS follow Mac, and the code must carry over. Which framework or engine best serves a Mac-first app that needs Bluetooth on all four platforms and a 2D procedural pixel-art renderer? Is Apple TV or a web build ever in scope?
 - **Scene behavior.** Should the scene react to the workout, for example trail gradient, rider speed, or camera intensity changing with power and cadence, or is it ambient? Should the time of year follow the real calendar, be user-selected, or be random?
 - **Riding without a plan.** Should there be a free-ride mode with no workout loaded, or is that out of scope?
-- **Accounts and data.** Does the app need user accounts and cloud storage of ride history, or can it stay local with OAuth tokens for the connectors?
+- **COROS upload path.** Strava has a public upload API. COROS's third-party integration is partner-based and needs verifying before COROS sync is promised at launch. If direct upload is not available, is Strava-to-COROS sync or FIT file export an acceptable fallback?
 - **Distribution and price.** Free, one-time purchase, or something else? App Store, direct download, or both?
 - **Zwift parity.** Which specific Zwift workout-mode behaviors matter (ERG mode on/off, interval skip, workout bias adjustment, free-ride blocks, text prompts during intervals)?
