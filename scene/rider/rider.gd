@@ -47,18 +47,24 @@ func _ready() -> void:
 	_crank_r = _box(BB, Vector3(0.03, CRANK_R, 0.05), Palette.HELMET)
 	_pedal_l = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
 	_pedal_r = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
-	# Rider
-	_box((HIP + SHOULDER) * 0.5, Vector3(0.34, 0.36, 0.22), Palette.RIDER_RED, _body)          # torso
-	_body.get_child(_body.get_child_count() - 1).look_at_from_position((HIP + SHOULDER) * 0.5, SHOULDER + (SHOULDER - HIP), Vector3.FORWARD)
-	_box(Vector3(0.0, 1.28, -0.12), Vector3(0.28, 0.32, 0.16), Palette.RIDER_RED, _body)        # backpack
-	_box(SHOULDER + Vector3(0.0, 0.16, 0.02), Vector3(0.18, 0.2, 0.2), Palette.RIDER_SKIN, _body) # head
-	_box(SHOULDER + Vector3(0.0, 0.26, 0.0), Vector3(0.22, 0.1, 0.24), Palette.HELMET, _body)   # helmet
-	_box(Vector3(0.0, 1.02, -0.16), Vector3(0.32, 0.14, 0.22), Palette.RIDER_BLUE, _body)       # hips
+	# Rider: torso leans forward from hips to shoulders, arms bend at the elbow,
+	# round head under a domed helmet, a red pack on the back.
+	_segment(HIP + Vector3(0.0, 0.02, 0.0), SHOULDER, 0.3, Palette.RIDER_RED, _body)             # torso
+	_box(Vector3(0.0, 1.02, -0.14), Vector3(0.32, 0.16, 0.24), Palette.RIDER_BLUE, _body)       # hips / shorts
+	_box(Vector3(0.0, 1.3, -0.1), Vector3(0.26, 0.3, 0.14), Palette.BERRY, _body)                # backpack
+	var head := _sphere(SHOULDER + Vector3(0.0, 0.17, 0.06), 0.11, Palette.RIDER_SKIN, _body)  # head
+	var helmet := _sphere(SHOULDER + Vector3(0.0, 0.22, 0.05), 0.13, Palette.HELMET, _body)    # helmet dome
+	helmet.scale = Vector3(1.0, 0.75, 1.1)
+	head.scale = Vector3(0.95, 1.0, 0.95)
 	for side in [-1.0, 1.0]:
-		_segment(SHOULDER + Vector3(side * 0.2, 0.0, 0.0), BAR + Vector3(side * 0.25, 0.0, 0.0), 0.08, Palette.RIDER_RED, _body)  # arm
-		_box(BAR + Vector3(side * 0.25, 0.0, 0.0), Vector3(0.09, 0.08, 0.09), Palette.HELMET, _body)                                  # glove
-	_thigh_l = _segment(HIP, HIP, 0.12, Palette.RIDER_BLUE, _body)
-	_thigh_r = _segment(HIP, HIP, 0.12, Palette.RIDER_BLUE, _body)
+		var sh := SHOULDER + Vector3(side * 0.19, -0.02, 0.0)
+		var elbow := Vector3(side * 0.24, 1.22, 0.3)
+		var hand := BAR + Vector3(side * 0.26, 0.0, -0.02)
+		_segment(sh, elbow, 0.09, Palette.RIDER_RED, _body)        # upper arm
+		_segment(elbow, hand, 0.08, Palette.RIDER_RED, _body)      # forearm
+		_box(hand, Vector3(0.09, 0.08, 0.1), Palette.HELMET, _body) # glove
+	_thigh_l = _segment(HIP, HIP, 0.13, Palette.RIDER_BLUE, _body)
+	_thigh_r = _segment(HIP, HIP, 0.13, Palette.RIDER_BLUE, _body)
 	_shin_l = _segment(HIP, HIP, 0.1, Palette.RIDER_BLUE, _body)
 	_shin_r = _segment(HIP, HIP, 0.1, Palette.RIDER_BLUE, _body)
 	_update_legs()
@@ -151,6 +157,20 @@ func _segment(a: Vector3, b: Vector3, thickness: float, col: Color, parent: Node
 	mi.material_override = MeshLib.cel_material(false, col)
 	parent.add_child(mi)
 	_place(mi, a, b)
+	return mi
+
+
+func _sphere(center: Vector3, radius: float, col: Color, parent: Node3D) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var sp := SphereMesh.new()
+	sp.radius = radius
+	sp.height = radius * 2.0
+	sp.radial_segments = 8
+	sp.rings = 5
+	mi.mesh = sp
+	mi.material_override = MeshLib.cel_material(false, col)
+	mi.position = center
+	parent.add_child(mi)
 	return mi
 
 

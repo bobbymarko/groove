@@ -23,7 +23,8 @@ func _init(seed_value: int = 7) -> void:
 
 ## Lateral position of the trail centre at distance z.
 func x_at(z: float) -> float:
-	return _noise.get_noise_2d(z * 0.9, 0.0) * 9.0 + _noise.get_noise_2d(z * 3.1, 50.0) * 1.5
+	# Wavelengths of roughly 200 m and 70 m: sweeping bends, no wobble.
+	return _noise.get_noise_2d(z * 0.25, 0.0) * 14.0 + _noise.get_noise_2d(z * 0.7, 50.0) * 3.0
 
 
 ## Lateral slope dx/dz, used for heading and lean.

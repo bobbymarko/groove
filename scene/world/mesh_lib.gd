@@ -33,7 +33,9 @@ static func quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3
 
 
 ## Cone (or frustum) around the Y axis from y0 (radius r0) to y1 (radius r1).
-static func cone(st: SurfaceTool, y0: float, r0: float, y1: float, r1: float, sides: int, col: Color, col_top := Color.TRANSPARENT) -> void:
+## The part above `split` (fraction of the height) takes col_top, so a tier
+## of foliage can carry snow on its shoulders.
+static func cone(st: SurfaceTool, y0: float, r0: float, y1: float, r1: float, sides: int, col: Color, col_top := Color.TRANSPARENT, split := 0.5) -> void:
 	var top_col := col if col_top == Color.TRANSPARENT else col_top
 	for i in sides:
 		var a0 := TAU * i / sides
@@ -42,13 +44,18 @@ static func cone(st: SurfaceTool, y0: float, r0: float, y1: float, r1: float, si
 		var p1 := Vector3(cos(a1) * r0, y0, sin(a1) * r0)
 		var q0 := Vector3(cos(a0) * r1, y1, sin(a0) * r1)
 		var q1 := Vector3(cos(a1) * r1, y1, sin(a1) * r1)
+		if top_col == col:
+			if r1 <= 0.001:
+				tri(st, p0, q0, p1, col)
+			else:
+				quad(st, p0, q0, q1, p1, col)
+			continue
+		var m0 := p0.lerp(q0, split)
+		var m1 := p1.lerp(q1, split)
+		quad(st, p0, m0, m1, p1, col)
 		if r1 <= 0.001:
-			tri(st, p0, q0, p1, col)
+			tri(st, m0, q0, m1, top_col)
 		else:
-			# Split so the upper half can carry snow colour.
-			var m0 := (p0 + q0) * 0.5
-			var m1 := (p1 + q1) * 0.5
-			quad(st, p0, m0, m1, p1, col)
 			quad(st, m0, q0, q1, m1, top_col)
 
 
@@ -76,13 +83,21 @@ static func begin() -> SurfaceTool:
 	return st
 
 
-## A snow-laden pine: trunk plus three stacked cones, snow on the upper half of each tier.
+## A snow-laden pine like the reference: a slim trunk and five tiers of
+## foliage that narrow toward the tip, each tier dark teal below and snow
+## on its upper shoulder.
 static func pine() -> ArrayMesh:
 	var st := begin()
-	cone(st, 0.0, 0.18, 1.2, 0.14, 6, Palette.TRUNK)
-	cone(st, 0.9, 1.5, 2.6, 0.0, 7, Palette.PINE_DARK, Palette.PINE_SNOW)
-	cone(st, 2.1, 1.15, 3.6, 0.0, 7, Palette.PINE, Palette.PINE_SNOW)
-	cone(st, 3.2, 0.75, 4.6, 0.0, 6, Palette.PINE, Palette.PINE_SNOW)
+	cone(st, 0.0, 0.16, 1.4, 0.12, 6, Palette.TRUNK)
+	var tiers := [[1.0, 1.55, 2.3], [1.9, 1.3, 3.2], [2.8, 1.05, 4.0], [3.6, 0.78, 4.7], [4.3, 0.5, 5.4]]
+	for i in tiers.size():
+		var t: Array = tiers[i]
+		var base_y: float = t[0]
+		var r: float = t[1]
+		var top_y: float = t[2]
+		var col := Palette.PINE_DARK if i % 2 == 0 else Palette.PINE
+		# Dark foliage skirt with snow on the upper 40 % of the tier.
+		cone(st, base_y, r, top_y, 0.0, 7, col, Palette.PINE_SNOW, 0.6)
 	return finish(st)
 
 
