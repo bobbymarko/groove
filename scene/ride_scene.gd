@@ -45,10 +45,16 @@ func _ready() -> void:
 	_viewport.add_child(_world)
 	_world.add_child(_environment())
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-38.0, 35.0, 0.0)
+	sun.rotation_degrees = Vector3(-32.0, 40.0, 0.0)   # low winter sun from front-left
 	sun.light_color = Color(1.0, 0.96, 0.92)
 	sun.light_energy = 1.1
-	sun.shadow_enabled = false
+	sun.shadow_enabled = true
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 140.0
+	sun.directional_shadow_split_1 = 0.25
+	sun.shadow_blur = 0.0          # hard-edged shadows suit the pixel look
+	sun.shadow_bias = 0.08
+	sun.shadow_normal_bias = 2.0
 	_world.add_child(sun)
 
 	trail = Trail.new()

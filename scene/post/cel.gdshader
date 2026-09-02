@@ -13,7 +13,7 @@ uniform bool alpha_cutout = false;
 uniform bool colorize = false;
 uniform vec3 shade_dark : source_color = vec3(0.12, 0.23, 0.27);
 uniform vec3 shade_light : source_color = vec3(0.30, 0.49, 0.55);
-uniform float shade_band = 0.72;
+uniform float shade_band = 0.66;
 uniform float dark_band = 0.5;
 // Snow settles on surfaces that face up: world-normal Y above the threshold.
 uniform float snow_threshold = 2.0;   // > 1 disables
