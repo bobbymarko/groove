@@ -129,6 +129,8 @@ func test_failed_reconnect_retries() -> void:
 	t.tick(FtmsTrainer.RECONNECT_DELAY + 0.1)
 	assert_eq(p.connect_calls, 2)
 	t.tick(FtmsTrainer.RECONNECT_DELAY + 0.1)
+	assert_eq(p.connect_calls, 2)             # backoff: second wait is doubled
+	t.tick(FtmsTrainer.RECONNECT_DELAY + 0.1)
 	assert_eq(p.connect_calls, 3)
 
 

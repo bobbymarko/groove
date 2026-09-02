@@ -6,6 +6,7 @@ extends Trainer
 ## after a dropout, re-applying the last target so the ride carries on.
 
 const RECONNECT_DELAY := 3.0
+const RECONNECT_MAX := 30.0
 const WRITE_TIMEOUT := 2.5
 
 var peripheral: BlePeripheral
@@ -20,6 +21,7 @@ var _queue: Array[PackedByteArray] = []
 var _in_flight := false
 var _write_elapsed := 0.0
 var _reconnect_wait := 0.0
+var _reconnect_attempts := 0
 var _power_range := Vector2i(0, 0)
 
 
@@ -108,6 +110,7 @@ func _on_services(_services: Array) -> void:
 	_in_flight = false
 	_has_control = false
 	_setup_done = true
+	_reconnect_attempts = 0
 	_enqueue(Gatt.ftms_request_control())
 	_enqueue(Gatt.ftms_start())
 	if _target >= 0:
@@ -127,7 +130,7 @@ func _on_disconnected() -> void:
 	if was_ready:
 		disconnected.emit()
 	if _want_connection and auto_reconnect:
-		_reconnect_wait = RECONNECT_DELAY
+		_schedule_reconnect()
 		status_changed.emit("%s disconnected, reconnecting…" % display_name())
 	else:
 		status_changed.emit("%s disconnected" % display_name())
@@ -136,7 +139,7 @@ func _on_disconnected() -> void:
 func _on_connection_failed(err: String) -> void:
 	status_changed.emit("Connection failed: %s" % err)
 	if _want_connection and auto_reconnect:
-		_reconnect_wait = RECONNECT_DELAY
+		_schedule_reconnect()
 
 
 func _on_notified(char_uuid: String, data: PackedByteArray) -> void:
@@ -218,3 +221,8 @@ func tick(delta: float) -> void:
 		_reconnect_wait -= delta
 		if _reconnect_wait <= 0.0 and _want_connection and peripheral != null and not peripheral.is_peripheral_connected():
 			peripheral.connect_peripheral()
+
+
+func _schedule_reconnect() -> void:
+	_reconnect_wait = minf(RECONNECT_DELAY * pow(2.0, _reconnect_attempts), RECONNECT_MAX)
+	_reconnect_attempts += 1

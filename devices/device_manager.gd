@@ -26,6 +26,7 @@ var _adapter_error := ""
 
 func _ready() -> void:
 	_load_remembered()
+	status.connect(func(s: String) -> void: print("[devices] ", s))
 	if DisplayServer.get_name() == "headless":
 		return  # tests and tooling: never touch the radio
 	adapter = BleAdapter.new()

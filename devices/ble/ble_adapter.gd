@@ -73,8 +73,9 @@ func _on_device(info: Dictionary) -> void:
 	})
 
 
-## BlePeripheral over a GDBLE BleDevice. A fresh BleDevice is taken from the
-## manager on every connection attempt, so reconnects after a dropout work.
+## BlePeripheral over a GDBLE BleDevice. GDBLE keeps one BleDevice per address
+## and hands the same object back on every connect_device() call, so handlers
+## are wired exactly once per object and the object is kept across dropouts.
 class GdblePeripheral:
 	extends BlePeripheral
 
@@ -90,20 +91,28 @@ class GdblePeripheral:
 		if _bt == null:
 			connection_failed.emit("Bluetooth adapter unavailable")
 			return
-		if _dev == null:
-			_dev = _bt.connect_device(address)
-			if _dev == null:
-				connection_failed.emit("Device %s not found. Scan first." % address)
-				return
-			_dev.connected.connect(_on_connected)
-			_dev.disconnected.connect(_on_disconnected)
-			_dev.connection_failed.connect(_on_connection_failed)
-			_dev.services_discovered.connect(_on_services)
-			_dev.characteristic_notified.connect(func(u: String, d: PackedByteArray) -> void: notified.emit(Gatt.norm(u), d))
-			_dev.characteristic_read.connect(func(u: String, d: PackedByteArray) -> void: read_completed.emit(Gatt.norm(u), d))
-			_dev.characteristic_written.connect(func(u: String) -> void: write_completed.emit(Gatt.norm(u)))
-			_dev.operation_failed.connect(func(op: String, e: String) -> void: operation_failed.emit(op, e))
+		var dev: Variant = _bt.connect_device(address)
+		if dev == null:
+			connection_failed.emit("Device %s not found. Scan first." % address)
+			return
+		if dev != _dev:
+			_dev = dev
+			_wire(_dev)
 		_dev.connect_async()
+
+	func _wire(dev: Variant) -> void:
+		_wire_one(dev.connected, _on_connected)
+		_wire_one(dev.disconnected, _on_disconnected)
+		_wire_one(dev.connection_failed, _on_connection_failed)
+		_wire_one(dev.services_discovered, _on_services)
+		_wire_one(dev.characteristic_notified, _on_notified)
+		_wire_one(dev.characteristic_read, _on_read)
+		_wire_one(dev.characteristic_written, _on_written)
+		_wire_one(dev.operation_failed, _on_failed)
+
+	static func _wire_one(sig: Signal, handler: Callable) -> void:
+		if not sig.is_connected(handler):
+			sig.connect(handler)
 
 	func disconnect_peripheral() -> void:
 		if _bt != null and _connected:
@@ -138,14 +147,24 @@ class GdblePeripheral:
 	func _on_disconnected() -> void:
 		_connected = false
 		_services = []
-		_dev = null           # take a fresh device object on the next attempt
 		disconnected.emit()
 
 	func _on_connection_failed(err: String) -> void:
 		_connected = false
-		_dev = null
 		connection_failed.emit(err)
 
 	func _on_services(raw: Array) -> void:
 		_services = BlePeripheral.normalize_services(raw)
 		services_discovered.emit(_services)
+
+	func _on_notified(u: String, d: PackedByteArray) -> void:
+		notified.emit(Gatt.norm(u), d)
+
+	func _on_read(u: String, d: PackedByteArray) -> void:
+		read_completed.emit(Gatt.norm(u), d)
+
+	func _on_written(u: String) -> void:
+		write_completed.emit(Gatt.norm(u))
+
+	func _on_failed(op: String, e: String) -> void:
+		operation_failed.emit(op, e)
