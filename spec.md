@@ -187,11 +187,11 @@ Home (workout library, recent rides, device status) → Devices (scan, pair, for
 
 ## 4. Concerns flagged for decision
 
-- **C1. Bluetooth on macOS via GDBLE is unproven for this device.** GDBLE supports macOS and exposes what we need, but nobody on this project has driven a KICKR CORE with it. Milestone 0 exists to settle this. If it fails, the fallback is a small custom GDExtension over CoreBluetooth for Mac, which also covers iOS later.
+- **C1. Resolved 2026-09-02.** Milestone 0 drove the KICKR CORE from macOS through GDBLE: FTMS control granted, ERG targets acknowledged and felt, live power and cadence received. The stack stands.
 - **C2. Strava has no PKCE, so token exchange needs a client secret.** Shipping the secret inside a desktop binary is common practice for indie apps but is extractable. The alternative is a tiny stateless token-exchange function hosted somewhere, which is a backend in miniature. Recommendation: ship the secret in v1 for personal use, decide before public release.
 - **C3. New Strava API apps are limited to one connected athlete.** Fine for personal use. Public release requires requesting a capacity increase from Strava, which takes review time. Start that request early.
 - **C4. COROS inbound sync requires partner API approval.** COROS accepts applications through a form and grants OAuth access to platforms meeting their requirements. Submit early. Until approved, COROS support means the user imports the FIT file through the COROS app manually, which COROS supports.
-- **C5. macOS Bluetooth permission and notarization.** The app needs a Bluetooth usage description in its Info.plist and, if sandboxed, the Bluetooth entitlement. Godot's macOS export may need a post-export step to add these. Distribution outside the App Store requires a Developer ID and notarization.
+- **C5. macOS Bluetooth permission and notarization.** Confirmed during milestone 0: the stock Godot editor has no Bluetooth usage description, so development runs through a patched copy built by `tools/make-dev-runner.sh` (see `docs/dev-setup.md`). Exported builds must set the usage description in the export preset. Distribution outside the App Store requires a Developer ID and notarization.
 - **C6. Token storage.** Godot has no keychain access. Tokens will be encrypted with a key derived from a per-install secret stored in `user://`. This is adequate for v1 and weaker than the OS keychain. A native keychain shim is a later improvement.
 - **C7. iOS Bluetooth adapter.** GDBLE does not build for iOS, though the library beneath it does. Options when iOS arrives: an iOS build of GDBLE, SwiftGodot with CoreBluetooth, or SimpleBLE (commercial license terms to check). No decision needed now; the adapter boundary keeps it contained.
 
@@ -203,7 +203,7 @@ Riskiest first. Each milestone ends with something that runs.
 
 | # | Milestone | Done when |
 |---|---|---|
-| 0 | **Bluetooth spike** | A bare Godot scene connects to the KICKR CORE via GDBLE on the Mac, prints live power and cadence, and holds 150 W then 200 W in ERG. Go/no-go for the stack. |
+| 0 | **Bluetooth spike** ✅ 2026-09-02 | A bare Godot scene connects to the KICKR CORE via GDBLE on the Mac, prints live power and cadence, and holds 150 W then 200 W in ERG. Go/no-go for the stack. **Passed.** Spike lives in `spike/`; the KICKR also exposes Cycling Power (0x1818) and Wahoo's proprietary service, neither needed. |
 | 1 | **Engine on simulator** | Load a `.zwo`, ride it against the simulated trainer with a text-only HUD. All R6 to R9 controls work. Tests cover the parser and runner. |
 | 2 | **Real devices** | Pairing screen, real trainer and heart-rate strap, auto-reconnect, dropout does not end the ride. |
 | 3 | **Record and upload** | Journal, FIT export validated by the FIT SDK tool, summary screen, Strava OAuth and upload with retry. First real workout ridden and posted. |
