@@ -40,8 +40,37 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		f.store_buffer(FitEncoder.encode(rec.meta, rec.samples, metrics, true))
 		f.close()
 		app.last_ride_journal = rec.journal_path()
-	var scene: Node = load(scene_path).instantiate()
-	root.add_child(scene)
+	var scene: Node
+	if mode == "scene":
+		# Standalone scene preview with demo telemetry.
+		var rs := RideScene.new()
+		rs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		rs.riding = true
+		rs.power = 210.0
+		rs.cadence = 88.0
+		rs.debug_top_down = OS.get_cmdline_user_args().has("top")
+		for opt in ["nocull", "plain"]:
+			if OS.get_cmdline_user_args().has(opt):
+				rs.debug_material = opt
+		scene = rs
+		root.add_child(scene)
+		for i in 240:
+			await process_frame
+		var rp: Vector3 = rs.rider.global_position
+		print("[dbg] rider %s heading %s grade %.1f speed %.1f" % [rp, rs.trail.heading_at(rs.distance), rs.trail.grade_at(rs.distance), rs.physics.speed])
+		print("[dbg] camera %s" % rs.camera.global_position)
+		print("[dbg] chunks: %s" % str(rs.terrain._chunks.keys()))
+		for key in rs.terrain._chunks:
+			var mi: MeshInstance3D = rs.terrain._chunks[key].get_child(0)
+			print("[dbg] chunk %d aabb %s" % [key, mi.get_aabb()])
+		for dz in [-8.0, -4.0, 0.0, 4.0, 12.0]:
+			var z: float = rs.distance + float(dz)
+			var tx := rs.trail.x_at(z)
+			print("[dbg] z=%.1f trail x=%.2f h=%.2f | terrain h(trail)=%.2f h(-6)=%.2f h(+6)=%.2f h(-30)=%.2f h(+30)=%.2f" % [
+				z, tx, rs.trail.h_at(z), rs.terrain.height(tx, z), rs.terrain.height(tx - 6.0, z), rs.terrain.height(tx + 6.0, z), rs.terrain.height(tx - 30.0, z), rs.terrain.height(tx + 30.0, z)])
+	else:
+		scene = load(scene_path).instantiate()
+		root.add_child(scene)
 	if ride:
 		await process_frame
 		var runner: WorkoutRunner = scene.get_node("WorkoutRunner")

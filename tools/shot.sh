@@ -9,5 +9,5 @@ RUNNER="$ROOT/build/RideDev.app"
 OUT="$2"; case "$OUT" in /*) ;; *) OUT="$ROOT/$OUT";; esac
 LOG="$ROOT/build/shot.log"; : > "$LOG"
 open -W -n "$RUNNER" --args --path "$ROOT" --resolution 1280x800 --log-file "$LOG" \
-  -s tools/screenshot.gd -- "$1" "$OUT" "${3:-}"
+  -s tools/screenshot.gd -- "$1" "$OUT" "${@:3}"
 grep -E "screenshot|ERROR|SCRIPT ERROR|at:" "$LOG" || true

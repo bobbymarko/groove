@@ -1,0 +1,165 @@
+class_name Rider
+extends Node3D
+## A blocky rider on a bike, built from primitives. Wheels and cranks turn with
+## cadence, legs follow the pedals with two-bone IK, the whole thing leans in
+## turns. Forward is +Z in local space.
+
+const WHEEL_R := 0.36
+const CRANK_R := 0.17
+const BB := Vector3(0.0, 0.34, 0.0)          # bottom bracket
+const HIP := Vector3(0.0, 1.06, -0.18)
+const SHOULDER := Vector3(0.0, 1.42, 0.22)
+const BAR := Vector3(0.0, 1.05, 0.56)
+const THIGH := 0.46
+const SHIN := 0.46
+
+var crank_angle := 0.0
+var lean := 0.0              # radians, positive leans right
+
+var _front_wheel: MeshInstance3D
+var _rear_wheel: MeshInstance3D
+var _crank_l: MeshInstance3D
+var _crank_r: MeshInstance3D
+var _pedal_l: MeshInstance3D
+var _pedal_r: MeshInstance3D
+var _thigh_l: MeshInstance3D
+var _thigh_r: MeshInstance3D
+var _shin_l: MeshInstance3D
+var _shin_r: MeshInstance3D
+var _body: Node3D
+
+
+func _ready() -> void:
+	_body = Node3D.new()
+	add_child(_body)
+	# Bike
+	_rear_wheel = _wheel(Vector3(0.0, WHEEL_R, -0.55))
+	_front_wheel = _wheel(Vector3(0.0, WHEEL_R, 0.62))
+	_bar(Vector3(0.0, WHEEL_R, -0.55), BB, 0.05, Palette.BIKE)                 # chainstay
+	_bar(BB, Vector3(0.0, 0.95, -0.12), 0.06, Palette.BIKE)                     # seat tube
+	_bar(Vector3(0.0, 0.95, -0.12), Vector3(0.0, 1.0, 0.5), 0.06, Palette.BIKE) # top tube
+	_bar(BB, Vector3(0.0, 1.0, 0.5), 0.06, Palette.BIKE)                        # down tube
+	_bar(Vector3(0.0, 1.0, 0.5), Vector3(0.0, WHEEL_R, 0.62), 0.05, Palette.BIKE) # fork
+	_bar(Vector3(0.0, 1.0, 0.5), BAR, 0.05, Palette.BIKE)                       # stem
+	_box(Vector3(0.0, 1.05, 0.56), Vector3(0.62, 0.04, 0.04), Palette.HELMET)   # handlebar
+	_box(Vector3(0.0, 1.0, -0.12), Vector3(0.14, 0.05, 0.26), Palette.HELMET)   # saddle
+	_crank_l = _box(BB, Vector3(0.03, CRANK_R, 0.05), Palette.HELMET)
+	_crank_r = _box(BB, Vector3(0.03, CRANK_R, 0.05), Palette.HELMET)
+	_pedal_l = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
+	_pedal_r = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
+	# Rider
+	_box((HIP + SHOULDER) * 0.5, Vector3(0.34, 0.36, 0.22), Palette.RIDER_RED, _body)          # torso
+	_body.get_child(_body.get_child_count() - 1).look_at_from_position((HIP + SHOULDER) * 0.5, SHOULDER + (SHOULDER - HIP), Vector3.FORWARD)
+	_box(Vector3(0.0, 1.28, -0.12), Vector3(0.28, 0.32, 0.16), Palette.RIDER_RED, _body)        # backpack
+	_box(SHOULDER + Vector3(0.0, 0.16, 0.02), Vector3(0.18, 0.2, 0.2), Palette.RIDER_SKIN, _body) # head
+	_box(SHOULDER + Vector3(0.0, 0.26, 0.0), Vector3(0.22, 0.1, 0.24), Palette.HELMET, _body)   # helmet
+	_box(Vector3(0.0, 1.02, -0.16), Vector3(0.32, 0.14, 0.22), Palette.RIDER_BLUE, _body)       # hips
+	for side in [-1.0, 1.0]:
+		_segment(SHOULDER + Vector3(side * 0.2, 0.0, 0.0), BAR + Vector3(side * 0.25, 0.0, 0.0), 0.08, Palette.RIDER_RED, _body)  # arm
+		_box(BAR + Vector3(side * 0.25, 0.0, 0.0), Vector3(0.09, 0.08, 0.09), Palette.HELMET, _body)                                  # glove
+	_thigh_l = _segment(HIP, HIP, 0.12, Palette.RIDER_BLUE, _body)
+	_thigh_r = _segment(HIP, HIP, 0.12, Palette.RIDER_BLUE, _body)
+	_shin_l = _segment(HIP, HIP, 0.1, Palette.RIDER_BLUE, _body)
+	_shin_r = _segment(HIP, HIP, 0.1, Palette.RIDER_BLUE, _body)
+	_update_legs()
+
+
+## Advance the animation: cadence in rpm, forward speed in m/s.
+func animate(cadence_rpm: float, speed_mps: float, delta: float) -> void:
+	crank_angle = fmod(crank_angle + cadence_rpm / 60.0 * TAU * delta, TAU)
+	var wheel_delta := speed_mps / WHEEL_R * delta
+	_front_wheel.rotate_x(-wheel_delta)
+	_rear_wheel.rotate_x(-wheel_delta)
+	_update_legs()
+	_body.rotation.z = lerpf(_body.rotation.z, -lean, clampf(delta * 3.0, 0.0, 1.0))
+	rotation.z = _body.rotation.z * 0.6
+
+
+func _update_legs() -> void:
+	for side_i in 2:
+		var side := -1.0 if side_i == 0 else 1.0
+		var a := crank_angle + (0.0 if side_i == 0 else PI)
+		var pedal := BB + Vector3(side * 0.16, sin(a) * CRANK_R, cos(a) * CRANK_R)
+		var crank := _crank_l if side_i == 0 else _crank_r
+		crank.position = BB + Vector3(side * 0.1, sin(a) * CRANK_R * 0.5, cos(a) * CRANK_R * 0.5)
+		crank.rotation = Vector3(-a + PI * 0.5, 0.0, 0.0)
+		var pedal_mesh := _pedal_l if side_i == 0 else _pedal_r
+		pedal_mesh.position = pedal
+		var hip := HIP + Vector3(side * 0.14, 0.0, 0.0)
+		var knee := _knee(hip, pedal)
+		_place(_thigh_l if side_i == 0 else _thigh_r, hip, knee)
+		_place(_shin_l if side_i == 0 else _shin_r, knee, pedal)
+
+
+## Two-bone IK in the sagittal plane; the knee bends forward (+Z).
+func _knee(hip: Vector3, foot: Vector3) -> Vector3:
+	var to := foot - hip
+	var d := clampf(to.length(), 0.05, THIGH + SHIN - 0.01)
+	var dir := to.normalized()
+	var cos_a := clampf((THIGH * THIGH + d * d - SHIN * SHIN) / (2.0 * THIGH * d), -1.0, 1.0)
+	var ang := acos(cos_a)
+	var side_axis := Vector3.RIGHT if hip.x < 0.0 else Vector3.LEFT
+	var bent := dir.rotated(side_axis, -ang) if dir.rotated(side_axis, -ang).z > dir.rotated(side_axis, ang).z else dir.rotated(side_axis, ang)
+	return hip + bent * THIGH
+
+
+func _place(seg: MeshInstance3D, a: Vector3, b: Vector3) -> void:
+	var mid := (a + b) * 0.5
+	var len := maxf(a.distance_to(b), 0.01)
+	seg.position = mid
+	seg.scale = Vector3(1.0, len, 1.0)
+	var up := (b - a).normalized()
+	var right := up.cross(Vector3.FORWARD).normalized()
+	if right.length() < 0.01:
+		right = Vector3.RIGHT
+	var fwd := right.cross(up).normalized()
+	seg.basis = Basis(right, up, fwd) * Basis().scaled(Vector3(1.0, len, 1.0))
+
+
+func _wheel(pos: Vector3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = WHEEL_R
+	cyl.bottom_radius = WHEEL_R
+	cyl.height = 0.06
+	cyl.radial_segments = 12
+	mi.mesh = cyl
+	mi.material_override = MeshLib.cel_material(false, Palette.TIRE)
+	mi.position = pos
+	mi.rotation = Vector3(0.0, 0.0, PI * 0.5)
+	# Spokes: a hub disc so rotation is visible
+	var hub := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.05, 0.62, 0.08)
+	hub.mesh = box
+	hub.material_override = MeshLib.cel_material(false, Palette.SNOW_SHADE)
+	hub.rotation = Vector3(0.0, 0.0, PI * 0.5)
+	mi.add_child(hub)
+	add_child(mi)
+	return mi
+
+
+func _bar(a: Vector3, b: Vector3, thickness: float, col: Color) -> MeshInstance3D:
+	return _segment(a, b, thickness, col, self)
+
+
+func _segment(a: Vector3, b: Vector3, thickness: float, col: Color, parent: Node3D) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(thickness, 1.0, thickness)
+	mi.mesh = box
+	mi.material_override = MeshLib.cel_material(false, col)
+	parent.add_child(mi)
+	_place(mi, a, b)
+	return mi
+
+
+func _box(center: Vector3, size: Vector3, col: Color, parent: Node3D = self) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	mi.mesh = box
+	mi.material_override = MeshLib.cel_material(false, col)
+	mi.position = center
+	parent.add_child(mi)
+	return mi
