@@ -139,7 +139,11 @@ func apply_tuning(t: Dictionary) -> void:
 	_post.set_shader_parameter("outline_darken", float(t.get("outline", 0.0)))
 	camera.follow_distance = float(t.get("camera_distance", 7.8))
 	camera.follow_height = float(t.get("camera_height", 2.7))
-	terrain.density_scale = float(t.get("tree_density", 1.0))
+	var density := float(t.get("tree_density", 1.0))
+	if not is_equal_approx(density, terrain.density_scale):
+		terrain.density_scale = density
+		terrain.rebuild()
+		terrain.update_around(distance)
 	var h := int(t.get("internal_height", 240.0))
 	if h != _internal_height:
 		_internal_height = h

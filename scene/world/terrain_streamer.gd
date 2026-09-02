@@ -90,6 +90,13 @@ func height(x: float, z: float) -> float:
 	return base + off * (rough + hillside)
 
 
+## Drop every chunk so the next update regenerates them (after a density change).
+func rebuild() -> void:
+	for key in _chunks.keys():
+		_chunks[key].queue_free()
+	_chunks.clear()
+
+
 func update_around(z: float) -> void:
 	var center := int(floor(z / CHUNK_LEN))
 	for i in range(center - BEHIND, center + AHEAD + 1):
@@ -173,7 +180,8 @@ func _scatter(root: Node3D, z0: float) -> void:
 	for i in _dead_trees.size():
 		dead.append([] as Array[Transform3D])
 	var shrubs: Array[Transform3D] = []
-	for i in 140:
+	var samples := int(140 * maxf(density_scale, 1.0))
+	for i in samples:
 		var z := z0 + rng.randf() * CHUNK_LEN
 		var lateral := rng.randf_range(-HALF_WIDTH, HALF_WIDTH)
 		var x := trail.x_at(z) + lateral
@@ -191,7 +199,7 @@ func _scatter(root: Node3D, z0: float) -> void:
 			if rng.randf() < 0.3:
 				rocks[rng.randi() % rocks.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.6, 1.4)), Vector3(x, y - 0.1, z)))
 		elif ad > 3.0:
-			var density := (0.55 if lateral < 0.0 else 0.35) * density_scale   # denser on the uphill side
+			var density := (0.55 if lateral < 0.0 else 0.35) * minf(density_scale, 1.0)   # denser on the uphill side
 			var r := rng.randf()
 			if r < density:
 				pines[rng.randi() % pines.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(PINE_SCALE.x, PINE_SCALE.y)), Vector3(x, y - 0.05, z)))

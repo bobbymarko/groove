@@ -14,19 +14,19 @@ var last_ride_journal := ""
 ## Scene look, adjustable in Settings and on the ride screen (T). Applied by RideScene.apply_tuning().
 const TUNING_SPEC := [
 	# key, label, min, max, step, default
-	["shadow_strength", "Shadow strength", 0.0, 1.0, 0.01, 0.55],
-	["sun_elevation", "Sun elevation (°)", 8.0, 75.0, 1.0, 32.0],
+	["shadow_strength", "Shadow strength", 0.0, 1.0, 0.01, 0.93],
+	["sun_elevation", "Sun elevation (°)", 5.0, 75.0, 1.0, 10.0],
 	["sun_azimuth", "Sun direction (°)", 0.0, 360.0, 1.0, 40.0],
 	["sun_energy", "Sun brightness", 0.2, 1.6, 0.01, 0.8],
 	["ambient_energy", "Ambient light", 0.0, 1.2, 0.01, 0.4],
 	["shade_band", "Shaded-side brightness", 0.3, 1.0, 0.01, 0.66],
-	["fog_density", "Fog", 0.0, 0.012, 0.0002, 0.0028],
+	["fog_density", "Fog", 0.0, 0.012, 0.0002, 0.003],
 	["dither", "Dither", 0.0, 0.15, 0.005, 0.0],
 	["outline", "Outline", 0.0, 0.6, 0.01, 0.0],
-	["camera_distance", "Camera distance (m)", 4.0, 14.0, 0.1, 7.8],
-	["camera_height", "Camera height (m)", 1.0, 5.0, 0.1, 2.7],
-	["tree_density", "Tree density", 0.2, 2.0, 0.05, 1.0],
-	["internal_height", "Render height (px)", 144.0, 400.0, 8.0, 240.0],
+	["camera_distance", "Camera distance (m)", 3.0, 14.0, 0.1, 4.0],
+	["camera_height", "Camera height (m)", 1.0, 5.0, 0.1, 2.0],
+	["tree_density", "Tree density", 0.2, 3.0, 0.05, 2.0],
+	["internal_height", "Render height (px)", 144.0, 400.0, 8.0, 264.0],
 ]
 var scene_tuning: Dictionary = {}
 
