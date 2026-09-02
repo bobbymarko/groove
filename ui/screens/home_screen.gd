@@ -11,6 +11,7 @@ var _ride: Button
 var _error: Label
 var _dialog: FileDialog
 var _devices_l: Label
+var _sim_btn: Button
 
 
 func _ready() -> void:
@@ -35,7 +36,15 @@ func _refresh_devices() -> void:
 	if h != null and not (h is SimulatedHeartRate):
 		parts.append("%s %s" % [h.display_name(), "connected" if h.is_device_connected() else "reconnecting…"])
 	_devices_l.text = "  ·  ".join(parts)
-	_ride.text = "Ride" if Devices.has_real_trainer() else "Ride on simulator"
+	if Devices.real_trainer_ready():
+		_ride.text = "Ride"
+		_ride.disabled = App.workout == null
+	elif Devices.remembered.has("trainer"):
+		_ride.text = "Waiting for %s…" % Devices.remembered.trainer.name
+		_ride.disabled = true
+	else:
+		_ride.text = "Pair a trainer to ride"
+		_ride.disabled = true
 
 
 func _refresh_list() -> void:
@@ -57,6 +66,7 @@ func _on_selected(i: int) -> void:
 		_desc.text = ""
 		_error.text = ZwoParser.last_error
 		_ride.disabled = true
+		_sim_btn.disabled = true
 		return
 	App.workout = w
 	_error.text = ""
@@ -65,7 +75,8 @@ func _on_selected(i: int) -> void:
 	_meta.text = "%s  ·  %d min  ·  %d segments  ·  ~%d kJ at %d W FTP" % [
 		w.author, mins, w.segments.size(), int(w.estimated_kj(App.ftp)), App.ftp]
 	_desc.text = w.description
-	_ride.disabled = false
+	_sim_btn.disabled = false
+	_refresh_devices()
 
 
 func _on_ftp_changed(v: float) -> void:
@@ -94,10 +105,10 @@ func _on_file_chosen(path: String) -> void:
 			_on_selected(i)
 
 
-func _on_ride_pressed() -> void:
+func _on_ride_pressed(simulator: bool) -> void:
 	if App.workout == null:
 		return
-	if not Devices.has_real_trainer():
+	if simulator:
 		Devices.use_simulated_devices()
 	App.go_to("res://ui/screens/ride_screen.tscn")
 
@@ -179,10 +190,14 @@ func _build_ui() -> void:
 	dev_row.add_child(dev_btn)
 
 	_ride = Button.new()
-	_ride.text = "Ride on simulator"
+	_ride.text = "Ride"
 	_ride.custom_minimum_size.y = 44
-	_ride.pressed.connect(_on_ride_pressed)
+	_ride.pressed.connect(_on_ride_pressed.bind(false))
 	right.add_child(_ride)
+	_sim_btn = Button.new()
+	_sim_btn.text = "Ride on simulator"
+	_sim_btn.pressed.connect(_on_ride_pressed.bind(true))
+	right.add_child(_sim_btn)
 
 	_dialog = FileDialog.new()
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM

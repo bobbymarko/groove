@@ -62,6 +62,10 @@ func has_real_trainer() -> bool:
 	return trainer != null and trainer is FtmsTrainer
 
 
+func real_trainer_ready() -> bool:
+	return has_real_trainer() and trainer.is_device_connected()
+
+
 func is_pairing(address: String) -> bool:
 	return _pending.has(address)
 
@@ -125,7 +129,7 @@ func use_simulated_devices() -> void:
 		trainer = t
 		t.connect_device()
 		trainer_changed.emit(trainer)
-	if not (heart_rate is SimulatedHeartRate):
+	if heart_rate == null or heart_rate is SimulatedHeartRate:
 		_drop_heart_rate()
 		var hr := SimulatedHeartRate.new()
 		hr.name = "SimulatedHeartRate"
@@ -134,7 +138,7 @@ func use_simulated_devices() -> void:
 		heart_rate = hr
 		hr.connect_device()
 		heart_rate_sensor_changed.emit(heart_rate)
-	status.emit("Using simulated devices")
+	status.emit("Using simulated trainer")
 
 
 # --- internals -------------------------------------------------------------------

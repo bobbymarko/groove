@@ -13,6 +13,11 @@ signal adapter_error(message: String)
 var _bt: Variant = null       # GDBLE BluetoothManager; untyped so the project loads without the extension
 var _ready_ok := false
 var _scanning := false
+var _waiting: Dictionary = {}  # address -> GdblePeripheral waiting to be rediscovered
+var _rescan_wait := 0.0
+
+const REDISCOVERY_SCAN_SECONDS := 15.0
+const RESCAN_PAUSE := 1.0
 
 
 func _ready() -> void:
@@ -55,8 +60,29 @@ func stop_scan() -> void:
 
 func open(address: String, device_name := "") -> BlePeripheral:
 	var p := GdblePeripheral.new()
-	p.setup(_bt, address, device_name)
+	p.setup(self, _bt, address, device_name)
 	return p
+
+
+## A peripheral GDBLE no longer knows (it forgets devices after a disconnect)
+## asks to be reconnected as soon as a scan sees it again.
+func request_rediscovery(p: GdblePeripheral) -> void:
+	_waiting[p.address] = p
+	start_scan(REDISCOVERY_SCAN_SECONDS)
+
+
+func cancel_rediscovery(address: String) -> void:
+	_waiting.erase(address)
+
+
+func _process(delta: float) -> void:
+	# Keep scanning while anyone is waiting to be rediscovered.
+	if _waiting.is_empty() or _scanning or not _ready_ok:
+		return
+	_rescan_wait -= delta
+	if _rescan_wait <= 0.0:
+		_rescan_wait = RESCAN_PAUSE
+		start_scan(REDISCOVERY_SCAN_SECONDS)
 
 
 func _on_initialized(success: bool, error: String) -> void:
@@ -66,11 +92,16 @@ func _on_initialized(success: bool, error: String) -> void:
 
 func _on_device(info: Dictionary) -> void:
 	var rssi: Variant = info.get("rssi")
+	var address := str(info.get("address", ""))
 	device_found.emit({
-		"address": str(info.get("address", "")),
+		"address": address,
 		"name": str(info.get("name", "")),
 		"rssi": int(rssi) if (rssi is int or rssi is float) else 0,
 	})
+	if _waiting.has(address):
+		var p: GdblePeripheral = _waiting[address]
+		_waiting.erase(address)
+		p.connect_peripheral()
 
 
 ## BlePeripheral over a GDBLE BleDevice. GDBLE keeps one BleDevice per address
@@ -79,10 +110,12 @@ func _on_device(info: Dictionary) -> void:
 class GdblePeripheral:
 	extends BlePeripheral
 
+	var _adapter: BleAdapter
 	var _bt: Variant
 	var _dev: Variant = null
 
-	func setup(bt: Variant, addr: String, nm: String) -> void:
+	func setup(adapter: BleAdapter, bt: Variant, addr: String, nm: String) -> void:
+		_adapter = adapter
 		_bt = bt
 		address = addr
 		name = nm
@@ -93,7 +126,10 @@ class GdblePeripheral:
 			return
 		var dev: Variant = _bt.connect_device(address)
 		if dev == null:
-			connection_failed.emit("Device %s not found. Scan first." % address)
+			# GDBLE forgets a device once it disconnects. Wait for a scan to see
+			# it again; the adapter calls connect_peripheral() when it does.
+			_adapter.request_rediscovery(self)
+			operation_failed.emit("connect", "%s is out of reach, waiting for it to reappear" % (name if name != "" else address))
 			return
 		if dev != _dev:
 			_dev = dev
@@ -115,6 +151,7 @@ class GdblePeripheral:
 			sig.connect(handler)
 
 	func disconnect_peripheral() -> void:
+		_adapter.cancel_rediscovery(address)
 		if _bt != null and _connected:
 			_bt.disconnect_device(address)
 

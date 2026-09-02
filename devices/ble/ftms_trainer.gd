@@ -11,6 +11,9 @@ const WRITE_TIMEOUT := 2.5
 ## Trainers stream Indoor Bike Data about once a second even at rest. Silence
 ## this long means the link is gone, whether or not the backend says so.
 const DATA_TIMEOUT := 6.0
+## After DATA_TIMEOUT of silence, a read is issued; if it gets no answer in this
+## long the link is declared lost.
+const PROBE_TIMEOUT := 3.0
 
 var peripheral: BlePeripheral
 var auto_reconnect := true
@@ -27,6 +30,8 @@ var _reconnect_wait := 0.0
 var _reconnect_attempts := 0
 var _power_range := Vector2i(0, 0)
 var _since_data := 0.0
+var _probing := false
+var _probe_elapsed := 0.0
 
 
 func attach(p: BlePeripheral) -> void:
@@ -116,6 +121,7 @@ func _on_services(_services: Array) -> void:
 	_setup_done = true
 	_reconnect_attempts = 0
 	_since_data = 0.0
+	_probing = false
 	_enqueue(Gatt.ftms_request_control())
 	_enqueue(Gatt.ftms_start())
 	if _target >= 0:
@@ -174,6 +180,8 @@ func _on_notified(char_uuid: String, data: PackedByteArray) -> void:
 
 func _on_read(char_uuid: String, data: PackedByteArray) -> void:
 	if char_uuid == Gatt.FTMS_POWER_RANGE:
+		_probing = false
+		_since_data = 0.0
 		var r := Gatt.parse_power_range(data)
 		if not r.is_empty():
 			_power_range = Vector2i(r.min, r.max)
@@ -190,6 +198,8 @@ func _on_failed(operation: String, err: String) -> void:
 	if operation == "write":
 		_in_flight = false
 		_send_next()
+	elif operation == "read" and _probing:
+		_lost()
 
 
 # --- write queue and timers ------------------------------------------------------
@@ -220,9 +230,15 @@ func _process(delta: float) -> void:
 func tick(delta: float) -> void:
 	if _setup_done:
 		_since_data += delta
-		if _since_data > DATA_TIMEOUT:
-			status_changed.emit("%s: no data for %d s, treating as disconnected" % [display_name(), int(DATA_TIMEOUT)])
-			peripheral.mark_lost()
+		if _probing:
+			_probe_elapsed += delta
+			if _probe_elapsed > PROBE_TIMEOUT:
+				status_changed.emit("%s: no data for %d s and no reply to a probe, treating as disconnected" % [display_name(), int(DATA_TIMEOUT + PROBE_TIMEOUT)])
+				_lost()
+		elif _since_data > DATA_TIMEOUT:
+			_probing = true
+			_probe_elapsed = 0.0
+			peripheral.read(Gatt.FTMS_SERVICE, Gatt.FTMS_POWER_RANGE)
 	if _in_flight:
 		_write_elapsed += delta
 		if _write_elapsed > WRITE_TIMEOUT:
@@ -237,3 +253,8 @@ func tick(delta: float) -> void:
 func _schedule_reconnect() -> void:
 	_reconnect_wait = minf(RECONNECT_DELAY * pow(2.0, _reconnect_attempts), RECONNECT_MAX)
 	_reconnect_attempts += 1
+
+
+func _lost() -> void:
+	_probing = false
+	peripheral.mark_lost()

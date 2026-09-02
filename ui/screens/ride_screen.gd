@@ -50,20 +50,11 @@ func _ready() -> void:
 	_runner.bias_changed.connect(func(b: int): _bias_l.text = "Bias %d%%" % b)
 	_runner.finished.connect(_on_finished)
 
-	_trainer = Devices.trainer
-	_hr = Devices.heart_rate
-	if _trainer:
-		_trainer.power_changed.connect(func(w: int): _actual_power = w; _power.text = "%d" % w)
-		_trainer.cadence_changed.connect(func(c: int): _cadence = c; _cadence_l.text = "%d rpm" % c)
-		_trainer.connected.connect(_refresh_connection)
-		_trainer.disconnected.connect(_refresh_connection)
-		_trainer.status_changed.connect(func(_s: String) -> void: _refresh_connection())
-	if _hr:
-		_hr.connected.connect(_refresh_connection)
-		_hr.disconnected.connect(_refresh_connection)
+	_bind_trainer(Devices.trainer)
+	_bind_heart_rate(Devices.heart_rate)
+	Devices.trainer_changed.connect(_bind_trainer)
+	Devices.heart_rate_sensor_changed.connect(_bind_heart_rate)
 	_refresh_connection()
-	if _hr:
-		_hr.heart_rate_changed.connect(func(b: int): _bpm = b; _hr_l.text = "%d bpm" % b)
 
 	_runner.load_workout(App.workout, App.ftp)
 	_title.text = App.workout.name
@@ -84,10 +75,61 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F: _runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
 
 
+func _bind_trainer(t: Trainer) -> void:
+	_trainer = t
+	if t == null:
+		_refresh_connection()
+		return
+	t.power_changed.connect(_on_power)
+	t.cadence_changed.connect(_on_cadence)
+	t.connected.connect(_on_trainer_connected)
+	t.disconnected.connect(_refresh_connection)
+	t.status_changed.connect(func(_s: String) -> void: _refresh_connection())
+	_on_trainer_connected()
+
+
+func _bind_heart_rate(h: HeartRateSensor) -> void:
+	_hr = h
+	if h == null:
+		_refresh_connection()
+		return
+	h.heart_rate_changed.connect(_on_bpm)
+	h.connected.connect(_refresh_connection)
+	h.disconnected.connect(_refresh_connection)
+	_refresh_connection()
+
+
+func _on_power(w: int) -> void:
+	_actual_power = w
+	_power.text = "%d" % w
+
+
+func _on_cadence(c: int) -> void:
+	_cadence = c
+	_cadence_l.text = "%d rpm" % c
+
+
+func _on_bpm(b: int) -> void:
+	_bpm = b
+	_hr_l.text = "%d bpm" % b
+
+
+## A trainer that (re)connects mid-ride gets the current target straight away.
+func _on_trainer_connected() -> void:
+	if _trainer != null and _trainer.is_device_connected() and _runner != null and _runner.current_index >= 0:
+		if _runner.erg_enabled and _runner.current_target > 0:
+			_trainer.set_target_power(_runner.current_target)
+		elif not _runner.erg_enabled:
+			_trainer.set_resistance(0.35)
+	_refresh_connection()
+
+
 func _refresh_connection() -> void:
 	var problems: Array[String] = []
 	if _trainer == null:
 		problems.append("No trainer")
+	elif not is_instance_valid(_trainer):
+		problems.append("Trainer changed")
 	elif not _trainer.is_device_connected():
 		problems.append("%s disconnected, reconnecting…" % _trainer.display_name())
 	if _hr != null and not _hr.is_device_connected():

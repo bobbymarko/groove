@@ -179,8 +179,13 @@ func test_data_silence_is_treated_as_disconnect() -> void:
 		p.simulate_notify(Gatt.FTMS_INDOOR_BIKE_DATA, PackedByteArray([0x44, 0x00, 0, 0, 0, 0, 0xDC, 0x00]))
 	assert_true(t.is_device_connected())
 	assert_eq(events, ["connected"])
-	# Silence trips it.
+	# Silence triggers a probe read first...
+	p.reads.clear()
 	t.tick(FtmsTrainer.DATA_TIMEOUT + 0.1)
+	assert_eq(p.reads, [Gatt.FTMS_POWER_RANGE])
+	assert_true(t.is_device_connected())
+	# ...and an unanswered probe means the link is gone.
+	t.tick(FtmsTrainer.PROBE_TIMEOUT + 0.1)
 	assert_true(not t.is_device_connected())
 	assert_eq(events, ["connected", "disconnected"])
 	# ...and the normal reconnect path re-applies the target.
@@ -191,3 +196,13 @@ func test_data_silence_is_treated_as_disconnect() -> void:
 	p.ack_last_write()
 	p.ack_last_write()
 	assert_eq(p.writes[-1].decode_s16(1), 220)
+
+
+func test_answered_probe_keeps_link_alive() -> void:
+	_bring_up()
+	t.tick(FtmsTrainer.DATA_TIMEOUT + 0.1)
+	assert_eq(p.reads.count(Gatt.FTMS_POWER_RANGE), 2)  # one at setup, one probe
+	p.read_completed.emit(Gatt.FTMS_POWER_RANGE, PackedByteArray([0, 0, 0xD0, 0x07, 1, 0]))
+	t.tick(FtmsTrainer.PROBE_TIMEOUT + 0.1)
+	assert_true(t.is_device_connected())
+	assert_eq(events, ["connected"])
