@@ -96,8 +96,10 @@ static func pine() -> ArrayMesh:
 		var r: float = t[1]
 		var top_y: float = t[2]
 		var col := Palette.PINE_DARK if i % 2 == 0 else Palette.PINE
-		# Dark foliage skirt with snow on the upper 40 % of the tier.
-		cone(st, base_y, r, top_y, 0.0, 7, col, Palette.PINE_SNOW, 0.6)
+		# Snow rests on the outer edge of each branch layer: white lower rim,
+		# dark foliage above it. The tip of the tree is white too.
+		var is_tip := i == tiers.size() - 1
+		cone(st, base_y, r, top_y, 0.0, 7, Palette.PINE_SNOW, Palette.PINE_SNOW if is_tip else col, 0.28)
 	return finish(st)
 
 
