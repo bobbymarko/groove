@@ -45,6 +45,17 @@ Open the project in Godot and press Play, or run `tools/run-dev.sh`. Pick a work
 set FTP, press "Ride on simulator". Keys on the ride screen: Space pause/resume,
 Right skip segment, Up/Down bias ±1%, E toggle ERG, Esc end, F fast-forward (dev only).
 
+## Rides, FIT files, and uploads
+
+Rides are journalled one sample per second to `user://rides/<timestamp>.jsonl` (that is
+`~/Library/Application Support/Godot/app_userdata/Ride/rides/` on macOS) and encoded to a
+FIT file beside the journal when the ride ends. Unfinished journals are recovered on the
+next launch. Uploads are queued in `user://uploads.cfg` and retried on launch; the
+intervals.icu API key is stored encrypted in `user://secrets.cfg`.
+
+`tools/make_test_fit.gd` writes a synthetic ride for checking that a service accepts our
+FIT files.
+
 ## Bluetooth extension
 
 `addons/gdble/` is GDBLE (MIT), a Rust GDExtension over btleplug. The macOS arm64

@@ -26,3 +26,17 @@ Needs the KICKR CORE and a Bluetooth heart-rate strap.
 6. Quit the app and relaunch. Home shows "Looking for …". Within about 20 seconds both devices connect
    without visiting the Devices screen.
 7. On Devices, "Forget" a device. It is no longer auto-connected on the next launch.
+
+## M3: Record, FIT export, intervals.icu upload, COROS/Strava chain
+
+1. **COROS import test (no ride needed).** Generate a test file with
+   `godot --headless --path . -s tools/make_test_fit.gd -- build/ride-test-5min.fit`, AirDrop it to the
+   phone, import it in the COROS app. Expect: activity appears in COROS with power, cadence, HR; then
+   appears on Strava as a Virtual Ride within a few minutes. Delete both afterwards.
+2. **intervals.icu key.** Settings → paste personal API key → Test shows "Connected as <name>" → Save.
+3. **Real ride.** Ride a workout on the trainer. Finish (or End). Expect: summary screen with metrics,
+   "intervals.icu: uploaded", FIT file in the rides folder. Check the activity on intervals.icu.
+4. **Crash recovery.** Start a ride, record for a minute, force-quit the app. Relaunch. Home reports a
+   recovered ride; it is in Recent rides with a FIT file.
+5. **Offline upload.** Turn Wi-Fi off, finish a ride: summary shows "waiting to upload". Turn Wi-Fi on,
+   press "Upload to intervals.icu" (or relaunch): upload completes.

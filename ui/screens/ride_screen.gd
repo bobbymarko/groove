@@ -6,6 +6,7 @@ extends Control
 const MESSAGE_SECONDS := 8.0
 
 var _runner: WorkoutRunner
+var _recorder: RideRecorder
 var _trainer: Trainer
 var _hr: HeartRateSensor
 
@@ -56,6 +57,13 @@ func _ready() -> void:
 	Devices.heart_rate_sensor_changed.connect(_bind_heart_rate)
 	_refresh_connection()
 
+	_recorder = RideRecorder.new()
+	_recorder.name = "RideRecorder"
+	add_child(_recorder)
+	_recorder.attach_runner(_runner)
+	_runner.state_changed.connect(func(st: WorkoutRunner.State) -> void:
+		if st == WorkoutRunner.State.RUNNING and _recorder.ride_id == "":
+			_recorder.begin(App.workout.name, App.ftp))
 	_runner.load_workout(App.workout, App.ftp)
 	_title.text = App.workout.name
 	_graph.set_workout(App.workout)
@@ -82,6 +90,8 @@ func _bind_trainer(t: Trainer) -> void:
 		return
 	t.power_changed.connect(_on_power)
 	t.cadence_changed.connect(_on_cadence)
+	if _recorder:
+		_recorder.attach_trainer(t)
 	t.connected.connect(_on_trainer_connected)
 	t.disconnected.connect(_refresh_connection)
 	t.status_changed.connect(func(_s: String) -> void: _refresh_connection())
@@ -94,6 +104,8 @@ func _bind_heart_rate(h: HeartRateSensor) -> void:
 		_refresh_connection()
 		return
 	h.heart_rate_changed.connect(_on_bpm)
+	if _recorder:
+		_recorder.attach_heart_rate(h)
 	h.connected.connect(_refresh_connection)
 	h.disconnected.connect(_refresh_connection)
 	_refresh_connection()
@@ -194,6 +206,9 @@ func _on_erg(enabled: bool) -> void:
 func _on_finished(completed: bool) -> void:
 	if _trainer:
 		_trainer.set_target_power(0)
+	if _recorder.ride_id != "":
+		_recorder.finish(completed)
+		_finalize_ride()
 	var avg := 0
 	if _power_samples.size() > 0:
 		var sum := 0
@@ -204,6 +219,24 @@ func _on_finished(completed: bool) -> void:
 		"Workout complete" if completed else "Ended early", avg, int(_total_kj)]
 	_message_until = 0.0
 	_start_btn.disabled = true
+
+
+## Encode the FIT file, queue the upload, and show the summary.
+func _finalize_ride() -> void:
+	var metrics := RideMetrics.compute(_recorder.samples, App.ftp)
+	if _recorder.samples.size() > 0:
+		var bytes := FitEncoder.encode(_recorder.meta, _recorder.samples, metrics, true)
+		var f := FileAccess.open(_recorder.fit_path(), FileAccess.WRITE)
+		if f:
+			f.store_buffer(bytes)
+			f.close()
+		if Sync.intervals().is_configured():
+			Sync.enqueue("intervals", _recorder.fit_path(), App.workout.name,
+				"Ride · %d W avg · NP %d W · %d kJ · TSS %d" % [
+					int(metrics.avg_power), int(metrics.normalized_power), int(metrics.kj), int(round(float(metrics.tss)))])
+	App.last_ride_journal = _recorder.journal_path()
+	_message.text += "   → Summary"
+	get_tree().create_timer(1.5).timeout.connect(func() -> void: App.go_to("res://ui/screens/summary_screen.tscn"))
 
 
 # --- UI ---------------------------------------------------------------------

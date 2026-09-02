@@ -12,6 +12,8 @@ var _error: Label
 var _dialog: FileDialog
 var _devices_l: Label
 var _sim_btn: Button
+var _rides: ItemList
+var _ride_entries: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -21,6 +23,46 @@ func _ready() -> void:
 	Devices.heart_rate_sensor_changed.connect(func(_h: HeartRateSensor) -> void: _refresh_devices())
 	Devices.status.connect(func(_s: String) -> void: _refresh_devices())
 	_refresh_devices()
+	_refresh_rides()
+	_recover_unfinished()
+
+
+func _refresh_rides() -> void:
+	_ride_entries = App.list_rides()
+	_rides.clear()
+	for r in _ride_entries:
+		var when := Time.get_datetime_string_from_unix_time(int(r.meta.get("started_at", 0)), true).replace("T", " ")
+		_rides.add_item("%s   %s   %d min%s" % [when.left(16), str(r.meta.get("workout", "Ride")), int(r.samples) / 60, "" if r.finished else "   (unfinished)"])
+
+
+func _on_ride_selected(i: int) -> void:
+	App.last_ride_journal = _ride_entries[i].journal
+	App.go_to("res://ui/screens/summary_screen.tscn")
+
+
+## A journal without an end line means the app died mid-ride. Finalize it so
+## the FIT file exists and the ride can be uploaded.
+func _recover_unfinished() -> void:
+	for path in RideRecorder.unfinished_journals():
+		var j := RideRecorder.load_journal(path)
+		var meta: Dictionary = j.meta
+		var samples: Array = j.samples
+		var metrics := RideMetrics.compute(samples, int(meta.get("ftp", App.ftp)))
+		var fit := path.get_basename() + ".fit"
+		if not FileAccess.file_exists(fit):
+			var f := FileAccess.open(fit, FileAccess.WRITE)
+			if f:
+				f.store_buffer(FitEncoder.encode(meta, samples, metrics, true))
+				f.close()
+		var jf := FileAccess.open(path, FileAccess.READ_WRITE)
+		if jf:
+			jf.seek_end()
+			jf.store_line(JSON.stringify({"end": {"ended_at": int(samples[-1].t), "completed": false, "recovered": true}}))
+			jf.close()
+		_error.text = "Recovered an unfinished ride: %s" % str(meta.get("workout", path.get_file()))
+	if not RideRecorder.unfinished_journals().is_empty():
+		return
+	_refresh_rides()
 
 
 func _refresh_devices() -> void:
@@ -173,6 +215,14 @@ func _build_ui() -> void:
 	_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_desc.fit_content = false
 	right.add_child(_desc)
+	var rides_h := Label.new()
+	rides_h.text = "Recent rides"
+	rides_h.add_theme_font_size_override("font_size", 16)
+	right.add_child(rides_h)
+	_rides = ItemList.new()
+	_rides.custom_minimum_size.y = 120
+	_rides.item_activated.connect(_on_ride_selected)
+	right.add_child(_rides)
 	_error = Label.new()
 	_error.modulate = Color(1, 0.5, 0.5)
 	right.add_child(_error)
@@ -188,6 +238,10 @@ func _build_ui() -> void:
 	dev_btn.text = "Devices…"
 	dev_btn.pressed.connect(func() -> void: App.go_to("res://ui/screens/devices_screen.tscn"))
 	dev_row.add_child(dev_btn)
+	var settings_btn := Button.new()
+	settings_btn.text = "Settings…"
+	settings_btn.pressed.connect(func() -> void: App.go_to("res://ui/screens/settings_screen.tscn"))
+	dev_row.add_child(settings_btn)
 
 	_ride = Button.new()
 	_ride.text = "Ride"

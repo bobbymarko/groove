@@ -10,16 +10,36 @@ func _initialize() -> void:
 		push_error("usage: -- <scene.tscn> <out.png> [ride]")
 		quit(2)
 		return
-	_run(args[0], args[1], args.size() > 2 and args[2] == "ride")
+	_run(args[0], args[1], args[2] if args.size() > 2 else "")
 
 
-func _run(scene_path: String, out_path: String, ride: bool) -> void:
+func _run(scene_path: String, out_path: String, mode: String) -> void:
 	await process_frame
 	var app: Node = root.get_node("App")
 	var devices: Node = root.get_node("Devices")
+	var ride := mode == "ride"
 	if ride:
 		app.workout = ZwoParser.parse_file("res://workouts/cadence_today.zwo")
 		devices.use_simulated_devices()
+	if mode == "summary":
+		# Synthesize a finished 20-minute ride so the summary has data.
+		var rec := RideRecorder.new()
+		rec.name = "RideRecorder"
+		root.add_child(rec)
+		rec.begin("Cadence: Corner Exit", 250, 1756800000)
+		for i in 1200:
+			var hard := (i / 60) % 3 == 1
+			rec.on_power((265 if hard else 125) + (i % 9) - 4)
+			rec.on_cadence(95 if hard else 85)
+			rec.on_heart_rate((160 if hard else 128) + (i % 4))
+			rec.on_speed(34.0 if hard else 24.0)
+			rec.record_sample(float(i), 1756800000 + i)
+		rec.finish(true, 1756800000 + 1200)
+		var metrics := RideMetrics.compute(rec.samples, 250)
+		var f := FileAccess.open(rec.fit_path(), FileAccess.WRITE)
+		f.store_buffer(FitEncoder.encode(rec.meta, rec.samples, metrics, true))
+		f.close()
+		app.last_ride_journal = rec.journal_path()
 	var scene: Node = load(scene_path).instantiate()
 	root.add_child(scene)
 	if ride:
@@ -36,6 +56,11 @@ func _run(scene_path: String, out_path: String, ride: bool) -> void:
 	for i in 5:
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()
+	if mode == "summary":
+		# Do not leave the synthetic ride in the real library.
+		var rec: RideRecorder = root.get_node("RideRecorder")
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(rec.journal_path()))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(rec.fit_path()))
 	var abs := ProjectSettings.globalize_path(out_path) if out_path.begins_with("res://") else out_path
 	var err := img.save_png(abs)
 	print("screenshot %s -> %s" % [scene_path, abs if err == OK else error_string(err)])
