@@ -7,6 +7,7 @@ const MESSAGE_SECONDS := 8.0
 
 var _runner: WorkoutRunner
 var _recorder: RideRecorder
+var _scene: RideScene
 var _trainer: Trainer
 var _hr: HeartRateSensor
 
@@ -153,6 +154,9 @@ func _refresh_connection() -> void:
 # --- runner events -----------------------------------------------------------
 
 func _on_tick(snap: Dictionary) -> void:
+	_scene.riding = snap.state == WorkoutRunner.State.RUNNING
+	_scene.power = float(_actual_power)
+	_scene.cadence = float(_cadence)
 	_clock.text = "%s  /  %s" % [_fmt(snap.elapsed), _fmt(snap.total)]
 	_countdown.text = _fmt(snap.segment_remaining)
 	_graph.set_progress(snap.elapsed, snap.bias)
@@ -221,6 +225,18 @@ func _on_finished(completed: bool) -> void:
 	_start_btn.disabled = true
 
 
+## Target as a fraction of FTP at a point `metres_ahead` up the trail, for the
+## terrain generator: hard efforts become climbs, recoveries descents.
+func _target_fraction_ahead(metres_ahead: float) -> Variant:
+	if _runner == null or _runner.workout == null:
+		return null
+	var speed := maxf(_scene.physics.speed, 4.0)
+	var t := _runner.elapsed + metres_ahead / speed
+	if t >= _runner.workout.total_duration():
+		return 0.6
+	return _runner.workout.target_fraction_at(t)
+
+
 ## Encode the FIT file, queue the upload, and show the summary.
 func _finalize_ride() -> void:
 	var metrics := RideMetrics.compute(_recorder.samples, App.ftp)
@@ -247,10 +263,12 @@ func _fmt(seconds: float) -> String:
 
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.1, 0.14)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	_scene = RideScene.new()
+	_scene.name = "RideScene"
+	_scene.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_scene)
+	_scene.set_shake(App.camera_shake)
+	_scene.target_fraction_ahead = _target_fraction_ahead
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -275,24 +293,27 @@ func _build_ui() -> void:
 	_next = _label(v, "", 16)
 	_next.modulate = Color(1, 1, 1, 0.6)
 
+	# Metrics sit left and right so the rider in the middle of the scene stays visible.
 	var center := HBoxContainer.new()
-	center.alignment = BoxContainer.ALIGNMENT_CENTER
-	center.add_theme_constant_override("separation", 48)
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(center)
 	var pcol := VBoxContainer.new()
 	pcol.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(pcol)
 	_power = _label(pcol, "—", 120)
-	_power.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_target = _label(pcol, "Target — W", 32)
-	_target.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var gap := Control.new()
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.add_child(gap)
 	var scol := VBoxContainer.new()
 	scol.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(scol)
 	_countdown = _label(scol, "0:00", 64)
+	_countdown.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_cadence_l = _label(scol, "— rpm", 32)
+	_cadence_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hr_l = _label(scol, "— bpm", 32)
+	_hr_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 	_message = _label(v, "", 22)
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -324,6 +345,8 @@ func _label(parent: Control, text: String, font_size: int) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_outline_color", Color(0.08, 0.09, 0.14, 0.9))
+	l.add_theme_constant_override("outline_size", maxi(int(font_size / 8), 2))
 	parent.add_child(l)
 	return l
 

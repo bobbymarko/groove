@@ -56,6 +56,20 @@ intervals.icu API key is stored encrypted in `user://secrets.cfg`.
 `tools/make_test_fit.gd` writes a synthetic ride for checking that a service accepts our
 FIT files.
 
+## Scene
+
+`scene/ride_scene.gd` renders the 3D world into a 240 px tall SubViewport and draws it
+through `scene/post/pixel_post.gdshader` (dither, palette quantization, outlines). All
+mesh geometry is built in code by `scene/world/mesh_lib.gd` with flat normals and vertex
+colours from `scene/palette.gd`; Godot front faces are clockwise, which `MeshLib.tri`
+handles. Preview the scene standalone:
+
+```bash
+tools/shot.sh x build/scene.png scene            # perspective, demo telemetry
+tools/shot.sh x build/scene_top.png scene top    # top-down debug view
+tools/shot.sh x build/scene.png scene nocull     # debug: cel shader without culling
+```
+
 ## Bluetooth extension
 
 `addons/gdble/` is GDBLE (MIT), a Rust GDExtension over btleplug. The macOS arm64
