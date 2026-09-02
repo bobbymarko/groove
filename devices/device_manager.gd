@@ -100,11 +100,13 @@ func pair(address: String) -> void:
 	var p := adapter.open(address, str(info.get("name", "")))
 	_pending[address] = p
 	status.emit("Connecting to %s…" % (p.name if p.name != "" else address))
-	p.connected.connect(func() -> void: p.discover_services())
+	# One-shot probe hooks: after roles are assigned the profile objects own
+	# the peripheral's lifecycle, including reconnects.
+	p.connected.connect(func() -> void: p.discover_services(), CONNECT_ONE_SHOT)
 	p.connection_failed.connect(func(err: String) -> void:
 		_pending.erase(address)
-		status.emit("Could not connect to %s: %s" % [p.name, err]))
-	p.services_discovered.connect(func(_s: Array) -> void: _assign_roles(p))
+		status.emit("Could not connect to %s: %s" % [p.name, err]), CONNECT_ONE_SHOT)
+	p.services_discovered.connect(func(_s: Array) -> void: _assign_roles(p), CONNECT_ONE_SHOT)
 	p.connect_peripheral()
 
 
@@ -171,7 +173,9 @@ func _on_device_found(info: Dictionary) -> void:
 func _assign_roles(p: BlePeripheral) -> void:
 	_pending.erase(p.address)
 	var assigned: Array[String] = []
-	if p.has_service(Gatt.FTMS_SERVICE):
+	if p.has_service(Gatt.FTMS_SERVICE) and trainer is FtmsTrainer and trainer.peripheral == p:
+		assigned.append("trainer")   # already ours; a reconnect must not rebuild it
+	elif p.has_service(Gatt.FTMS_SERVICE):
 		_drop_trainer()
 		var t := FtmsTrainer.new()
 		t.name = "FtmsTrainer"
@@ -182,7 +186,9 @@ func _assign_roles(p: BlePeripheral) -> void:
 		remembered["trainer"] = {"address": p.address, "name": p.name}
 		assigned.append("trainer")
 		trainer_changed.emit(trainer)
-	if p.has_service(Gatt.HEART_RATE_SERVICE):
+	if p.has_service(Gatt.HEART_RATE_SERVICE) and heart_rate is BleHeartRate and heart_rate.peripheral == p:
+		assigned.append("heart_rate")
+	elif p.has_service(Gatt.HEART_RATE_SERVICE):
 		_drop_heart_rate()
 		var hr := BleHeartRate.new()
 		hr.name = "BleHeartRate"

@@ -17,6 +17,7 @@ signal adapter_error(message: String)
 var _bt: Variant = null       # GDBLE BluetoothManager; untyped so the project loads without the extension
 var _ready_ok := false
 var _scanning := false
+var _scan_requested := false   # start_scan deferred but not yet confirmed
 var _waiting: Dictionary = {}  # address -> GdblePeripheral waiting to be rediscovered
 var _rescan_wait := 0.0
 
@@ -33,8 +34,8 @@ func _ready() -> void:
 	_bt.adapter_initialized.connect(_on_initialized)
 	_bt.device_discovered.connect(_on_device)
 	_bt.device_updated.connect(_on_device)
-	_bt.scan_started.connect(func() -> void: _scanning = true; scan_started.emit())
-	_bt.scan_stopped.connect(func() -> void: _scanning = false; scan_stopped.emit())
+	_bt.scan_started.connect(func() -> void: _scanning = true; _scan_requested = false; scan_started.emit())
+	_bt.scan_stopped.connect(func() -> void: _scanning = false; _scan_requested = false; scan_stopped.emit())
 	_bt.error_occurred.connect(func(msg: String) -> void: adapter_error.emit(msg))
 	if _bt.has_signal("ble_event"):
 		_bt.ble_event.connect(_on_ble_event)
@@ -43,8 +44,13 @@ func _ready() -> void:
 ## GDBLE 0.6 reports every operation phase here. Log connection-level ones.
 func _on_ble_event(event: Dictionary) -> void:
 	var op := str(event.get("operation", ""))
-	if op in ["connect", "disconnect", "scan"]:
-		print("[ble] %s %s %s %s" % [op, str(event.get("phase", "")), str(event.get("device_address", "")), str(event.get("error", ""))])
+	var phase := str(event.get("phase", ""))
+	if op == "scan" and phase in ["failed", "cancelled"]:
+		_scan_requested = false
+	if op in ["connect", "disconnect", "scan"] and phase != "progress":
+		var err: Dictionary = event.get("error", {})
+		var err_text := str(err.get("message", "")) if err is Dictionary else str(err)
+		print("[ble] %s %s %s %s" % [op, phase, str(event.get("device_address", "")), err_text])
 
 
 func initialize() -> void:
@@ -62,7 +68,8 @@ func is_scanning() -> bool:
 
 
 func start_scan(seconds: float = 15.0) -> void:
-	if _bt != null and _ready_ok and not _scanning:
+	if _bt != null and _ready_ok and not _scanning and not _scan_requested:
+		_scan_requested = true
 		_bt.call_deferred("start_scan", seconds)
 
 
