@@ -11,7 +11,7 @@ Run these on real hardware at the end of any milestone that touches the device l
 4. Pedal. Live power and cadence update on screen.
 5. Press 200 W then 100 W. Resistance changes within about a second; each change logs a `success`.
 
-## M2: Pairing, heart rate, and dropout recovery
+## M2: Pairing, heart rate, and dropout recovery (passed 2026-09-02, KICKR CORE + TICKR)
 
 Needs the KICKR CORE and a Bluetooth heart-rate strap.
 

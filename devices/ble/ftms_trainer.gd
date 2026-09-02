@@ -35,6 +35,7 @@ var _power_range := Vector2i(0, 0)
 var _since_data := 0.0
 var _probing := false
 var _probe_elapsed := 0.0
+var _debug_packets := 0
 
 
 func attach(p: BlePeripheral) -> void:
@@ -163,6 +164,9 @@ func _on_notified(char_uuid: String, data: PackedByteArray) -> void:
 	match char_uuid:
 		Gatt.FTMS_INDOOR_BIKE_DATA:
 			var r := Gatt.parse_indoor_bike_data(data)
+			_debug_packets += 1
+			if _debug_packets <= 8 or _debug_packets % 30 == 0:
+				print("[ftms] ibd %s -> %s" % [_hex(data), str(r)])
 			if r.has("power_w"):
 				power_changed.emit(int(r.power_w))
 			if r.has("cadence_rpm"):
@@ -270,3 +274,10 @@ func _schedule_reconnect() -> void:
 func _lost() -> void:
 	_probing = false
 	peripheral.mark_lost()
+
+
+static func _hex(b: PackedByteArray) -> String:
+	var parts: Array[String] = []
+	for x in b:
+		parts.append("%02x" % x)
+	return " ".join(parts)
