@@ -1,0 +1,233 @@
+# Spec: Ride — requirements and design
+
+**Input:** `intent.md` (approved 2026-09-02)
+**Author:** Claude, with Bob Marko as product owner
+**Date:** 2026-09-02
+**Status:** Draft, awaiting product owner review
+**Stage:** 2 — Design (AI-native SDLC)
+
+This document turns the intent into a buildable design. It records what the first version must do, how it is structured, what is deliberately deferred, and the concerns that need a decision before or during the build. It is paired with `intent.md`; where the two disagree, fix the intent first.
+
+---
+
+## 1. Scope
+
+### 1.1 First version (v1, Mac)
+
+A rider can do this end to end with no other software:
+
+1. Open the app, pair a Wahoo KICKR CORE and a heart-rate strap over Bluetooth.
+2. Set their FTP.
+3. Load a `.zwo` workout file.
+4. Ride it. The trainer holds target power in ERG mode. The HUD shows the interval plan, time, target and actual power, cadence, and heart rate. A winter mountain-bike trail scene plays with a handheld camera.
+5. Finish. The ride is saved as a FIT file on disk and uploaded to Strava.
+
+### 1.2 Explicitly deferred
+
+| Deferred | Target |
+|---|---|
+| Windows build | v1.1, once Mac is stable. Same codebase. |
+| Other seasons and workout-reactive scene | v1.1 |
+| COROS direct upload | When COROS grants API access. Fallback in 4.5. |
+| Garmin, Wahoo, TrainingPeaks, intervals.icu connectors | Later |
+| `.fit`, `.erg`, `.mrc` workout import; pulling workouts from services | Later |
+| ANT+ and non-FTMS trainers | Later |
+| Free-ride mode with no workout | Later, cheap once the engine exists |
+| iOS and Android | Later; architecture must not block them |
+| Accounts, cloud sync, backend | Not planned |
+
+---
+
+## 2. Requirements
+
+### 2.1 Functional
+
+**Devices**
+- R1. Scan for and connect to Bluetooth LE trainers exposing the Fitness Machine Service (FTMS), and to heart-rate, cycling-power, and speed/cadence sensors.
+- R2. Control trainer resistance in ERG mode: set a target power in watts and have the trainer hold it.
+- R3. Read power, cadence, and heart rate at least once per second while riding.
+- R4. Remember paired devices and reconnect automatically on launch and after a dropout, without ending the ride.
+- R5. Provide a simulated trainer so the full app runs with no hardware. Required for development and automated tests.
+
+**Workouts**
+- R6. Parse Zwift `.zwo` files: `Warmup`, `Cooldown`, `SteadyState`, `IntervalsT`, `Ramp`, `FreeRide`, `MaxEffort`, and `textevent`. Power values are fractions of FTP and are scaled by the user's FTP.
+- R7. Run the workout as a timeline: current segment, time remaining in segment and workout, target power at every second (ramps interpolate).
+- R8. Ride controls: start, pause, resume, skip to next interval, adjust workout intensity up or down in steps (Zwift calls this bias), toggle ERG off to ride an interval on resistance mode, end early.
+- R9. Show text events at their scheduled time.
+
+**Ride display (HUD)**
+- R10. Show the whole workout as a bar graph of segments with a playhead, plus the current and next segment.
+- R11. Show target power, actual power (3-second smoothed), cadence, heart rate, elapsed and remaining time, and interval countdown, readable from a bike two meters away.
+- R12. Show a compliance cue: actual versus target power, colored by how close the rider is.
+
+**Scene**
+- R13. Render a procedural mountain-bike trail in a pixel-art style matching `game-aesthetic.mp4`: low internal resolution, limited palette, outlines, falling snow, pines, layered mountains.
+- R14. Third-person camera behind a rider on a bike, with a handheld feel. Rider pedals at the measured cadence, wheels turn, and the rider leans through turns.
+- R15. Scene runs at a steady 60 frames per second on any Apple silicon Mac and does not interfere with device timing.
+
+**Recording and sync**
+- R16. Record a sample every second: timestamp, power, cadence, heart rate, target power, and segment index.
+- R17. Journal samples to disk during the ride so a crash or power loss loses at most a few seconds.
+- R18. On finish, write a FIT activity file and show a summary: duration, average and normalized power, average heart rate, kilojoules, intensity factor, and training stress score.
+- R19. Connect a Strava account via OAuth and upload the FIT file automatically on finish, with a retry queue for failures.
+- R20. Keep all ride files in a local library the user can open in Finder.
+
+**Settings**
+- R21. FTP, weight, units, Strava connection, paired devices, scene options.
+
+### 2.2 Non-functional
+
+- N1. **Never lose a ride.** Device dropouts, app crashes, and upload failures must not lose recorded data.
+- N2. **ERG responsiveness.** A new target reaches the trainer within one second of the segment change.
+- N3. **Local only.** No server owned by this project. All data stays on the user's machine. Connector tokens are stored encrypted.
+- N4. **Portable core.** No platform-specific code outside the device adapter and packaging. GDScript everywhere else.
+- N5. **Testable without hardware.** Every layer above the Bluetooth adapter is exercised by automated tests using the simulated trainer.
+- N6. **Distributable.** The Mac build is signed and notarized so it opens without warnings.
+
+---
+
+## 3. Architecture
+
+Godot 4.7 (latest stable), GDScript, Compatibility renderer. One Godot project. The Bluetooth layer is the only native code.
+
+```
+ride/
+  project.godot
+  core/
+    workout/     zwo parser, Workout model, WorkoutRunner (timeline + controls)
+    telemetry/   RideRecorder (1 Hz samples, disk journal), Metrics (NP, IF, TSS)
+    export/      FitEncoder
+  devices/
+    interfaces/  Trainer, PowerSensor, CadenceSensor, HeartRateSensor
+    ble/         BleAdapter (wraps GDBLE), profiles: FTMS, CPS, CSC, HRM
+    sim/         SimulatedTrainer, SimulatedHeartRate
+    DeviceManager  scan, pair, remember, reconnect
+  connectors/
+    Connector interface, StravaConnector (OAuth + upload), UploadQueue
+  ui/
+    screens: Home, Devices, Settings, Ride, Summary
+    hud/     WorkoutGraph, PowerDial, Metrics
+  scene/
+    world/     TerrainGenerator, TrailSpline, Scatter (trees, rocks), Weather
+    rider/     Rider (low-poly), PedalIK, Lean
+    camera/    HandheldCamera
+    post/      PixelViewport, palette + dither + outline shaders
+    seasons/   palette and weather presets (winter only in v1)
+  addons/
+    gdble/     third-party Bluetooth extension
+  tests/       gdUnit4 tests
+```
+
+### 3.1 Layer rules
+
+- `core` depends on nothing else in the project. It is plain data and logic.
+- `devices/interfaces` are abstract classes. `ble` and `sim` implement them. Nothing outside `devices` imports GDBLE.
+- `ui` and `scene` consume signals from `WorkoutRunner` and `DeviceManager`. They never talk to devices directly.
+- `connectors` consume a finished FIT file and a token store. They know nothing about rides in progress.
+
+### 3.2 Device layer
+
+The trainer interface is small on purpose. Anything that implements it works with the rest of the app.
+
+```
+Trainer
+  signals: connected, disconnected, power(watts), cadence(rpm), speed(kph), status(dict)
+  connect(), disconnect()
+  set_target_power(watts)        ERG
+  set_resistance(level)          resistance mode (ERG off)
+  supported_power_range() -> (min, max)
+```
+
+FTMS mapping used by the Bluetooth implementation:
+
+| Purpose | Service | Characteristic |
+|---|---|---|
+| Trainer telemetry (power, cadence, speed) | Fitness Machine 0x1826 | Indoor Bike Data 0x2AD2 (notify) |
+| Trainer control | 0x1826 | Control Point 0x2AD9 (write, indicate) |
+| Trainer status | 0x1826 | Machine Status 0x2ADA (notify) |
+| Power limits | 0x1826 | Supported Power Range 0x2AD8 (read) |
+| Power meter | Cycling Power 0x1818 | Measurement 0x2A63 (notify) |
+| Cadence sensor | Speed and Cadence 0x1816 | Measurement 0x2A5B (notify) |
+| Heart rate | Heart Rate 0x180D | Measurement 0x2A37 (notify) |
+
+Control point sequence: Request Control (0x00), then Start (0x07), then Set Target Power (0x05, signed 16-bit watts) on every target change. Every write waits for the indication response before the next write.
+
+The Bluetooth adapter wraps GDBLE's `BluetoothManager` and `BleDevice` behind six calls: scan, connect, discover, subscribe, read, write. GDBLE's `ble_event` signal is demultiplexed into per-characteristic callbacks. Only this file changes when the extension changes or an iOS adapter is added.
+
+### 3.3 Workout engine
+
+`Workout` is a list of segments, each with a duration and a power function of time (constant or linear ramp), optional cadence target, and optional text events. `IntervalsT` expands into alternating segments. `FreeRide` segments have no target and put the trainer into resistance mode.
+
+`WorkoutRunner` is a state machine (`idle`, `ready`, `running`, `paused`, `finished`) driven by a one-second tick. Each tick it computes target power from the timeline, the user's FTP, and the current bias, emits `target_changed` when it differs from the last one, and emits `segment_changed` and `text_event` as they occur. Controls in R8 mutate the timeline position or the bias.
+
+### 3.4 Recording and FIT
+
+`RideRecorder` subscribes to the runner and the devices, samples once per second, and appends each sample as a line to a journal file in `user://rides/<id>.jsonl`. On finish, `FitEncoder` reads the journal and writes a FIT activity: file header, `file_id`, `device_info`, `event` start, one `record` per sample, `event` stop, `lap`, `session` (sport cycling, sub-sport indoor cycling, with a setting to mark it as a virtual ride), `activity`, and the CRC. If the app is relaunched with an unfinished journal, it offers to recover the ride.
+
+FIT is written by hand in GDScript. It is a well-documented binary format and the activity subset is small. Output is validated in tests against the reference FIT SDK's CSV tool.
+
+### 3.5 Strava connector
+
+Desktop OAuth: the app opens the Strava authorization page in the system browser, listens on a loopback port with Godot's `TCPServer` for the redirect, exchanges the code for tokens, and stores them encrypted in `user://`. Scope `activity:write`. Upload is a multipart POST to the uploads endpoint with `data_type=fit`, then polling the upload status. Failures go into a persisted queue retried on launch and on demand. See concern C2 on the client secret.
+
+### 3.6 Scene and rendering
+
+- **Pixel pipeline.** The 3D world renders into a `SubViewport` at a fixed internal height of 240 pixels (width follows the window aspect). It is drawn to the window with nearest-neighbor scaling at an integer factor where possible. A post-process shader quantizes to a per-season palette of roughly 24 colors, applies ordered dithering on gradients, and draws single-pixel outlines from depth and normal edges. Lighting is two-band cel shading with flat colors and no textures.
+- **World.** A heightmap from layered noise, with a trail carved along a spline that meanders and climbs. Trees, rocks, and stumps are scattered as instanced low-poly meshes with density by slope and distance from the trail. Terrain streams ahead of the rider in chunks and is recycled behind. Snow is a particle system; ground snow is a shader layer.
+- **Rider.** A low-poly rider and bike built from primitives, about 40 internal pixels tall on screen. Wheels and cranks rotate with measured cadence. Legs follow the pedals with `SkeletonIK3D`. The rider leans with trail curvature. Speed along the trail comes from power via a simple physics model so harder intervals visibly move faster.
+- **Camera.** Third-person follow camera with layered noise on position and rotation for the handheld feel, tuned so it reads as lively and never as nauseating. Amplitude is a setting.
+- **Seasons.** A season is a palette, a weather preset, a scatter preset, and a ground shader preset. Winter ships in v1; the data structure is in place so spring, summer, and autumn are content, not code.
+- **Reactivity (v1.1).** Hooks exist from day one for gradient, speed, and camera amplitude to respond to power and interval type. Only speed is wired in v1.
+
+### 3.7 UI flow
+
+Home (workout library, recent rides, device status) → Devices (scan, pair, forget) → Ride (scene full-screen, HUD overlay) → Summary (metrics, upload status, open file) → back to Home. Settings is reachable from Home.
+
+---
+
+## 4. Concerns flagged for decision
+
+- **C1. Bluetooth on macOS via GDBLE is unproven for this device.** GDBLE supports macOS and exposes what we need, but nobody on this project has driven a KICKR CORE with it. Milestone 0 exists to settle this. If it fails, the fallback is a small custom GDExtension over CoreBluetooth for Mac, which also covers iOS later.
+- **C2. Strava has no PKCE, so token exchange needs a client secret.** Shipping the secret inside a desktop binary is common practice for indie apps but is extractable. The alternative is a tiny stateless token-exchange function hosted somewhere, which is a backend in miniature. Recommendation: ship the secret in v1 for personal use, decide before public release.
+- **C3. New Strava API apps are limited to one connected athlete.** Fine for personal use. Public release requires requesting a capacity increase from Strava, which takes review time. Start that request early.
+- **C4. COROS inbound sync requires partner API approval.** COROS accepts applications through a form and grants OAuth access to platforms meeting their requirements. Submit early. Until approved, COROS support means the user imports the FIT file through the COROS app manually, which COROS supports.
+- **C5. macOS Bluetooth permission and notarization.** The app needs a Bluetooth usage description in its Info.plist and, if sandboxed, the Bluetooth entitlement. Godot's macOS export may need a post-export step to add these. Distribution outside the App Store requires a Developer ID and notarization.
+- **C6. Token storage.** Godot has no keychain access. Tokens will be encrypted with a key derived from a per-install secret stored in `user://`. This is adequate for v1 and weaker than the OS keychain. A native keychain shim is a later improvement.
+- **C7. iOS Bluetooth adapter.** GDBLE does not build for iOS, though the library beneath it does. Options when iOS arrives: an iOS build of GDBLE, SwiftGodot with CoreBluetooth, or SimpleBLE (commercial license terms to check). No decision needed now; the adapter boundary keeps it contained.
+
+---
+
+## 5. Milestones
+
+Riskiest first. Each milestone ends with something that runs.
+
+| # | Milestone | Done when |
+|---|---|---|
+| 0 | **Bluetooth spike** | A bare Godot scene connects to the KICKR CORE via GDBLE on the Mac, prints live power and cadence, and holds 150 W then 200 W in ERG. Go/no-go for the stack. |
+| 1 | **Engine on simulator** | Load a `.zwo`, ride it against the simulated trainer with a text-only HUD. All R6 to R9 controls work. Tests cover the parser and runner. |
+| 2 | **Real devices** | Pairing screen, real trainer and heart-rate strap, auto-reconnect, dropout does not end the ride. |
+| 3 | **Record and upload** | Journal, FIT export validated by the FIT SDK tool, summary screen, Strava OAuth and upload with retry. First real workout ridden and posted. |
+| 4 | **Scene v1** | Winter trail, rider pedaling at real cadence, handheld camera, pixel post-process. 60 fps. HUD overlaid on the scene. |
+| 5 | **Polish and ship Mac** | Settings, library, workout graph HUD, signed and notarized build. Cancel Zwift. |
+| 6 | **Windows** | Same project exported to Windows, Bluetooth verified on one Windows machine. |
+| 7 | **Seasons and reactivity** | Spring, summer, autumn presets. Gradient and camera respond to intervals. |
+
+---
+
+## 6. Testing and feedback loop
+
+- gdUnit4 for unit tests, run headless in CI on every push.
+- The simulated trainer makes the full ride flow testable: parser, runner, recorder, FIT output, upload queue.
+- Golden files: known `.zwo` inputs with expected target-power timelines; FIT outputs decoded by the FIT SDK CSV tool and compared to expected samples.
+- Manual test script for hardware milestones, kept in `tests/manual.md`.
+
+---
+
+## 7. Open questions carried forward
+
+From the intent, still open and not blocking v1: platform order after Windows, workout formats beyond `.zwo`, scene reactivity design, free-ride mode, distribution and price, the exact Zwift parity list, the iOS adapter choice.
+
+New from this spec:
+- Should the ride be tagged in Strava as a Virtual Ride (like Zwift) or an indoor Ride? Proposed: setting, default Virtual Ride.
+- Camera shake amplitude default. Needs riding to tune.
+- Whether v1 needs a cadence sensor separate from the trainer. The KICKR CORE reports cadence itself, so proposed: no.
