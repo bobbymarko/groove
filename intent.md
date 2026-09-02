@@ -2,7 +2,7 @@
 
 **Originator:** Bob Marko
 **Date:** 2026-09-02
-**Status:** Draft, awaiting originator review
+**Status:** Approved by originator, 2026-09-02. Living document; open questions updated as they close.
 **Stage:** 1 — Plan (AI-native SDLC)
 
 ## Problem
@@ -45,6 +45,9 @@ Decided so far:
 - **Bluetooth trainer control at launch.** The first version talks to the Wahoo KICKR CORE over Bluetooth, matching how I ride today. ANT+ and other trainer brands come later.
 - **No backend or accounts in the first version.** Workouts, ride history, and connector tokens live on the device. Posting to Strava and COROS uses the user's own OAuth authorization from the app.
 - **One codebase across platforms.** iOS and Android are further out, but adding them must not mean rebuilding the app. The workout engine, trainer abstraction, connectors, and scene rendering should be written once and reused, with only thin platform-specific layers.
+- **Godot 4 with GDScript.** Chosen for the scene, the HUD, and the app logic because it exports to Mac, Windows, iOS, and Android from one project and because the rendering approach below needs a real 3D engine. Godot's C# path is avoided for its weaker mobile support. Claude writes all of the code.
+- **3D scene with a pixel-art post-process, not hand-drawn sprites.** A low-poly rider and bike, procedural terrain and trees, and a handheld 3D camera, rendered into a low-resolution viewport and scaled up with nearest-neighbor filtering, with palette quantization, dithering, and outlines in a shader. Pedaling, leaning, and camera angles come from the 3D model, so no multi-angle sprite sheets are needed. Seasons are palette, particle, and shader changes. Reference technique: Dead Cells, A Short Hike.
+- **Bluetooth through a thin adapter.** The GDBLE extension provides Bluetooth on Mac, Windows, and Android to start. All trainer and sensor code sits behind a small interface (scan, connect, discover, subscribe, read, write) so an iOS adapter, via SimpleBLE or SwiftGodot with CoreBluetooth, can be added later without touching the rest of the app.
 
 The intent also implies these:
 
@@ -58,7 +61,8 @@ The intent also implies these:
 
 - **Workout formats.** Zwift's `.zwo` is the launch format. Which others follow, and when? Common ones are `.fit`, `.erg`, and `.mrc`. Should the app also pull workouts from TrainerRoad, TrainingPeaks, or intervals.icu?
 - **Connector list.** Strava and COROS are required for launch. Is Garmin also required at launch, and which others (Wahoo, TrainingPeaks, intervals.icu, Apple Health) come later?
-- **Cross-platform framework.** Windows, Android, and iOS follow Mac, and the code must carry over. Which framework or engine best serves a Mac-first app that needs Bluetooth on all four platforms and a 2D procedural pixel-art renderer? Is Apple TV or a web build ever in scope?
+- **Platform order and extras.** Windows, Android, and iOS follow Mac. In what order? Is Apple TV or a web build ever in scope?
+- **iOS Bluetooth adapter.** GDBLE does not support iOS. When iOS arrives, is the adapter built on SimpleBLE (license terms for commercial use need checking) or on SwiftGodot with CoreBluetooth?
 - **Scene behavior.** Should the scene react to the workout, for example trail gradient, rider speed, or camera intensity changing with power and cadence, or is it ambient? Should the time of year follow the real calendar, be user-selected, or be random?
 - **Riding without a plan.** Should there be a free-ride mode with no workout loaded, or is that out of scope?
 - **COROS upload path.** Strava has a public upload API. COROS's third-party integration is partner-based and needs verifying before COROS sync is promised at launch. If direct upload is not available, is Strava-to-COROS sync or FIT file export an acceptable fallback?
