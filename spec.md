@@ -20,7 +20,7 @@ A rider can do this end to end with no other software:
 2. Set their FTP.
 3. Load a `.zwo` workout file.
 4. Ride it. The trainer holds target power in ERG mode. The HUD shows the interval plan, time, target and actual power, cadence, and heart rate. A winter mountain-bike trail scene plays with a handheld camera.
-5. Finish. The ride is saved as a FIT file on disk and uploaded to Strava.
+5. Finish. The ride is saved as a FIT file on disk and uploaded to intervals.icu. The FIT file is imported into COROS, which forwards it to Strava.
 
 ### 1.2 Explicitly deferred
 
@@ -71,7 +71,7 @@ A rider can do this end to end with no other software:
 - R16. Record a sample every second: timestamp, power, cadence, heart rate, target power, and segment index.
 - R17. Journal samples to disk during the ride so a crash or power loss loses at most a few seconds.
 - R18. On finish, write a FIT activity file and show a summary: duration, average and normalized power, average heart rate, kilojoules, intensity factor, and training stress score.
-- R19. Connect a Strava account via OAuth and upload the FIT file automatically on finish, with a retry queue for failures.
+- R19. Connect an intervals.icu account with a personal API key and upload the FIT file automatically on finish, with a retry queue for failures. (Strava direct upload dropped, see C9.)
 - R20. Keep all ride files in a local library the user can open in Finder.
 
 **Settings**
@@ -191,7 +191,7 @@ Home (workout library, recent rides, device status) → Devices (scan, pair, for
 ## 4. Concerns flagged for decision
 
 - **C1. Resolved 2026-09-02.** Milestone 0 drove the KICKR CORE from macOS through GDBLE: FTMS control granted, ERG targets acknowledged and felt, live power and cadence received. The stack stands.
-- **C9. Strava's API now requires a paid Strava subscription (found 2026-09-02).** Since June 2026 the standard developer tier needs an active Strava subscription (about $12/month), which undercuts the point of replacing a $20 Zwift subscription. Strava is therefore no longer a launch connector by itself. Options under consideration: intervals.icu as the primary connector (free open API, personal API key, direct FIT upload, and it is where Bob's training analysis lives); Strava via COROS (COROS is an official Strava partner and syncs its activities onward, so getting the ride into COROS may deliver Strava for free); Strava's own manual upload of the saved FIT file as a fallback. intervals.icu confirms it cannot push to Strava itself. Decision pending.
+- **C9. Strava's API now requires a paid Strava subscription (found 2026-09-02).** Since June 2026 the standard developer tier needs an active Strava subscription (about $12/month), which undercuts the point of replacing a $20 Zwift subscription. Strava is therefore no longer a direct launch connector. **Decided 2026-09-02:** intervals.icu is the first automatic connector (free open API, personal API key, direct FIT upload). Every ride is also saved as a FIT file for import into the COROS app; Bob has COROS→Strava sync enabled, so a ride that reaches COROS reaches Strava. The COROS partner API application makes that step automatic later. intervals.icu confirms it cannot push to Strava itself, and its "keep Strava in sync" option only matches rides that already exist on Strava.
 - **C2. Strava has no PKCE, so token exchange needs a client secret.** (Moot for launch if C9 removes Strava as a direct connector.) Shipping the secret inside a desktop binary is common practice for indie apps but is extractable. The alternative is a tiny stateless token-exchange function hosted somewhere, which is a backend in miniature. Recommendation: ship the secret in v1 for personal use, decide before public release.
 - **C3. New Strava API apps are limited to one connected athlete.** Fine for personal use. Public release requires requesting a capacity increase from Strava, which takes review time. Start that request early.
 - **C4. COROS inbound sync requires partner API approval.** COROS accepts applications through a form and grants OAuth access to platforms meeting their requirements. Submit early. Until approved, COROS support means the user imports the FIT file through the COROS app manually, which COROS supports.
@@ -211,7 +211,7 @@ Riskiest first. Each milestone ends with something that runs.
 | 0 | **Bluetooth spike** ✅ 2026-09-02 | A bare Godot scene connects to the KICKR CORE via GDBLE on the Mac, prints live power and cadence, and holds 150 W then 200 W in ERG. Go/no-go for the stack. **Passed.** Spike lives in `spike/`; the KICKR also exposes Cycling Power (0x1818) and Wahoo's proprietary service, neither needed. |
 | 1 | **Engine on simulator** ✅ 2026-09-02 | Load a `.zwo`, ride it against the simulated trainer with a text-only HUD. All R6 to R9 controls work. Tests cover the parser and runner. **Done.** 27 unit tests pass headless via `tools/test.sh`. Fixture is Bob's real "Cadence: Corner Exit" workout. |
 | 2 | **Real devices** ✅ 2026-09-02 | Pairing screen, real trainer and heart-rate strap, auto-reconnect, dropout does not end the ride. Device layer: `BleAdapter` (only GDBLE user), `BlePeripheral` abstraction with a test fake, `FtmsTrainer`, `BleHeartRate`, `Devices` manager with remembered devices. 24 new tests. Manual procedure in `tests/manual.md`. **Passed on KICKR CORE + TICKR:** pairing, auto-connect on launch, and an unplug mid-ride recovered in a few seconds via rescan and reconnect. Required building GDBLE from source (C8) and three reconnect fixes found only on hardware. |
-| 3 | **Record and upload** | Journal, FIT export validated by the FIT SDK tool, summary screen, Strava OAuth and upload with retry. First real workout ridden and posted. |
+| 3 | **Record and upload** | Journal, FIT export, summary screen, intervals.icu API key and upload with retry, rides folder for COROS import. First real workout ridden and posted to intervals.icu; FIT imported into COROS and seen on Strava. |
 | 4 | **Scene v1** | Winter trail, rider pedaling at real cadence, handheld camera, pixel post-process. 60 fps. HUD overlaid on the scene. |
 | 5 | **Polish and ship Mac** | Settings, library, workout graph HUD, signed and notarized build. Cancel Zwift. |
 | 6 | **Windows** | Same project exported to Windows, Bluetooth verified on one Windows machine. |

@@ -21,7 +21,7 @@ A cross-platform app, used primarily on Mac, that runs a structured cycling work
 2. **Ride it.** The app connects to a smart trainer and controls it so the trainer sets resistance to match the workout (ERG-style control). It reads power, cadence, and heart rate, and everything else Zwift supports in its workout mode.
 3. **See progress.** A UI shows where you are in the workout, current and target numbers, and how you're doing against the plan.
 4. **Enjoy it.** While riding, the user sees interesting animated scenes. The reference aesthetic is `game-aesthetic.mp4` in this folder: pixel art, third-person view from behind a rider climbing a snowy mountain trail, falling snow, pine trees, a soft blue and pink palette. The camera has a handheld feel, so the scene reads as lively and full of action rather than a static backdrop. Scenes are trails, not roads. That is a winter scene; scenes should be procedurally generated and cover other times of year too.
-5. **Sync it.** When the workout finishes, the ride posts automatically to Strava and to any other connectors the user has set up, such as COROS and Garmin. Strava and COROS matter most to me personally (my bike computer is a COROS Dura).
+5. **Sync it.** When the workout finishes, the ride is saved as a FIT file and posted automatically to the connectors the user has set up. Launch connector: intervals.icu. Strava arrives via COROS (see spec C9), first by importing the FIT file in the COROS app, later through the COROS partner API. Strava and COROS matter most to me personally (my bike computer is a COROS Dura).
 
 Success means I can cancel Zwift and lose nothing I actually used, and that other riders with the same narrow need can do the same on their own platforms.
 
