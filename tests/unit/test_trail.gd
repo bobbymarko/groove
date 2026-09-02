@@ -6,7 +6,7 @@ func test_default_profile_is_continuous_and_gentle() -> void:
 	var prev := t.h_at(0.0)
 	for z in range(1, 400):
 		var h := t.h_at(float(z))
-		assert_true(absf(h - prev) < 0.12, "step at %d: %f" % [z, h - prev])   # < 12 % grade
+		assert_true(absf(h - prev) < 0.12, "step at %d: %f" % [z, h - prev])   # default profile stays gentle
 		prev = h
 	assert_true(absf(t.grade_at(200.0)) < 8.0)
 
@@ -23,10 +23,10 @@ func test_grade_provider_drives_height() -> void:
 
 func test_grade_for_target_mapping() -> void:
 	assert_true(Trail.grade_for_target(0.5) < 0.0)          # recovery descends
-	assert_near(Trail.grade_for_target(0.75), 0.0)           # endurance is flat
-	assert_true(Trail.grade_for_target(1.06) > 4.0)          # threshold climbs
-	assert_eq(Trail.grade_for_target(2.0), 10.0)             # clamped
-	assert_eq(Trail.grade_for_target(0.0), -6.0)
+	assert_near(Trail.grade_for_target(0.7), 0.0)            # endurance is flat
+	assert_true(Trail.grade_for_target(1.06) > 12.0)         # threshold climbs hard
+	assert_eq(Trail.grade_for_target(2.0), 24.0)             # clamped
+	assert_eq(Trail.grade_for_target(0.0), -10.0)
 
 
 func test_height_cache_is_consistent() -> void:

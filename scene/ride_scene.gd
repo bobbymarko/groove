@@ -20,6 +20,7 @@ var distance := 20.0          ## metres along the trail
 var power := 0.0
 var cadence := 0.0
 var riding := false
+var time_scale := 1.0        ## dev fast-forward; keeps the world in step with the workout
 ## Called with a distance ahead (m) to fetch the target fraction of FTP there; set by the ride screen.
 var target_fraction_ahead: Callable
 ## Debug: look straight down from above the rider, no post-process.
@@ -157,12 +158,17 @@ func _fit_viewport() -> void:
 	_post.set_shader_parameter("texel", Vector2(1.0 / _viewport.size.x, 1.0 / _internal_height))
 
 
-func _process(delta: float) -> void:
+func current_grade() -> float:
+	return trail.grade_at(distance)
+
+
+func _process(raw_delta: float) -> void:
+	var delta := raw_delta * time_scale
 	var grade := trail.grade_at(distance)
 	var speed := physics.step(power, grade, delta, riding)
 	if riding:
 		distance += speed * delta
-	rider.animate(cadence if riding else 0.0, speed if riding else 0.0, delta)
+	rider.animate(cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
 	_place_rider()
 	terrain.update_around(distance)
 	var anchor := trail.position_at(maxf(distance - camera.follow_distance, 0.0))

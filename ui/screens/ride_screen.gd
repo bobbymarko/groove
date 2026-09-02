@@ -29,6 +29,7 @@ var _target: Label
 var _power: Label
 var _cadence_l: Label
 var _hr_l: Label
+var _grade_l: Label
 var _bias_l: Label
 var _erg_l: Label
 var _message: Label
@@ -82,7 +83,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_DOWN: _runner.adjust_bias(-1)
 		KEY_E: _runner.set_erg(not _runner.erg_enabled)
 		KEY_ESCAPE: _runner.end_early()
-		KEY_F: _runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
+		KEY_F:
+			_runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
+			_scene.time_scale = _runner.time_scale
 		KEY_T: _tuning.visible = not _tuning.visible
 
 
@@ -159,6 +162,8 @@ func _on_tick(snap: Dictionary) -> void:
 	_scene.riding = snap.state == WorkoutRunner.State.RUNNING
 	_scene.power = float(_actual_power)
 	_scene.cadence = float(_cadence)
+	var g := _scene.current_grade()
+	_grade_l.text = "%s%d%% grade" % ["▲ " if g > 0.5 else ("▼ " if g < -0.5 else ""), int(round(absf(g)))]
 	_clock.text = "%s  /  %s" % [_fmt(snap.elapsed), _fmt(snap.total)]
 	_countdown.text = _fmt(snap.segment_remaining)
 	_graph.set_progress(snap.elapsed, snap.bias)
@@ -325,6 +330,9 @@ func _build_ui() -> void:
 	_cadence_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hr_l = _label(scol, "— bpm", 32)
 	_hr_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_grade_l = _label(scol, "0% grade", 22)
+	_grade_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_grade_l.modulate = Color(1, 1, 1, 0.8)
 
 	_message = _label(v, "", 22)
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

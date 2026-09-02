@@ -76,7 +76,9 @@ func _default_grade(z: float) -> float:
 	return _noise.get_noise_2d(z * 0.35, 200.0) * 5.0
 
 
-## Map a workout target (fraction of FTP) to a grade: easy spins descend,
-## threshold and above climb.
+## Map a workout target (fraction of FTP) to a visual grade: easy spins
+## descend, threshold and above climb. Exaggerated well beyond real trails so
+## a hard interval reads as a wall at this render scale: 0.5 FTP -> -8 %,
+## 0.7 flat, 1.06 -> +14 %, 1.2 -> +20 %, capped at 24 %.
 static func grade_for_target(fraction: float) -> float:
-	return clampf((fraction - 0.75) * 16.0, -6.0, 10.0)
+	return clampf((fraction - 0.7) * 40.0, -10.0, 24.0)
