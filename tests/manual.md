@@ -29,6 +29,8 @@ Needs the KICKR CORE and a Bluetooth heart-rate strap.
 
 ## M3: Record, FIT export, intervals.icu upload, COROS/Strava chain
 
+Status 2026-09-02: step 1 imported into COROS fine; Strava forwarding still being watched. Step 2 passed (green). Steps 3–5 pending.
+
 1. **COROS import test (no ride needed).** Generate a test file with
    `godot --headless --path . -s tools/make_test_fit.gd -- build/ride-test-5min.fit`, AirDrop it to the
    phone, import it in the COROS app. Expect: activity appears in COROS with power, cadence, HR; then
