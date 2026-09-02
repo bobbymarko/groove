@@ -72,9 +72,11 @@ tools/shot.sh x build/scene.png scene nocull     # debug: cel shader without cul
 
 ## Assets (Quaternius, CC0)
 
-Props come from Quaternius's Stylized Nature MegaKit (standard edition, CC0), with
-textures stripped: our cel shader colours each surface from `scene/palette.gd` by material
-name (`MeshLib.palette_for_material`) and drops snow on upward-facing surfaces. To add
+Props come from Quaternius's Stylized Nature MegaKit (standard edition, CC0). The importer
+keeps only base-colour textures, downscaled to 512 px. The cel shader does not use the
+textures' hues: it reads their brightness and blends between two palette shades chosen by
+material name (`MeshLib.shades_for_material`), then drops snow on upward-facing surfaces.
+That is how the foliage gets its green-and-white mix while staying inside the palette. To add
 models for another season:
 
 ```bash

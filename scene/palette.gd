@@ -22,6 +22,7 @@ const MOUNTAIN_MID := Color("b491bb")
 const MOUNTAIN_NEAR := Color("8a93c6")
 
 const PINE := Color("2b4f5e")
+const PINE_LIGHT := Color("4c7d8c")
 const PINE_DARK := Color("1f3a46")
 const PINE_SNOW := Color("e9eff8")
 const TRUNK := Color("4a3a3a")
@@ -38,7 +39,7 @@ const TIRE := Color("2a2a33")
 static func list() -> PackedVector3Array:
 	var out := PackedVector3Array()
 	for c in [SKY_TOP, SKY_HORIZON, FOG, SNOW, SNOW_SHADE, SNOW_SHADOW, TRAIL, TRAIL_DARK, ROCK, ROCK_DARK,
-			MOUNTAIN_FAR, MOUNTAIN_MID, MOUNTAIN_NEAR, PINE, PINE_DARK, PINE_SNOW, TRUNK, BRANCH, BERRY,
+			MOUNTAIN_FAR, MOUNTAIN_MID, MOUNTAIN_NEAR, PINE, PINE_LIGHT, PINE_DARK, PINE_SNOW, TRUNK, BRANCH, BERRY,
 			RIDER_RED, RIDER_BLUE, RIDER_SKIN, HELMET, BIKE, TIRE,
 			Color("f8dfe6"), Color("5d6fa8"), Color("e7a4b4")]:
 		out.append(Vector3(c.r, c.g, c.b))

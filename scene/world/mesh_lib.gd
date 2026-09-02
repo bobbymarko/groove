@@ -15,16 +15,17 @@ static func cel_material(vertex_color := true, albedo := Color.WHITE, snow_thres
 
 ## Palette colour for a Quaternius material name.
 static func palette_for_material(mat_name: String) -> Color:
+	return shades_for_material(mat_name)[1]
+
+
+## Dark and light palette shades a textured surface blends between.
+static func shades_for_material(mat_name: String) -> Array[Color]:
 	var n := mat_name.to_lower()
-	if "leaves" in n or "leaf" in n:
-		return Palette.PINE
+	if "leaves" in n or "leaf" in n or "bush" in n or "grass" in n:
+		return [Palette.PINE_DARK, Palette.PINE_LIGHT]
 	if "bark" in n or "trunk" in n or "wood" in n:
-		return Palette.TRUNK
-	if "rock" in n or "stone" in n:
-		return Palette.ROCK
-	if "bush" in n or "grass" in n:
-		return Palette.PINE_DARK
-	return Palette.ROCK
+		return [Palette.TRUNK, Palette.BRANCH]
+	return [Palette.ROCK_DARK, Palette.ROCK]
 
 
 ## Load an imported glTF prop as a single mesh with palette cel materials
@@ -48,7 +49,18 @@ static func load_prop(path: String, snow := true) -> Mesh:
 		var mat_name := src.resource_name if src else ""
 		var col := palette_for_material(mat_name)
 		var is_bark := col == Palette.TRUNK
+		# Textured surfaces keep their own colours (the post-process quantizes
+		# them to the palette); untextured ones take the palette colour.
+		var tex: Texture2D = src.albedo_texture if src is BaseMaterial3D else null
 		var m := cel_material(false, col, 0.86 if (snow and not is_bark) else 2.0)
+		if tex:
+			var shades := shades_for_material(mat_name)
+			m.set_shader_parameter("use_texture", true)
+			m.set_shader_parameter("albedo_tex", tex)
+			m.set_shader_parameter("colorize", true)
+			m.set_shader_parameter("shade_dark", Vector3(shades[0].r, shades[0].g, shades[0].b))
+			m.set_shader_parameter("shade_light", Vector3(shades[1].r, shades[1].g, shades[1].b))
+			m.set_shader_parameter("alpha_cutout", src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR or src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA)
 		mesh.surface_set_material(i, m)
 	root.free()
 	# Bake the node transform (Quaternius models are Y-up, metres) if it is not identity.

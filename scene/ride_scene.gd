@@ -180,7 +180,7 @@ func _environment() -> WorldEnvironment:
 	env.ambient_light_energy = 0.9
 	env.fog_enabled = true
 	env.fog_light_color = Palette.FOG
-	env.fog_density = 0.0045
+	env.fog_density = 0.0028
 	env.fog_sky_affect = 0.15
 	env.fog_aerial_perspective = 0.5
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
