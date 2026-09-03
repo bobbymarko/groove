@@ -50,12 +50,13 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		rs.cadence = 88.0
 		rs.debug_top_down = OS.get_cmdline_user_args().has("top")
 		rs.debug_closeup = OS.get_cmdline_user_args().has("closeup")
-		rs.pixel_filter = not OS.get_cmdline_user_args().has("nofilter")
 		for opt in ["nocull", "plain"]:
 			if OS.get_cmdline_user_args().has(opt):
 				rs.debug_material = opt
 		scene = rs
 		root.add_child(scene)
+		if OS.get_cmdline_user_args().has("nofilter"):
+			rs.set_pixel_filter(false)
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("lean="):
 				rs.rider.lean_amount = float(a.trim_prefix("lean="))
