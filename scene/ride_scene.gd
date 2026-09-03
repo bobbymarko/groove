@@ -150,6 +150,7 @@ func set_look_mode(mode: String) -> void:
 	_post.set_shader_parameter("mode", 1 if mode == "16bit" else 0)
 	RenderingServer.global_shader_parameter_set("cel_bands", 6.0 if mode != "8bit" else 3.0)
 	RenderingServer.global_shader_parameter_set("cel_colorize_steps", 8.0 if mode != "8bit" else 3.0)
+	RenderingServer.global_shader_parameter_set("cel_texture_mix", 0.4 if mode != "8bit" else 0.0)
 	_fit_viewport()
 
 

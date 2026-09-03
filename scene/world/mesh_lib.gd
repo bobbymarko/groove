@@ -53,6 +53,7 @@ static func load_prop(path: String, snow := true) -> Mesh:
 		# them to the palette); untextured ones take the palette colour.
 		var tex: Texture2D = src.albedo_texture if src is BaseMaterial3D else null
 		var m := cel_material(false, col, 0.86 if (snow and not is_bark) else 2.0)
+		m.set_shader_parameter("prop", true)
 		if tex:
 			var shades := shades_for_material(mat_name)
 			m.set_shader_parameter("use_texture", true)

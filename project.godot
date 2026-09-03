@@ -54,6 +54,10 @@ cel_colorize_steps={
 "type": "float",
 "value": 3.0
 }
+cel_texture_mix={
+"type": "float",
+"value": 0.0
+}
 
 [rendering]
 

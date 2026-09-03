@@ -22,6 +22,8 @@ uniform vec3 snow_color : source_color = vec3(0.93, 0.94, 0.97);
 global uniform float cel_speckle;    // pixel texture on flat surfaces
 global uniform float cel_bands;      // number of lighting steps (3 = 8-bit look, 6 = 16-bit)
 global uniform float cel_colorize_steps;  // tonal steps for colourized textures
+global uniform float cel_texture_mix;     // how much of the real texture detail shows through the tint (16-bit)
+uniform bool prop = false;                 // imported prop: fine speckle, mottled snow
 global uniform float cel_highlight;  // extra brightness where the sun hits squarely
 uniform bool speckle = false;
 
@@ -43,14 +45,18 @@ float hash3(vec3 p) {
 
 void fragment() {
 	vec3 base = use_vertex_color ? vcol : albedo;
+	float tex_lum = 0.5;
 	if (use_texture) {
 		vec4 t = texture(albedo_tex, UV);
+		tex_lum = dot(t.rgb, vec3(0.3, 0.59, 0.11));
 		if (colorize) {
-			float lum = dot(t.rgb, vec3(0.3, 0.59, 0.11));
 			// Hard tonal steps between the two shades: more internal detail than a blend.
 			float steps = max(cel_colorize_steps, 2.0);
-			float l = floor(smoothstep(0.1, 0.75, lum) * (steps - 0.001)) / (steps - 1.0);
+			float l = floor(smoothstep(0.1, 0.75, tex_lum) * (steps - 0.001)) / (steps - 1.0);
 			base = mix(shade_dark, shade_light, l);
+			// Let some of the texture's own detail through, tinted toward the light shade.
+			vec3 detail = t.rgb * (shade_light / max(vec3(0.35), vec3(dot(shade_light, vec3(0.33)))));
+			base = mix(base, detail, cel_texture_mix);
 		} else {
 			base = t.rgb * albedo;
 		}
@@ -63,12 +69,16 @@ void fragment() {
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;
 	}
-	ALBEDO = up > snow_threshold ? snow_color : base;
-	if (speckle && cel_speckle > 0.0) {
+	// Snow on upward faces; on props the texture's bright spots catch it first,
+	// so it sits in mottled patches rather than along a hard line.
+	float snow_up = prop ? up + (tex_lum - 0.5) * 0.35 : up;
+	ALBEDO = snow_up > snow_threshold ? snow_color : base;
+	if ((speckle || prop) && cel_speckle > 0.0) {
 		// World-anchored so it does not swim with the camera; the palette snap
 		// turns the modulation into scattered single-pixel tone changes.
-		float n = hash3(floor(world_pos * 24.0));   // ~4 cm cells: pixel-scale sparkle, not tiles
-		ALBEDO *= 1.0 + (n - 0.5) * cel_speckle;
+		float cells = prop ? 60.0 : 24.0;   // props: ~1.7 cm cells for needle texture
+		float n = hash3(floor(world_pos * cells));
+		ALBEDO *= 1.0 + (n - 0.5) * cel_speckle * (prop ? 1.6 : 1.0);
 	}
 }
 
