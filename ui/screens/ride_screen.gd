@@ -452,8 +452,9 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	fin.alignment = BoxContainer.ALIGNMENT_END
 	fin.add_theme_constant_override("separation", 8)
 	v.add_child(fin)
-	HudStyle.label(fin, "Finish in", 20, 700, HudStyle.TEXT_DIM)
+	var fin_l := HudStyle.label(fin, "Finish in", 20, 700, HudStyle.TEXT_DIM)
 	_finish_l = HudStyle.label(fin, _fmt(App.workout.total_duration()), 26, 900)
+	HudStyle.share_baseline(fin, _finish_l, fin_l)
 
 	_groups = _group_segments(App.workout)
 	_rows.clear()
@@ -464,7 +465,8 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 			var h := HBoxContainer.new()
 			h.add_theme_constant_override("separation", 12)
 			row.add_child(h)
-			HudStyle.label(h, "%d x" % int(g.count), 26, 700)
+			var count_l := HudStyle.label(h, "%d x" % int(g.count), 26, 700)
+			count_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			var lines := VBoxContainer.new()
 			lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			lines.add_theme_constant_override("separation", 0)
@@ -590,7 +592,7 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	mid.add_child(prow)
 	_power = HudStyle.label(prow, "—", 96, 900)
 	var wl := HudStyle.label(prow, "w", 36, 700)
-	wl.size_flags_vertical = Control.SIZE_SHRINK_END
+	HudStyle.share_baseline(prow, _power, wl)
 	# Right column of live metrics
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 2)
@@ -608,7 +610,7 @@ func _metric(parent: Control, value: String, unit: String) -> Label:
 	parent.add_child(h)
 	var val := HudStyle.label(h, value, 40, 900)
 	var u := HudStyle.label(h, unit, 17, 700, HudStyle.TEXT_DIM)
-	u.size_flags_vertical = Control.SIZE_SHRINK_END
+	HudStyle.share_baseline(h, val, u)
 	return val
 
 
@@ -622,7 +624,7 @@ func _side_metric(parent: Control, value: String, unit: String) -> Label:
 	val.custom_minimum_size.x = 70
 	var u := HudStyle.label(h, unit, 16, 700, HudStyle.TEXT_DIM)
 	u.custom_minimum_size.x = 56
-	u.size_flags_vertical = Control.SIZE_SHRINK_END
+	HudStyle.share_baseline(h, val, u)
 	return val
 
 

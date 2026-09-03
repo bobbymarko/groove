@@ -35,6 +35,28 @@ static func label(parent: Control, text: String, size: int, weight: int = 500, c
 	return l
 
 
+## Put `small` on the same text baseline as `big`. Godot containers align
+## boxes, not baselines; a label's box bottom sits one font descent below the
+## baseline, so the smaller label is lifted by the difference in descents.
+static func share_baseline(row: BoxContainer, big: Label, small: Label) -> void:
+	row.alignment = row.alignment   # no-op; documents that children are bottom-aligned below
+	big.size_flags_vertical = Control.SIZE_SHRINK_END
+	var big_font := big.get_theme_font("font")
+	var small_font := small.get_theme_font("font")
+	var d_big := big_font.get_descent(big.get_theme_font_size("font_size"))
+	var d_small := small_font.get_descent(small.get_theme_font_size("font_size"))
+	var lift := maxf(d_big - d_small, 0.0)
+	# Re-parent the small label into a margin box that raises it by `lift`.
+	var idx := small.get_index()
+	row.remove_child(small)
+	var m := MarginContainer.new()
+	m.size_flags_vertical = Control.SIZE_SHRINK_END
+	m.add_theme_constant_override("margin_bottom", int(round(lift)))
+	m.add_child(small)
+	row.add_child(m)
+	row.move_child(m, idx)
+
+
 static func panel(parent: Control, color := PANEL, radius := 8, pad := 12) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
