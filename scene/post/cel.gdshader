@@ -25,6 +25,14 @@ global uniform float cel_colorize_steps;  // tonal steps for colourized textures
 global uniform float cel_texture_mix;     // how much of the real texture detail shows through the tint (16-bit)
 uniform bool prop = false;                 // imported prop: fine speckle, mottled snow
 uniform bool smooth_lighting = false;     // terrain: continuous lambert when cel_smooth_terrain is set (16-bit)
+// Body mesh: recolour skin by region so the rider wears sleeves and pants.
+// Zones are in model space (rider local, metres): legs below the saddle, arms
+// out from the torso, hands forward on the bars, head above the shoulders.
+uniform bool body_zones = false;
+uniform vec3 sleeve_dark : source_color = vec3(0.56, 0.13, 0.16);
+uniform vec3 sleeve_light : source_color = vec3(0.78, 0.2, 0.23);
+uniform vec3 pants_dark : source_color = vec3(0.11, 0.2, 0.44);
+uniform vec3 pants_light : source_color = vec3(0.17, 0.29, 0.6);
 global uniform float cel_smooth_terrain;
 global uniform float cel_prop_snow;         // snow threshold for props (lower = more snow)
 global uniform float cel_highlight;  // extra brightness where the sun hits squarely
@@ -33,11 +41,13 @@ uniform bool speckle = false;
 varying vec3 vcol;
 varying vec3 world_normal;
 varying vec3 world_pos;
+varying vec3 model_pos;
 
 void vertex() {
 	vcol = COLOR.rgb;
 	world_normal = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	model_pos = VERTEX;
 }
 
 float hash3(vec3 p) {
@@ -53,13 +63,26 @@ void fragment() {
 		vec4 t = texture(albedo_tex, UV);
 		tex_lum = dot(t.rgb, vec3(0.3, 0.59, 0.11));
 		if (colorize) {
+			vec3 dark = shade_dark;
+			vec3 light = shade_light;
+			if (body_zones) {
+				bool hand = model_pos.z > 0.38 && model_pos.y < 1.2 && model_pos.y > 0.9;
+				bool head = model_pos.y > 1.38 && abs(model_pos.x) < 0.16;
+				if (!hand && !head) {
+					if (model_pos.y < 1.0) {
+						dark = pants_dark; light = pants_light;
+					} else {
+						dark = sleeve_dark; light = sleeve_light;
+					}
+				}
+			}
 			// Hard tonal steps between the two shades: more internal detail than a blend.
 			float steps = max(cel_colorize_steps, 2.0);
 			float l = floor(smoothstep(0.1, 0.75, tex_lum) * (steps - 0.001)) / (steps - 1.0);
-			base = mix(shade_dark, shade_light, l);
+			base = mix(dark, light, l);
 			// Let the texture's brightness detail through without its hue, so the
 			// palette colour holds while needles and bark keep their grain.
-			vec3 detail = mix(shade_dark, shade_light, clamp(tex_lum * 1.4, 0.0, 1.0));
+			vec3 detail = mix(dark, light, clamp(tex_lum * 1.4, 0.0, 1.0));
 			base = mix(base, detail, cel_texture_mix);
 		} else {
 			base = t.rgb * albedo;

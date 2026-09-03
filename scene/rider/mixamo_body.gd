@@ -203,6 +203,7 @@ func _restyle(character: Node) -> void:
 			shades = [Color("15151c"), Color("2a2634")]
 		else:
 			shades = [Color("a87856"), Palette.RIDER_SKIN]
+		var is_body := not ("shirt" in n or "short" in n or "pant" in n or "sneaker" in n or "shoe" in n or "boot" in n or "hair" in n or "eyelash" in n)
 		var mesh: Mesh = mi.mesh
 		for i in mesh.get_surface_count():
 			var src := mesh.surface_get_material(i)
@@ -214,6 +215,13 @@ func _restyle(character: Node) -> void:
 				m.set_shader_parameter("colorize", true)
 				m.set_shader_parameter("shade_dark", Vector3(shades[0].r, shades[0].g, shades[0].b))
 				m.set_shader_parameter("shade_light", Vector3(shades[1].r, shades[1].g, shades[1].b))
+			if is_body:
+				# Long sleeves and pants: skin regions take the shirt and shorts colours.
+				m.set_shader_parameter("body_zones", true)
+				m.set_shader_parameter("sleeve_dark", Vector3(0.56, 0.13, 0.16))
+				m.set_shader_parameter("sleeve_light", Vector3(Palette.RIDER_RED.r, Palette.RIDER_RED.g, Palette.RIDER_RED.b))
+				m.set_shader_parameter("pants_dark", Vector3(0.11, 0.2, 0.44))
+				m.set_shader_parameter("pants_light", Vector3(Palette.RIDER_BLUE.r, Palette.RIDER_BLUE.g, Palette.RIDER_BLUE.b))
 			mi.set_surface_override_material(i, m)
 		if "eyelash" in n:
 			mi.visible = false

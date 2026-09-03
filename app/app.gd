@@ -23,7 +23,7 @@ const TUNING_SPEC := [
 	["sun_energy", "Sun brightness", 0.2, 1.6, 0.01, 0.8],
 	["ambient_energy", "Ambient light", 0.0, 1.2, 0.01, 0.4],
 	["shade_band", "Shaded-side brightness", 0.3, 1.0, 0.01, 0.66],
-	["fog_density", "Fog", 0.0, 0.012, 0.0002, 0.003],
+	["fog_density", "Fog", 0.0, 0.012, 0.0001, 0.0006],
 	["dither", "Dither", 0.0, 0.15, 0.005, 0.0],
 	["outline", "Outline", 0.0, 0.6, 0.01, 0.0],
 	["camera_distance", "Camera distance (m)", 3.0, 14.0, 0.1, 4.0],

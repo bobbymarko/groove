@@ -61,6 +61,10 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("look="):
 				rs.set_look_mode(a.trim_prefix("look="))
+			if a.begins_with("fog="):
+				var tuned: Dictionary = root.get_node("App").scene_tuning.duplicate()
+				tuned["fog_density"] = float(a.trim_prefix("fog="))
+				rs.apply_tuning(tuned)
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("lean="):
 				rs.rider.lean_amount = float(a.trim_prefix("lean="))
