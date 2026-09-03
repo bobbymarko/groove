@@ -50,8 +50,6 @@ func _ready() -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_child(v)
-	var who := HudStyle.label(v, "COACH", 16, 900, Color(1.0, 0.85, 0.3))
-	who.add_theme_constant_override("outline_size", 0)
 	label = HudStyle.label(v, "", 30, 700)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
