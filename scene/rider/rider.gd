@@ -93,8 +93,8 @@ func _pose_mixamo() -> void:
 	if _mixamo == null or not _mixamo.is_ready():
 		return
 	# Rig "Left" is +X, so it takes the +X pedal and grip.
-	var pedal_px := BB + Vector3(0.16, sin(crank_angle + PI) * CRANK_R, cos(crank_angle + PI) * CRANK_R)
-	var pedal_nx := BB + Vector3(-0.16, sin(crank_angle) * CRANK_R, cos(crank_angle) * CRANK_R)
+	var pedal_px := BB + _pedal_offset(crank_angle + PI, 0.16)
+	var pedal_nx := BB + _pedal_offset(crank_angle, -0.16)
 	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0), BAR + Vector3(-0.27, 0.0, 0.0))
 	# Helmet follows the head bone.
 	var head_idx: int = _mixamo._bones.get("Head", -1)
@@ -118,14 +118,20 @@ func animate(cadence_rpm: float, speed_mps: float, delta: float) -> void:
 	rotation.z = lerpf(rotation.z, -lean, clampf(delta * 3.0, 0.0, 1.0))
 
 
+## Pedal position relative to the bottom bracket: angle 0 is top dead centre and
+## the pedal moves forward (+Z) then down as the angle grows, i.e. forward pedalling.
+static func _pedal_offset(a: float, side_x: float) -> Vector3:
+	return Vector3(side_x, cos(a) * CRANK_R, sin(a) * CRANK_R)
+
+
 func _update_cranks() -> void:
 	for side_i in 2:
 		var side := -1.0 if side_i == 0 else 1.0
 		var a := crank_angle + (0.0 if side_i == 0 else PI)
-		var pedal := BB + Vector3(side * 0.16, sin(a) * CRANK_R, cos(a) * CRANK_R)
+		var pedal := BB + _pedal_offset(a, side * 0.16)
 		var crank := _crank_l if side_i == 0 else _crank_r
-		crank.position = BB + Vector3(side * 0.1, sin(a) * CRANK_R * 0.5, cos(a) * CRANK_R * 0.5)
-		crank.rotation = Vector3(-a + PI * 0.5, 0.0, 0.0)
+		crank.position = BB + _pedal_offset(a, side * 0.1) * 0.5 + Vector3(side * 0.05, 0.0, 0.0)
+		crank.rotation = Vector3(a, 0.0, 0.0)   # box Y axis follows (cos a, sin a) in the Y-Z plane
 		var pedal_mesh := _pedal_l if side_i == 0 else _pedal_r
 		pedal_mesh.position = pedal
 
@@ -135,7 +141,7 @@ func _update_legs() -> void:
 	for side_i in 2:
 		var side := -1.0 if side_i == 0 else 1.0
 		var a := crank_angle + (0.0 if side_i == 0 else PI)
-		var pedal := BB + Vector3(side * 0.16, sin(a) * CRANK_R, cos(a) * CRANK_R)
+		var pedal := BB + _pedal_offset(a, side * 0.16)
 		var hip := HIP + Vector3(side * 0.14, 0.0, 0.0)
 		var knee := _knee(hip, pedal)
 		_place(_thigh_l if side_i == 0 else _thigh_r, hip, knee)

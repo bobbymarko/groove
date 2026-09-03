@@ -242,8 +242,11 @@ func _on_finished(completed: bool) -> void:
 func _target_fraction_ahead(metres_ahead: float) -> Variant:
 	if _runner == null or _runner.workout == null:
 		return null
-	var speed := maxf(_scene.physics.speed, 4.0)
-	var t := _runner.elapsed + metres_ahead / speed
+	# Predict arrival with a smoothed speed, and lead the profile so the grade
+	# has already ramped when the interval begins (the ramp takes ~6 m).
+	const LEAD_SECONDS := 4.0
+	var speed := maxf(_scene.avg_speed, 3.0)
+	var t := _runner.elapsed + metres_ahead / speed + LEAD_SECONDS
 	if t >= _runner.workout.total_duration():
 		return 0.6
 	return _runner.workout.target_fraction_at(t)

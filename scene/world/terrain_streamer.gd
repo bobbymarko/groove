@@ -7,7 +7,7 @@ extends Node3D
 const CHUNK_LEN := 24.0          # metres along Z
 const HALF_WIDTH := 70.0         # metres either side of the trail
 const RES := 2.0                 # metres per grid step
-const AHEAD := 9                 # chunks kept ahead of the rider
+const AHEAD := 6                 # chunks kept ahead of the rider (~150 m; shorter = better hill timing)
 const BEHIND := 2
 const TRAIL_HALF_WIDTH := 0.75      # groomed fat-bike track, about 1.5 m wide
 const GROOVE_DEPTH := 0.22

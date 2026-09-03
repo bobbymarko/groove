@@ -7,7 +7,7 @@ extends RefCounted
 ## agree exactly.
 
 const STEP := 1.0                 # metres per height sample
-const GRADE_SMOOTHING := 0.08     # per metre; ~12 m to settle
+const GRADE_SMOOTHING := 0.16     # per metre; ~6 m to settle
 
 var grade_provider: Callable      # func(z: float) -> float grade in percent, or invalid
 var _heights: PackedFloat64Array = [0.0]

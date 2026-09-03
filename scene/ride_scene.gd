@@ -21,6 +21,7 @@ var power := 0.0
 var cadence := 0.0
 var riding := false
 var time_scale := 1.0        ## dev fast-forward; keeps the world in step with the workout
+var avg_speed := 5.0         ## slow-moving average of speed, for predicting where the rider will be
 ## Called with a distance ahead (m) to fetch the target fraction of FTP there; set by the ride screen.
 var target_fraction_ahead: Callable
 ## Debug: look straight down from above the rider, no post-process.
@@ -172,6 +173,7 @@ func _process(raw_delta: float) -> void:
 	var speed := physics.step(power, grade, delta, riding)
 	if riding:
 		distance += speed * delta
+		avg_speed = lerpf(avg_speed, speed, clampf(delta / 15.0, 0.0, 1.0))
 	rider.animate(cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
 	_place_rider()
 	terrain.update_around(distance)
