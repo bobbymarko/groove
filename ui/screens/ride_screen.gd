@@ -56,6 +56,10 @@ var _groups: Array[Dictionary] = []      # {first, last, ...} segment index rang
 var _start_distance := -1.0
 var _elev_gain := 0.0
 var _last_h := NAN
+var _controls: HBoxContainer
+var _coach: CoachDialog
+var _controls_idle := 0.0
+const CONTROLS_HIDE_AFTER := 3.0
 
 
 func _ready() -> void:
@@ -89,6 +93,18 @@ func _ready() -> void:
 	_title.text = App.workout.name
 	_graph.set_workout(App.workout)
 	_on_tick(_runner.snapshot())
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion or event is InputEventMouseButton:
+		_controls_idle = 0.0
+
+
+func _process(delta: float) -> void:
+	_controls_idle += delta
+	var show := _controls_idle < CONTROLS_HIDE_AFTER or _runner.state != WorkoutRunner.State.RUNNING or _tuning.visible
+	_controls.modulate.a = move_toward(_controls.modulate.a, 1.0 if show else 0.0, delta * 4.0)
+	_controls.mouse_filter = Control.MOUSE_FILTER_STOP if _controls.modulate.a > 0.05 else Control.MOUSE_FILTER_IGNORE
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -206,14 +222,12 @@ func _on_tick(snap: Dictionary) -> void:
 	_last_h = h
 	_elev_l.text = "%d" % int(_elev_gain)
 	_kj_l.text = "%d" % int(_total_kj)
-	if _message_until > 0.0 and Time.get_ticks_msec() / 1000.0 > _message_until:
-		_message.text = ""
-		_message_until = 0.0
 	# One-second bookkeeping for the summary.
 	if snap.state == WorkoutRunner.State.RUNNING and floorf(snap.elapsed) != _last_sample_time:
 		_last_sample_time = floorf(snap.elapsed)
 		_power_samples.append(_actual_power)
 		_total_kj += _actual_power / 1000.0
+		_graph.add_heart_rate(snap.elapsed, _bpm)
 
 
 func _on_segment(i: int, s: WorkoutSegment) -> void:
@@ -261,8 +275,7 @@ func _on_target(w: int) -> void:
 
 
 func _on_text(msg: String) -> void:
-	_message.text = msg
-	_message_until = Time.get_ticks_msec() / 1000.0 + MESSAGE_SECONDS
+	_coach.say(msg)
 
 
 func _on_state(s: WorkoutRunner.State) -> void:
@@ -295,9 +308,8 @@ func _on_finished(completed: bool) -> void:
 		for p in _power_samples:
 			sum += p
 		avg = int(float(sum) / _power_samples.size())
-	_message.text = "%s  ·  avg %d W  ·  %d kJ" % [
-		"Workout complete" if completed else "Ended early", avg, int(_total_kj)]
-	_message_until = 0.0
+	_coach.say("%s  ·  avg %d W  ·  %d kJ" % [
+		"Workout complete" if completed else "Ended early", avg, int(_total_kj)], 0.0)
 	_start_btn.disabled = true
 	_block_name_l.text = "DONE"
 	_block_dur_l.text = ""
@@ -330,7 +342,7 @@ func _finalize_ride() -> void:
 	# Sharing is confirmed on the summary screen, never automatic.
 	App.last_ride_journal = _recorder.journal_path()
 	App.prompt_upload = true
-	_message.text += "   → Summary"
+	_coach.say(_coach.label.text + "   → Summary", 0.0)
 	get_tree().create_timer(1.5).timeout.connect(func() -> void: App.go_to("res://ui/screens/summary_screen.tscn"))
 
 
@@ -367,20 +379,18 @@ func _build_ui() -> void:
 	v.add_theme_constant_override("separation", 8)
 	margin.add_child(v)
 
-	# ---- top row: workout panel (left) and telemetry panel (centre) ----
-	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 24)
+	# ---- top area: workout panel anchored left, telemetry panel centred on the page ----
+	var top := Control.new()
+	top.custom_minimum_size.y = 300
 	v.add_child(top)
-	_build_workout_panel(top)
-	var gap := Control.new()
-	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gap.size_flags_stretch_ratio = 0.35
-	top.add_child(gap)
-	_build_telemetry_panel(top)
-	var gap2 := Control.new()
-	gap2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gap2.size_flags_stretch_ratio = 1.0
-	top.add_child(gap2)
+	var left := _build_workout_panel(top)
+	left.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	var tele := _build_telemetry_panel(top)
+	tele.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	tele.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tele.grow_vertical = Control.GROW_DIRECTION_END
+	tele.resized.connect(func() -> void: tele.position.x = (top.size.x - tele.size.x) * 0.5)
+	top.resized.connect(func() -> void: tele.position.x = (top.size.x - tele.size.x) * 0.5)
 
 	_conn_l = HudStyle.label(v, "", 18, 700, Color(1.0, 0.55, 0.45))
 	_conn_l.visible = false
@@ -392,20 +402,27 @@ func _build_ui() -> void:
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(spacer)
 
-	_message = HudStyle.label(v, "", 24, 600, Color(1.0, 0.9, 0.6))
-	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_message.custom_minimum_size.y = 40
-	_message.add_theme_color_override("font_outline_color", Color(0.08, 0.09, 0.14, 0.9))
-	_message.add_theme_constant_override("outline_size", 4)
+	# Coach notes: centred dialog with portrait (see CoachDialog). Added last so it draws on top.
+	var centre := CenterContainer.new()
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(centre)
+	_coach = CoachDialog.new()
+	_coach.name = "CoachDialog"
+	_coach.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	centre.add_child(_coach)
+	_message = _coach.label
 
 	_graph = WorkoutGraph.new()
 	_graph.custom_minimum_size.y = 70
 	v.add_child(_graph)
 
-	# ---- bottom controls ----
+	# ---- bottom controls: hidden while riding, shown when the mouse moves ----
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	v.add_child(bar)
+	_controls = bar
+	_controls.modulate.a = 0.0
 	_start_btn = HudStyle.button(bar, "Start", 16, func(): _runner.toggle_pause())
 	HudStyle.button(bar, "Skip ›", 16, func(): _runner.skip_segment())
 	_erg_l = HudStyle.label(bar, "ERG on", 14, 500, HudStyle.TEXT_DIM)
@@ -421,13 +438,14 @@ func _build_ui() -> void:
 
 
 ## Top-left: workout name, overall progress, finish time, block list, bias, reps.
-func _build_workout_panel(parent: Control) -> void:
+func _build_workout_panel(parent: Control) -> PanelContainer:
 	var panel := HudStyle.panel(parent, HudStyle.PANEL, 10, 14)
-	panel.custom_minimum_size.x = 400
+	panel.custom_minimum_size.x = 300
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	panel.add_child(v)
-	_title = HudStyle.label(v, App.workout.name, 22, 700)
+	_title = HudStyle.label(v, App.workout.name, 20, 700)
+	_title.custom_minimum_size.x = 270
 	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_overall_bar = HudStyle.bar(v, 12, 6)
 	var fin := HBoxContainer.new()
@@ -435,7 +453,7 @@ func _build_workout_panel(parent: Control) -> void:
 	fin.add_theme_constant_override("separation", 8)
 	v.add_child(fin)
 	HudStyle.label(fin, "Finish in", 20, 700, HudStyle.TEXT_DIM)
-	_finish_l = HudStyle.label(fin, _fmt(App.workout.total_duration()), 28, 700)
+	_finish_l = HudStyle.label(fin, _fmt(App.workout.total_duration()), 26, 900)
 
 	_groups = _group_segments(App.workout)
 	_rows.clear()
@@ -446,17 +464,17 @@ func _build_workout_panel(parent: Control) -> void:
 			var h := HBoxContainer.new()
 			h.add_theme_constant_override("separation", 12)
 			row.add_child(h)
-			HudStyle.label(h, "%d x" % int(g.count), 30, 700)
+			HudStyle.label(h, "%d x" % int(g.count), 26, 700)
 			var lines := VBoxContainer.new()
 			lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			lines.add_theme_constant_override("separation", 0)
 			h.add_child(lines)
-			var l1 := HudStyle.label(lines, "%s @ %dw" % [HudStyle.duration(g.on_dur), int(g.on_w)], 18, 700)
+			var l1 := HudStyle.label(lines, "%s @ %dw" % [HudStyle.duration(g.on_dur), int(g.on_w)], 16, 700)
 			l1.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			var l2 := HudStyle.label(lines, "%s @ %dw" % [HudStyle.duration(g.off_dur), int(g.off_w)], 18, 700)
+			var l2 := HudStyle.label(lines, "%s @ %dw" % [HudStyle.duration(g.off_dur), int(g.off_w)], 16, 700)
 			l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		else:
-			var l := HudStyle.label(row, g.text, 18, 700)
+			var l := HudStyle.label(row, g.text, 16, 700)
 			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_style_row(row, false)
 
@@ -471,6 +489,7 @@ func _build_workout_panel(parent: Control) -> void:
 	foot.add_child(sp)
 	_reps_l = HudStyle.label(foot, "", 20, 700, Color(1.0, 0.85, 0.3))
 	_update_reps(-1)
+	return panel
 
 
 func _style_row(row: PanelContainer, active: bool) -> void:
@@ -520,9 +539,8 @@ func _group_segments(w: Workout) -> Array[Dictionary]:
 
 
 ## Top-centre: trip numbers, progress, current block, power, live metrics.
-func _build_telemetry_panel(parent: Control) -> void:
+func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	var panel := HudStyle.panel(parent, HudStyle.PANEL, 10, 16)
-	panel.custom_minimum_size.x = 620
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	panel.add_child(v)
@@ -548,7 +566,7 @@ func _build_telemetry_panel(parent: Control) -> void:
 	block.add_child(bv)
 	_block_name_l = HudStyle.label(bv, "READY", 20, 700)
 	_block_name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_target = HudStyle.label(bv, "—", 44, 700)
+	_target = HudStyle.label(bv, "—", 44, 900)
 	_target.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_block_dur_l = HudStyle.label(bv, "", 18, 700)
 	_block_dur_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -570,7 +588,7 @@ func _build_telemetry_panel(parent: Control) -> void:
 	prow.alignment = BoxContainer.ALIGNMENT_CENTER
 	prow.add_theme_constant_override("separation", 6)
 	mid.add_child(prow)
-	_power = HudStyle.label(prow, "—", 96, 700)
+	_power = HudStyle.label(prow, "—", 96, 900)
 	var wl := HudStyle.label(prow, "w", 36, 700)
 	wl.size_flags_vertical = Control.SIZE_SHRINK_END
 	# Right column of live metrics
@@ -581,13 +599,14 @@ func _build_telemetry_panel(parent: Control) -> void:
 	_hr_l = _side_metric(col, "—", "bpm")
 	_grade_l = _side_metric(col, "0%", "grade")
 	_kj_l = _side_metric(col, "0", "kJ")
+	return panel
 
 
 func _metric(parent: Control, value: String, unit: String) -> Label:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
 	parent.add_child(h)
-	var val := HudStyle.label(h, value, 40, 700)
+	var val := HudStyle.label(h, value, 40, 900)
 	var u := HudStyle.label(h, unit, 17, 700, HudStyle.TEXT_DIM)
 	u.size_flags_vertical = Control.SIZE_SHRINK_END
 	return val

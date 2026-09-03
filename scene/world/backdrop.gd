@@ -27,18 +27,39 @@ func follow(pos: Vector3) -> void:
 
 
 func _ridge(dist: float, width: float, base_h: float, amp: float, seed_value: int, lit: Color, shade: Color, snow: Color) -> Node3D:
+	var st := MeshLib.begin()
+	# Main silhouette, then two inner ridges in front of it: lower, shifted, in
+	# the shaded tone, so spurs appear to run down inside the mass.
+	_profile(st, dist, width, base_h, amp, seed_value, lit, shade, snow, 1.0, 0.0)
+	_profile(st, dist - 4.0, width, base_h * 0.55, amp * 0.72, seed_value + 3, shade.lerp(lit, 0.35), shade.darkened(0.12), snow.lerp(shade, 0.25), 0.75, 0.31)
+	_profile(st, dist - 8.0, width, base_h * 0.25, amp * 0.5, seed_value + 5, shade.lerp(lit, 0.15), shade.darkened(0.22), snow.lerp(shade, 0.4), 0.6, 0.67)
+	var mi := MeshInstance3D.new()
+	mi.mesh = MeshLib.finish(st)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	return mi
+
+
+## One jagged profile as a wall from floor to ridgeline with lit/shaded facets
+## and a ragged snow band. `phase` shifts the noise so inner ridges do not
+## echo the outer one; `snow_frac` scales how deep the snow band reaches.
+func _profile(st: SurfaceTool, dist: float, width: float, base_h: float, amp: float, seed_value: int, lit: Color, shade: Color, snow: Color, snow_frac: float, phase: float) -> void:
 	var n := FastNoiseLite.new()
 	n.seed = seed_value
 	n.frequency = 1.0
 	n.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	var st := MeshLib.begin()
 	var steps := 420
 	var floor_y := -80.0
 	var xs := PackedFloat64Array()
 	var peaks := PackedFloat64Array()
 	for i in steps + 1:
 		var t := float(i) / steps
-		var u := t * width / 520.0   # one major peak every ~500 m, whatever the layer width
+		var u := t * width / 520.0 + phase * 7.0   # one major peak every ~500 m, whatever the layer width
 		var ridged := 1.0 - absf(n.get_noise_2d(u, 1.0))
 		var sub := 1.0 - absf(n.get_noise_2d(u * 2.7, 9.0))
 		var peak := base_h + pow(ridged, 2.0) * amp + pow(sub, 3.0) * amp * 0.2
@@ -53,18 +74,8 @@ func _ridge(dist: float, width: float, base_h: float, amp: float, seed_value: in
 		MeshLib.quad(st, Vector3(a.x, floor_y, dist), Vector3(b.x, floor_y, dist), b, a, col)
 		# Snow: the top band of the ridge, its lower edge ragged and lower on lit faces.
 		var line_jitter := n.get_noise_2d(float(i) * 0.25, 33.0) * amp * 0.1
-		var snow_a := peaks[i] - amp * (0.22 if rising else 0.15) + line_jitter
-		var snow_b := peaks[i + 1] - amp * (0.22 if rising else 0.15) + line_jitter
+		var snow_a := peaks[i] - amp * (0.22 if rising else 0.15) * snow_frac + line_jitter
+		var snow_b := peaks[i + 1] - amp * (0.22 if rising else 0.15) * snow_frac + line_jitter
 		var off := Vector3(0.0, 0.0, -2.0)
 		var cap_col := snow if rising else snow.lerp(shade, 0.35)
 		MeshLib.quad(st, Vector3(a.x, snow_a, dist) + off, Vector3(b.x, snow_b, dist) + off, b + off, a + off, cap_col)
-	var mi := MeshInstance3D.new()
-	mi.mesh = MeshLib.finish(st)
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.vertex_color_use_as_albedo = true
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.material_override = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-	return mi

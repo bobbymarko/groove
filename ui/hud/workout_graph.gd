@@ -6,6 +6,12 @@ extends Control
 var workout: Workout
 var elapsed := 0.0
 var bias := 100
+## Heart-rate trace: one sample per second, drawn over the plan as the ride progresses.
+var _hr_times: PackedFloat32Array = []
+var _hr_values: PackedFloat32Array = []
+const HR_MIN := 60.0
+const HR_MAX := 190.0
+const HR_COLOR := Color(1.0, 0.42, 0.5)
 
 const COLOR_BASE := Color(0.35, 0.55, 0.85)
 const COLOR_HARD := Color(0.95, 0.45, 0.35)
@@ -22,6 +28,13 @@ func set_progress(t: float, b: int) -> void:
 	elapsed = t
 	bias = b
 	queue_redraw()
+
+
+func add_heart_rate(t: float, bpm: int) -> void:
+	if bpm <= 0:
+		return
+	_hr_times.append(t)
+	_hr_values.append(bpm)
 
 
 func _draw() -> void:
@@ -52,5 +65,14 @@ func _draw() -> void:
 			Vector2(x0, r.size.y), Vector2(x0, y_lo), Vector2(x0 + w, y_hi), Vector2(x0 + w, r.size.y)])
 		draw_colored_polygon(pts, col)
 
+	# Heart rate over the plan, scaled from HR_MIN (bottom) to HR_MAX (top).
+	if _hr_times.size() > 1:
+		var pts := PackedVector2Array()
+		for i in _hr_times.size():
+			var x := _hr_times[i] / total * r.size.x
+			var y := r.size.y - clampf((_hr_values[i] - HR_MIN) / (HR_MAX - HR_MIN), 0.0, 1.0) * r.size.y
+			pts.append(Vector2(x, y))
+		draw_polyline(pts, HR_COLOR, 2.0, true)
+		draw_circle(pts[-1], 3.5, HR_COLOR)
 	var px := clampf(elapsed / total, 0.0, 1.0) * r.size.x
 	draw_line(Vector2(px, 0), Vector2(px, r.size.y), Color(1, 1, 1, 0.9), 2.0)

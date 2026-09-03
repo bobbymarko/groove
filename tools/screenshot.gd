@@ -110,6 +110,10 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		for i in frames:
 			await process_frame
 		rs.time_scale = 1.0
+		if OS.get_cmdline_user_args().has("coach"):
+			scene.find_child("CoachDialog", true, false).say("Rep 2 — strong and smooth, full recovery earns the next one.")
+			for i in 90:
+				await process_frame
 		# One trainer tick so power/cadence labels are populated.
 		if devices.trainer is SimulatedTrainer:
 			devices.trainer.step(1.0)

@@ -1,9 +1,11 @@
 class_name HudStyle
 extends RefCounted
-## Shared look for the ride HUD: the pixel font, translucent blocky panels,
-## and chunky progress bars, in the spirit of the reference layout.
+## Shared look for the ride HUD: Lato, translucent rounded panels, and chunky
+## progress bars, in the spirit of the reference layout.
 
-const FONT_PATH := "res://assets/fonts/PixelifySans.ttf"
+const FONT_REGULAR := "res://assets/fonts/Lato-Regular.ttf"
+const FONT_BOLD := "res://assets/fonts/Lato-Bold.ttf"
+const FONT_BLACK := "res://assets/fonts/Lato-Black.ttf"
 const PANEL := Color(0.06, 0.07, 0.11, 0.62)
 const PANEL_ROW := Color(0.10, 0.12, 0.17, 0.55)
 const ACCENT := Color(0.86, 0.33, 0.30, 0.85)
@@ -15,14 +17,12 @@ const TEXT_DIM := Color(0.97, 0.97, 0.99, 0.65)
 static var _fonts: Dictionary = {}
 
 
+## Lato ships as separate weights: regular below 600, bold to 800, black above.
 static func font(weight: int = 500) -> Font:
-	if not _fonts.has(weight):
-		var base: FontFile = load(FONT_PATH)
-		var v := FontVariation.new()
-		v.base_font = base
-		v.variation_opentype = {"wght": weight}
-		_fonts[weight] = v
-	return _fonts[weight]
+	var path := FONT_REGULAR if weight < 600 else (FONT_BOLD if weight < 800 else FONT_BLACK)
+	if not _fonts.has(path):
+		_fonts[path] = load(path)
+	return _fonts[path]
 
 
 static func label(parent: Control, text: String, size: int, weight: int = 500, color := TEXT) -> Label:
