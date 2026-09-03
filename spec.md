@@ -71,7 +71,7 @@ A rider can do this end to end with no other software:
 - R16. Record a sample every second: timestamp, power, cadence, heart rate, target power, and segment index.
 - R17. Journal samples to disk during the ride so a crash or power loss loses at most a few seconds.
 - R18. On finish, write a FIT activity file and show a summary: duration, average and normalized power, average heart rate, kilojoules, intensity factor, and training stress score.
-- R19. Connect an intervals.icu account with a personal API key and upload the FIT file automatically on finish, with a retry queue for failures. (Strava direct upload dropped, see C9.)
+- R19. Connect an intervals.icu account with a personal API key. When a ride ends, the summary screen asks whether to share it; confirmed uploads go through a retry queue. (Automatic posting removed at Bob's request 2026-09-03; Strava direct upload dropped, see C9.)
 - R20. Keep all ride files in a local library the user can open in Finder.
 
 **Settings**

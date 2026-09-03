@@ -49,7 +49,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		rs.power = 210.0
 		rs.cadence = 88.0
 		rs.debug_top_down = OS.get_cmdline_user_args().has("top")
-		rs.debug_closeup = OS.get_cmdline_user_args().has("closeup")
+		rs.debug_closeup = OS.get_cmdline_user_args().has("closeup") or OS.get_cmdline_user_args().has("hands")
+		rs.debug_hands = OS.get_cmdline_user_args().has("hands")
 		for opt in ["nocull", "plain"]:
 			if OS.get_cmdline_user_args().has(opt):
 				rs.debug_material = opt

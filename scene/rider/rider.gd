@@ -81,12 +81,8 @@ func _build_mixamo_body() -> void:
 	_mixamo = MixamoBody.new()
 	_mixamo.name = "MixamoBody"
 	_body.add_child(_mixamo)
-	# Helmet and pack ride along on the skeleton.
-	_helmet = Node3D.new()
-	_body.add_child(_helmet)
-	var dome := _sphere(Vector3.ZERO, 0.155, Palette.HELMET, _helmet)
-	dome.scale = Vector3(1.0, 0.72, 1.12)
-	dome.position = Vector3(0.0, 0.06, 0.01)
+	# Helmet intentionally omitted until a proper model exists (Bob, 2026-09-03).
+	_helmet = null
 
 
 func _pose_mixamo() -> void:
@@ -96,11 +92,11 @@ func _pose_mixamo() -> void:
 	var pedal_px := BB + _pedal_offset(crank_angle + PI, 0.16)
 	var pedal_nx := BB + _pedal_offset(crank_angle, -0.16)
 	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0), BAR + Vector3(-0.27, 0.0, 0.0))
-	# Helmet follows the head bone.
-	var head_idx: int = _mixamo._bones.get("Head", -1)
-	if head_idx >= 0:
-		var head := _mixamo.skeleton.global_transform * _mixamo.skeleton.get_bone_global_pose(head_idx)
-		_helmet.global_transform = Transform3D(head.basis, head.origin + head.basis.y * 0.06)
+	if _helmet:
+		var head_idx: int = _mixamo._bones.get("Head", -1)
+		if head_idx >= 0:
+			var head := _mixamo.skeleton.global_transform * _mixamo.skeleton.get_bone_global_pose(head_idx)
+			_helmet.global_transform = Transform3D(head.basis, head.origin + head.basis.y * 0.06)
 
 
 ## Advance the animation: cadence in rpm, forward speed in m/s.

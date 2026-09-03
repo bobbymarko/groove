@@ -18,6 +18,21 @@ func _ready() -> void:
 	_build_ui(j)
 	Sync.changed.connect(_refresh_upload)
 	_refresh_upload()
+	if App.prompt_upload:
+		App.prompt_upload = false
+		if Sync.intervals().is_configured() and Sync.jobs_for(_fit_path).is_empty():
+			_ask_to_share()
+
+
+func _ask_to_share() -> void:
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Share this ride?"
+	dlg.dialog_text = "Upload \"%s\" to intervals.icu?\n%s" % [str(_meta.get("workout", "Ride")), _description()]
+	dlg.ok_button_text = "Upload"
+	dlg.cancel_button_text = "Not now"
+	dlg.confirmed.connect(_on_upload_pressed)
+	add_child(dlg)
+	dlg.popup_centered()
 
 
 func _refresh_upload() -> void:

@@ -261,11 +261,9 @@ func _finalize_ride() -> void:
 		if f:
 			f.store_buffer(bytes)
 			f.close()
-		if Sync.intervals().is_configured():
-			Sync.enqueue("intervals", _recorder.fit_path(), App.workout.name,
-				"Ride · %d W avg · NP %d W · %d kJ · TSS %d" % [
-					int(metrics.avg_power), int(metrics.normalized_power), int(metrics.kj), int(round(float(metrics.tss)))])
+	# Sharing is confirmed on the summary screen, never automatic.
 	App.last_ride_journal = _recorder.journal_path()
+	App.prompt_upload = true
 	_message.text += "   → Summary"
 	get_tree().create_timer(1.5).timeout.connect(func() -> void: App.go_to("res://ui/screens/summary_screen.tscn"))
 

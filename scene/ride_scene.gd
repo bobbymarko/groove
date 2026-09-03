@@ -29,6 +29,8 @@ var target_fraction_ahead: Callable
 var debug_top_down := false
 ## Debug: close three-quarter view of the rider, no post-process.
 var debug_closeup := false
+## Debug: close view of the hands on the bars (with debug_closeup).
+var debug_hands := false
 ## Debug material for terrain and props: "" normal, "nocull" cel without culling, "plain" unshaded vertex colours.
 var debug_material := ""
 
@@ -210,8 +212,12 @@ func _process(raw_delta: float) -> void:
 		_screen.material = null
 		_internal_height = 720
 		_fit_viewport()
-		camera.global_position = rider.global_position + Vector3(2.4, 1.3, -2.6)
-		camera.look_at(rider.global_position + Vector3(0.0, 0.9, 0.0), Vector3.UP)
+		if debug_hands:
+			camera.global_position = rider.to_global(Vector3(0.9, 1.5, 1.4))
+			camera.look_at(rider.to_global(Vector3(0.0, 1.05, 0.5)), Vector3.UP)
+		else:
+			camera.global_position = rider.global_position + Vector3(2.4, 1.3, -2.6)
+			camera.look_at(rider.global_position + Vector3(0.0, 0.9, 0.0), Vector3.UP)
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)
 	snow.follow(camera.global_position)

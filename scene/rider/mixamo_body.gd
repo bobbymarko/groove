@@ -16,6 +16,11 @@ var _hip_offset_l: Vector3           # hip joint relative to the Hips bone origi
 var _hip_offset_r: Vector3
 var _ready_ok := false
 var lean_sign := 1.0   # positive rotation about X tilts the spine toward +Z (forward)
+## Finger curl in radians per joint (knuckle, middle, tip) and the local axis to curl around.
+var finger_curl := Vector3(1.15, 1.25, 0.8)
+var finger_axis := Vector3.RIGHT
+var _fingers: Array[int] = []       # finger joint bones, thumbs excluded
+var _thumbs: Array[int] = []
 
 
 static func available() -> bool:
@@ -48,6 +53,16 @@ func _ready() -> void:
 		var b: int = _bones[pair[0]]
 		var c: int = _bones[pair[1]]
 		_child_dir[b] = skeleton.get_bone_rest(c).origin.normalized()
+	for side in ["Left", "Right"]:
+		for finger in ["Index", "Middle", "Ring", "Pinky"]:
+			for j in range(1, 4):
+				var idx := skeleton.find_bone("mixamorig_%sHand%s%d" % [side, finger, j])
+				if idx >= 0:
+					_fingers.append(idx)
+		for j in range(1, 4):
+			var idx := skeleton.find_bone("mixamorig_%sHandThumb%d" % [side, j])
+			if idx >= 0:
+				_thumbs.append(idx)
 	var rest := func(n: String) -> Vector3: return skeleton.get_bone_global_rest(_bones[n]).origin
 	_len["thigh"] = rest.call("LeftUpLeg").distance_to(rest.call("LeftLeg"))
 	_len["shin"] = rest.call("LeftLeg").distance_to(rest.call("LeftFoot"))
@@ -96,6 +111,23 @@ func pose(saddle: Vector3, lean_pitch: float, pedal_l: Vector3, pedal_r: Vector3
 	# Elbows out and slightly forward, like a rider covering the brakes.
 	_arm("Left", to_skel * bar_l, Vector3(1.4, -0.35, 0.25))
 	_arm("Right", to_skel * bar_r, Vector3(-1.4, -0.35, 0.25))
+	_grip()
+
+
+## Hands wrap the grips: each hand pitches down over the bar and the fingers curl.
+func _grip() -> void:
+	for side in ["Left", "Right"]:
+		var hand: int = _bones[side + "Hand"]
+		var pos := skeleton.get_bone_global_pose(hand).origin
+		_aim(hand, pos, pos + Vector3(0.0, -0.75, 0.55))
+	for i in _fingers.size():
+		var joint := i % 3   # 0 knuckle, 1 middle, 2 tip
+		var b := _fingers[i]
+		var rest_rot := skeleton.get_bone_rest(b).basis.get_rotation_quaternion()
+		skeleton.set_bone_pose_rotation(b, rest_rot * Quaternion(finger_axis, finger_curl[joint]))
+	for b in _thumbs:
+		var rest_rot := skeleton.get_bone_rest(b).basis.get_rotation_quaternion()
+		skeleton.set_bone_pose_rotation(b, rest_rot * Quaternion(finger_axis, 0.35))
 
 
 func _leg(side: String, ankle: Vector3, toe: Vector3) -> void:

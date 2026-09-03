@@ -12,6 +12,7 @@ var camera_shake := "low"   # off | low | high
 var pixel_filter := true    # false = full-resolution render, no palette pass
 var show_fps := true
 var last_ride_journal := ""
+var prompt_upload := false   # the summary screen asks about sharing the ride just finished
 
 ## Scene look, adjustable in Settings and on the ride screen (T). Applied by RideScene.apply_tuning().
 const TUNING_SPEC := [
