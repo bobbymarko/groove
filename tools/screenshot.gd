@@ -96,6 +96,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		runner.start()
 		# "climb": run into the first hard rep (~10.5 min in) so the grade shows.
 		var frames := 640 if OS.get_cmdline_user_args().has("climb") else 60
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("frames="):
+				frames = int(a.trim_prefix("frames="))
 		for i in frames:
 			await process_frame
 		rs.time_scale = 1.0
