@@ -49,16 +49,30 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		rs.power = 210.0
 		rs.cadence = 88.0
 		rs.debug_top_down = OS.get_cmdline_user_args().has("top")
+		rs.debug_closeup = OS.get_cmdline_user_args().has("closeup")
 		for opt in ["nocull", "plain"]:
 			if OS.get_cmdline_user_args().has(opt):
 				rs.debug_material = opt
 		scene = rs
 		root.add_child(scene)
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("lean="):
+				rs.rider.lean_amount = float(a.trim_prefix("lean="))
+			if a.begins_with("sign="):
+				var mb0 := rs.rider.find_child("MixamoBody", true, false)
+				if mb0:
+					mb0.lean_sign = float(a.trim_prefix("sign="))
 		for i in 240:
 			await process_frame
 		var rp: Vector3 = rs.rider.global_position
 		print("[dbg] rider %s heading %s grade %.1f speed %.1f" % [rp, rs.trail.heading_at(rs.distance), rs.trail.grade_at(rs.distance), rs.physics.speed])
-		print("[dbg] camera %s" % rs.camera.global_position)
+		print("[dbg] camera %s fov %.1f dist %.1f height %.1f" % [rs.camera.global_position, rs.camera.fov, rs.camera.follow_distance, rs.camera.follow_height])
+		print("[dbg] rider scale %s; rear wheel %s" % [rs.rider.global_transform.basis.get_scale(), rs.rider.get_child(1).global_position])
+		var mb := rs.rider.find_child("MixamoBody", true, false)
+		if mb and mb.skeleton:
+			print("[dbg] skeleton xform %s" % mb.skeleton.global_transform)
+			for bn in ["Hips", "Spine", "Spine2", "Neck", "Head", "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftArm", "LeftForeArm", "LeftHand"]:
+				print("[dbg] bone %-12s pose %s  rest %s" % [bn, mb.skeleton.get_bone_global_pose(mb._bones[bn]).origin, mb.skeleton.get_bone_global_rest(mb._bones[bn]).origin])
 		print("[dbg] chunks: %s" % str(rs.terrain._chunks.keys()))
 		for key in rs.terrain._chunks:
 			var mi: MeshInstance3D = rs.terrain._chunks[key].get_child(0)

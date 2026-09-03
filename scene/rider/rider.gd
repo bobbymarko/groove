@@ -27,6 +27,9 @@ var _thigh_r: MeshInstance3D
 var _shin_l: MeshInstance3D
 var _shin_r: MeshInstance3D
 var _body: Node3D
+var _mixamo: MixamoBody
+var _helmet: Node3D
+var lean_amount := 0.6   # torso lean in radians (debug-tunable)
 
 
 func _ready() -> void:
@@ -47,8 +50,11 @@ func _ready() -> void:
 	_crank_r = _box(BB, Vector3(0.03, CRANK_R, 0.05), Palette.HELMET)
 	_pedal_l = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
 	_pedal_r = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
-	# Rider: torso leans forward from hips to shoulders, arms bend at the elbow,
-	# round head under a domed helmet, a red pack on the back.
+	if MixamoBody.available():
+		_build_mixamo_body()
+		return
+	# Block rider fallback: torso leans forward from hips to shoulders, arms bend
+	# at the elbow, round head under a domed helmet, a red pack on the back.
 	_segment(HIP + Vector3(0.0, 0.02, 0.0), SHOULDER, 0.3, Palette.RIDER_RED, _body)             # torso
 	_box(Vector3(0.0, 1.02, -0.14), Vector3(0.32, 0.16, 0.24), Palette.RIDER_BLUE, _body)       # hips / shorts
 	_box(Vector3(0.0, 1.3, -0.1), Vector3(0.26, 0.3, 0.14), Palette.BERRY, _body)                # backpack
@@ -70,18 +76,49 @@ func _ready() -> void:
 	_update_legs()
 
 
+## Mixamo character on the bike, posed by IK each frame (see MixamoBody).
+func _build_mixamo_body() -> void:
+	_mixamo = MixamoBody.new()
+	_mixamo.name = "MixamoBody"
+	_body.add_child(_mixamo)
+	# Helmet and pack ride along on the skeleton.
+	_helmet = Node3D.new()
+	_body.add_child(_helmet)
+	var dome := _sphere(Vector3.ZERO, 0.155, Palette.HELMET, _helmet)
+	dome.scale = Vector3(1.0, 0.72, 1.12)
+	dome.position = Vector3(0.0, 0.06, 0.01)
+
+
+func _pose_mixamo() -> void:
+	if _mixamo == null or not _mixamo.is_ready():
+		return
+	# Rig "Left" is +X, so it takes the +X pedal and grip.
+	var pedal_px := BB + Vector3(0.16, sin(crank_angle + PI) * CRANK_R, cos(crank_angle + PI) * CRANK_R)
+	var pedal_nx := BB + Vector3(-0.16, sin(crank_angle) * CRANK_R, cos(crank_angle) * CRANK_R)
+	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0), BAR + Vector3(-0.27, 0.0, 0.0))
+	# Helmet follows the head bone.
+	var head_idx: int = _mixamo._bones.get("Head", -1)
+	if head_idx >= 0:
+		var head := _mixamo.skeleton.global_transform * _mixamo.skeleton.get_bone_global_pose(head_idx)
+		_helmet.global_transform = Transform3D(head.basis, head.origin + head.basis.y * 0.06)
+
+
 ## Advance the animation: cadence in rpm, forward speed in m/s.
 func animate(cadence_rpm: float, speed_mps: float, delta: float) -> void:
 	crank_angle = fmod(crank_angle + cadence_rpm / 60.0 * TAU * delta, TAU)
 	var wheel_delta := speed_mps / WHEEL_R * delta
 	_front_wheel.rotate_x(-wheel_delta)
 	_rear_wheel.rotate_x(-wheel_delta)
-	_update_legs()
+	if _mixamo:
+		_update_cranks()
+		_pose_mixamo()
+	else:
+		_update_legs()
 	_body.rotation.z = lerpf(_body.rotation.z, -lean, clampf(delta * 3.0, 0.0, 1.0))
 	rotation.z = _body.rotation.z * 0.6
 
 
-func _update_legs() -> void:
+func _update_cranks() -> void:
 	for side_i in 2:
 		var side := -1.0 if side_i == 0 else 1.0
 		var a := crank_angle + (0.0 if side_i == 0 else PI)
@@ -91,6 +128,14 @@ func _update_legs() -> void:
 		crank.rotation = Vector3(-a + PI * 0.5, 0.0, 0.0)
 		var pedal_mesh := _pedal_l if side_i == 0 else _pedal_r
 		pedal_mesh.position = pedal
+
+
+func _update_legs() -> void:
+	_update_cranks()
+	for side_i in 2:
+		var side := -1.0 if side_i == 0 else 1.0
+		var a := crank_angle + (0.0 if side_i == 0 else PI)
+		var pedal := BB + Vector3(side * 0.16, sin(a) * CRANK_R, cos(a) * CRANK_R)
 		var hip := HIP + Vector3(side * 0.14, 0.0, 0.0)
 		var knee := _knee(hip, pedal)
 		_place(_thigh_l if side_i == 0 else _thigh_r, hip, knee)

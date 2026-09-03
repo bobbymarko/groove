@@ -89,6 +89,19 @@ and add it to the variant lists in `scene/world/terrain_streamer.gd`. Model name
 Pine_1–5, CommonTree_1–5, TwistedTree_1–5, DeadTree_1–5, Rock_Medium_1–3, Pebble_*, Bush_*,
 Grass_*, Flower_*, Plant_*, Mushroom_*, RockPath_*.
 
+## Rider model
+
+`assets/mixamo/Ch42_nonPBR.fbx` (Mixamo, embedded textures) is imported natively by Godot and
+posed every frame by `scene/rider/mixamo_body.gd`: bones are reset to rest, the hips are placed
+on the saddle with a forward lean, and two-bone IK aims thighs/shins to the pedals and
+upper arms/forearms to the grips. Mixamo's Left limbs sit on +X, the bike's left is -X, so
+the Rider hands the +X pedal and grip to the rig's Left side. Debug views:
+
+```bash
+tools/shot.sh x build/rider.png scene closeup          # three-quarter close-up, no post
+tools/shot.sh x build/rider.png scene closeup lean=0.8 # try a different torso lean
+```
+
 ## Bluetooth extension
 
 `addons/gdble/` is GDBLE (MIT), a Rust GDExtension over btleplug. The macOS arm64

@@ -25,6 +25,8 @@ var time_scale := 1.0        ## dev fast-forward; keeps the world in step with t
 var target_fraction_ahead: Callable
 ## Debug: look straight down from above the rider, no post-process.
 var debug_top_down := false
+## Debug: close three-quarter view of the rider, no post-process.
+var debug_closeup := false
 ## Debug material for terrain and props: "" normal, "nocull" cel without culling, "plain" unshaded vertex colours.
 var debug_material := ""
 
@@ -55,11 +57,13 @@ func _ready() -> void:
 	sun.light_energy = 0.8
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 140.0
 	sun.directional_shadow_split_1 = 0.25
 	sun.shadow_blur = 0.0          # hard-edged shadows suit the pixel look
-	sun.shadow_bias = 0.08
-	sun.shadow_normal_bias = 2.0
+	# Low winter sun grazes the snow; generous biases keep the shadow map from
+	# striping flat ground (acne) at small elevations.
+	sun.shadow_bias = 0.35
+	sun.shadow_normal_bias = 4.0
+	sun.directional_shadow_max_distance = 120.0
 	_world.add_child(sun)
 
 	trail = Trail.new()
@@ -177,6 +181,12 @@ func _process(raw_delta: float) -> void:
 		_screen.material = null
 		camera.global_position = rider.global_position + Vector3(0.0, 40.0, -10.0)
 		camera.look_at(rider.global_position, Vector3.FORWARD)
+	elif debug_closeup:
+		_screen.material = null
+		_internal_height = 720
+		_fit_viewport()
+		camera.global_position = rider.global_position + Vector3(2.4, 1.3, -2.6)
+		camera.look_at(rider.global_position + Vector3(0.0, 0.9, 0.0), Vector3.UP)
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)
 	snow.follow(camera.global_position)

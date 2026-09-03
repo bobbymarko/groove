@@ -42,7 +42,8 @@ func _init(t: Trail) -> void:
 	var x := -HALF_WIDTH
 	while x < HALF_WIDTH - 0.001:
 		_columns.append(x)
-		x += 0.5 if absf(x) < 6.0 else RES
+		var ax := absf(x)
+		x += 0.2 if ax < 3.0 else (0.5 if ax < 8.0 else RES)
 	_columns.append(HALF_WIDTH)
 	for i in range(1, 6):
 		var m := MeshLib.load_prop("res://assets/quaternius/Pine_%d.gltf" % i)
@@ -79,8 +80,8 @@ func height(x: float, z: float) -> float:
 		groove = 0.09 * sin(PI * (ad - TRAIL_HALF_WIDTH) / BANK_WIDTH)
 	var off := smoothstep(TRAIL_HALF_WIDTH + BANK_WIDTH, TRAIL_HALF_WIDTH + SHOULDER, ad)
 	var rough_fade := smoothstep(SHOULDER, SHOULDER + 18.0, ad)
-	var rough := (_noise.get_noise_2d(x, z) * 2.2 + _detail.get_noise_2d(x, z) * 0.35) * rough_fade
-	var drifts := _drift.get_noise_2d(x, z) * 0.35 * smoothstep(TRAIL_HALF_WIDTH + BANK_WIDTH, SHOULDER, ad)
+	var rough := (_noise.get_noise_2d(x, z) * 2.2 + _detail.get_noise_2d(x, z) * 0.12) * rough_fade
+	var drifts := _drift.get_noise_2d(x, z) * 0.25 * smoothstep(TRAIL_HALF_WIDTH + BANK_WIDTH, SHOULDER, ad)
 	base += groove + drifts
 	var hillside := 0.0
 	if d < 0.0:
@@ -113,10 +114,11 @@ func _build_chunk(index: int) -> Node3D:
 	root.name = "Chunk%d" % index
 	var z0 := index * CHUNK_LEN
 	var st := MeshLib.begin()
-	var nz := int(CHUNK_LEN / 1.0)
+	var row := 0.5
+	var nz := int(CHUNK_LEN / row)
 	for iz in nz:
-		var za := z0 + iz * 1.0
-		var zb := za + 1.0
+		var za := z0 + iz * row
+		var zb := za + row
 		for ix in _columns.size() - 1:
 			var xa := _columns[ix]
 			var xb := _columns[ix + 1]
@@ -128,8 +130,9 @@ func _build_chunk(index: int) -> Node3D:
 			var p11 := Vector3(cx + xb, height(cx + xb, zb), zb)
 			var c1 := _color_for((p00 + p10 + p11) / 3.0)
 			var c2 := _color_for((p00 + p11 + p01) / 3.0)
-			MeshLib.tri(st, p00, p11, p10, c1)
-			MeshLib.tri(st, p00, p01, p11, c2)
+			# Smooth normals from the height field so cel bands blend across facets.
+			_smooth_tri(st, p00, p11, p10, c1)
+			_smooth_tri(st, p00, p01, p11, c2)
 	var mi := MeshInstance3D.new()
 	mi.mesh = MeshLib.finish(st)
 	mi.material_override = _material
@@ -137,6 +140,21 @@ func _build_chunk(index: int) -> Node3D:
 	_scatter(root, z0)
 	add_child(root)
 	return root
+
+
+func _normal_at(x: float, z: float) -> Vector3:
+	var e := 0.35
+	var dzx := height(x + e, z) - height(x - e, z)
+	var dzz := height(x, z + e) - height(x, z - e)
+	return Vector3(-dzx, 2.0 * e, -dzz).normalized()
+
+
+func _smooth_tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, col: Color) -> void:
+	# Same clockwise emission as MeshLib.tri, with per-vertex normals.
+	for v in [a, c, b]:
+		st.set_normal(_normal_at(v.x, v.z))
+		st.set_color(col)
+		st.add_vertex(v)
 
 
 func _color_for(p: Vector3) -> Color:
