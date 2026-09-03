@@ -111,9 +111,11 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			await process_frame
 		rs.time_scale = 1.0
 		# One trainer tick so power/cadence labels are populated.
-		devices.trainer.step(1.0)
-		devices.trainer.step(1.0)
-		devices.heart_rate.step(1.0)
+		if devices.trainer is SimulatedTrainer:
+			devices.trainer.step(1.0)
+			devices.trainer.step(1.0)
+		if devices.heart_rate is SimulatedHeartRate:
+			devices.heart_rate.step(1.0)
 	for i in 5:
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()
