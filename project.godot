@@ -38,6 +38,22 @@ cel_shadow_band={
 "type": "float",
 "value": 0.45
 }
+cel_speckle={
+"type": "float",
+"value": 0.12
+}
+cel_highlight={
+"type": "float",
+"value": 0.15
+}
+cel_bands={
+"type": "float",
+"value": 3.0
+}
+cel_colorize_steps={
+"type": "float",
+"value": 3.0
+}
 
 [rendering]
 

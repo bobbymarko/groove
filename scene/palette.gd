@@ -12,7 +12,8 @@ const FOG := Color("cfc5e3")
 const SNOW := Color("f4f1f7")
 const SNOW_MID := Color("e4e2ee")
 const SNOW_SHADE := Color("cdd6ec")
-const SNOW_SHADOW := Color("9fb0d8")
+const SNOW_SHADOW := Color("8a9dcc")
+const SNOW_BRIGHT := Color("fbfaff")
 const TRAIL := Color("bfb0d2")
 const TRAIL_DARK := Color("a493bd")
 const ROCK := Color("6f7a95")
@@ -28,7 +29,7 @@ const SKY_LOW := Color("d6bfd9")
 
 const PINE := Color("2b4f5e")
 const PINE_LIGHT := Color("4c7d8c")
-const PINE_DARK := Color("1f3a46")
+const PINE_DARK := Color("172e3a")
 const PINE_SNOW := Color("e9eff8")
 const TRUNK := Color("4a3a3a")
 const BRANCH := Color("5c4638")
@@ -43,7 +44,7 @@ const TIRE := Color("2a2a33")
 
 static func list() -> PackedVector3Array:
 	var out := PackedVector3Array()
-	for c in [SKY_TOP, SKY_MID, SKY_LOW, SKY_HORIZON, FOG, SNOW, SNOW_MID, SNOW_SHADE, SNOW_SHADOW, TRAIL, TRAIL_DARK, ROCK, ROCK_DARK,
+	for c in [SKY_TOP, SKY_MID, SKY_LOW, SKY_HORIZON, FOG, SNOW_BRIGHT, SNOW, SNOW_MID, SNOW_SHADE, SNOW_SHADOW, TRAIL, TRAIL_DARK, ROCK, ROCK_DARK,
 			MOUNTAIN_FAR, MOUNTAIN_FAR2, MOUNTAIN_MID, MOUNTAIN_MID2, MOUNTAIN_NEAR, PINE, PINE_LIGHT, PINE_DARK, PINE_SNOW, TRUNK, BRANCH, BERRY,
 			RIDER_RED, RIDER_BLUE, RIDER_SKIN, HELMET, BIKE, TIRE,
 			Color("f8dfe6"), Color("5d6fa8"), Color("e7a4b4")]:

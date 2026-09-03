@@ -3,10 +3,14 @@ shader_type canvas_item;
 // nearest-palette quantization, and a dark outline where neighbouring pixels differ.
 
 uniform int palette_size = 24;
+// 0 = snap to the palette (8-bit), 1 = posterize each channel to `levels` (16-bit).
+uniform int mode = 0;
+uniform float levels = 32.0;
 uniform vec3 palette[32];
 uniform float dither_strength : hint_range(0.0, 0.2) = 0.0;   // 0 = flat colour, no grain
 uniform float outline_threshold : hint_range(0.0, 1.5) = 0.45;
 uniform float outline_darken : hint_range(0.0, 1.0) = 0.0;   // 0 = no outlines
+uniform float sharpen : hint_range(0.0, 1.5) = 0.4;          // local contrast before the palette snap
 uniform vec2 texel = vec2(0.0023474, 0.0041667);
 
 const float BAYER[16] = float[16](
@@ -37,9 +41,11 @@ void fragment() {
 	vec3 w = texture(TEXTURE, uv + vec2(-texel.x, 0.0)).rgb;
 	vec3 e = texture(TEXTURE, uv + vec2(texel.x, 0.0)).rgb;
 	float edge = distance(c, n) + distance(c, s) + distance(c, w) + distance(c, e);
+	vec3 blur = (n + s + w + e) * 0.25;
+	c = clamp(c + (c - blur) * sharpen, 0.0, 1.0);
 	ivec2 px = ivec2(floor(uv / texel));
 	float d = BAYER[(px.x % 4) + (px.y % 4) * 4] / 16.0 - 0.5;
-	vec3 q = nearest(c + d * dither_strength);
+	vec3 q = mode == 0 ? nearest(c + d * dither_strength) : floor((c + d * dither_strength) * levels + 0.5) / levels;
 	if (outline_darken > 0.0 && edge > outline_threshold) {
 		q *= 1.0 - outline_darken;
 	}

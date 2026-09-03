@@ -76,6 +76,7 @@ func _init(t: Trail) -> void:
 		_rocks.append(MeshLib.rock())
 	_shrub_mesh = MeshLib.shrub()
 	_material = MeshLib.cel_material(true)
+	_material.set_shader_parameter("speckle", true)
 
 
 ## Terrain height at any point: the trail's own height on the trail, rising

@@ -91,7 +91,9 @@ func _pose_mixamo() -> void:
 	# Rig "Left" is +X, so it takes the +X pedal and grip.
 	var pedal_px := BB + _pedal_offset(crank_angle + PI, 0.16)
 	var pedal_nx := BB + _pedal_offset(crank_angle, -0.16)
-	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0), BAR + Vector3(-0.27, 0.0, 0.0))
+	# Palms rest on top of and slightly behind the bar so the fingers curl over the front.
+	var grip_off := Vector3(0.0, 0.045, -0.035)
+	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0) + grip_off, BAR + Vector3(-0.27, 0.0, 0.0) + grip_off)
 	if _helmet:
 		var head_idx: int = _mixamo._bones.get("Head", -1)
 		if head_idx >= 0:

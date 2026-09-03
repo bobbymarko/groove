@@ -9,7 +9,7 @@ const USER_WORKOUTS_DIR := "user://workouts"
 var workout: Workout
 var ftp: int = 200
 var camera_shake := "low"   # off | low | high
-var pixel_filter := true    # false = full-resolution render, no palette pass
+var look_mode := "16bit"    # "8bit" (palette, low-res) | "16bit" (posterized, higher-res) | "off" (native)
 var show_fps := true
 var last_ride_journal := ""
 var prompt_upload := false   # the summary screen asks about sharing the ride just finished
@@ -30,6 +30,9 @@ const TUNING_SPEC := [
 	["camera_height", "Camera height (m)", 1.0, 5.0, 0.1, 2.0],
 	["tree_density", "Tree density", 0.2, 3.0, 0.05, 2.0],
 	["internal_height", "Render height (px)", 144.0, 400.0, 8.0, 264.0],
+	["speckle", "Snow speckle", 0.0, 0.4, 0.01, 0.12],
+	["highlight", "Sun highlight", 0.0, 0.5, 0.01, 0.15],
+	["sharpen", "Sharpen", 0.0, 1.5, 0.05, 0.4],
 ]
 var scene_tuning: Dictionary = {}
 
@@ -44,7 +47,7 @@ func _ready() -> void:
 	if _cfg.load(SETTINGS_PATH) == OK:
 		ftp = int(_cfg.get_value("rider", "ftp", ftp))
 		camera_shake = str(_cfg.get_value("scene", "camera_shake", camera_shake))
-		pixel_filter = bool(_cfg.get_value("scene", "pixel_filter", pixel_filter))
+		look_mode = str(_cfg.get_value("scene", "look_mode", "8bit" if bool(_cfg.get_value("scene", "pixel_filter", true)) else "off"))
 		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
 		for key in scene_tuning:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
@@ -98,7 +101,7 @@ func list_rides() -> Array[Dictionary]:
 func save_settings() -> void:
 	_cfg.set_value("rider", "ftp", ftp)
 	_cfg.set_value("scene", "camera_shake", camera_shake)
-	_cfg.set_value("scene", "pixel_filter", pixel_filter)
+	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	for key in scene_tuning:
 		_cfg.set_value("scene_tuning", key, scene_tuning[key])

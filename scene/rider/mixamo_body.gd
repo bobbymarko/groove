@@ -17,7 +17,7 @@ var _hip_offset_r: Vector3
 var _ready_ok := false
 var lean_sign := 1.0   # positive rotation about X tilts the spine toward +Z (forward)
 ## Finger curl in radians per joint (knuckle, middle, tip) and the local axis to curl around.
-var finger_curl := Vector3(1.15, 1.25, 0.8)
+var finger_curl := Vector3(1.35, 1.3, 0.9)
 var finger_axis := Vector3.RIGHT
 var _fingers: Array[int] = []       # finger joint bones, thumbs excluded
 var _thumbs: Array[int] = []
@@ -119,7 +119,7 @@ func _grip() -> void:
 	for side in ["Left", "Right"]:
 		var hand: int = _bones[side + "Hand"]
 		var pos := skeleton.get_bone_global_pose(hand).origin
-		_aim(hand, pos, pos + Vector3(0.0, -0.75, 0.55))
+		_aim(hand, pos, pos + Vector3(0.0, -0.55, 0.8))   # knuckles forward, fingers drop over the bar
 	for i in _fingers.size():
 		var joint := i % 3   # 0 knuckle, 1 middle, 2 tip
 		var b := _fingers[i]

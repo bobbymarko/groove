@@ -93,10 +93,15 @@ func _build_ui() -> void:
 	var toggles := HBoxContainer.new()
 	toggles.add_theme_constant_override("separation", 24)
 	v.add_child(toggles)
-	var pixel_cb := CheckButton.new()
-	pixel_cb.text = "8-bit look (low-res render + palette)"
-	pixel_cb.button_pressed = App.pixel_filter
-	toggles.add_child(pixel_cb)
+	var look_l := Label.new()
+	look_l.text = "Look"
+	toggles.add_child(look_l)
+	var look_ob := OptionButton.new()
+	look_ob.add_item("8-bit  (palette, chunky)")
+	look_ob.add_item("16-bit (posterized, finer)")
+	look_ob.add_item("Off    (native)")
+	look_ob.selected = ["8bit", "16bit", "off"].find(App.look_mode)
+	toggles.add_child(look_ob)
 	var fps_cb := CheckButton.new()
 	fps_cb.text = "Show FPS / frame time on the ride screen"
 	fps_cb.button_pressed = App.show_fps
@@ -116,10 +121,10 @@ func _build_ui() -> void:
 	preview.power = 200.0
 	preview.cadence = 88.0
 	tune_row.add_child(preview)
-	pixel_cb.toggled.connect(func(on: bool) -> void:
-		App.pixel_filter = on
+	look_ob.item_selected.connect(func(i: int) -> void:
+		App.look_mode = ["8bit", "16bit", "off"][i]
 		App.save_settings()
-		preview.set_pixel_filter(on))
+		preview.set_look_mode(App.look_mode))
 	var panel := TuningPanel.new()
 	panel.scene = preview
 	panel.custom_minimum_size.x = 520

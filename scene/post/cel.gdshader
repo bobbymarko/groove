@@ -19,12 +19,26 @@ global uniform float cel_dark_band;
 uniform float snow_threshold = 2.0;   // > 1 disables
 uniform vec3 snow_color : source_color = vec3(0.93, 0.94, 0.97);
 
+global uniform float cel_speckle;    // pixel texture on flat surfaces
+global uniform float cel_bands;      // number of lighting steps (3 = 8-bit look, 6 = 16-bit)
+global uniform float cel_colorize_steps;  // tonal steps for colourized textures
+global uniform float cel_highlight;  // extra brightness where the sun hits squarely
+uniform bool speckle = false;
+
 varying vec3 vcol;
 varying vec3 world_normal;
+varying vec3 world_pos;
 
 void vertex() {
 	vcol = COLOR.rgb;
 	world_normal = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+float hash3(vec3 p) {
+	p = fract(p * 0.3183099 + vec3(0.1, 0.2, 0.3));
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
 void fragment() {
@@ -33,7 +47,10 @@ void fragment() {
 		vec4 t = texture(albedo_tex, UV);
 		if (colorize) {
 			float lum = dot(t.rgb, vec3(0.3, 0.59, 0.11));
-			base = mix(shade_dark, shade_light, smoothstep(0.12, 0.7, lum));
+			// Hard tonal steps between the two shades: more internal detail than a blend.
+			float steps = max(cel_colorize_steps, 2.0);
+			float l = floor(smoothstep(0.1, 0.75, lum) * (steps - 0.001)) / (steps - 1.0);
+			base = mix(shade_dark, shade_light, l);
 		} else {
 			base = t.rgb * albedo;
 		}
@@ -47,6 +64,12 @@ void fragment() {
 		NORMAL = -NORMAL;
 	}
 	ALBEDO = up > snow_threshold ? snow_color : base;
+	if (speckle && cel_speckle > 0.0) {
+		// World-anchored so it does not swim with the camera; the palette snap
+		// turns the modulation into scattered single-pixel tone changes.
+		float n = hash3(floor(world_pos * 9.0));
+		ALBEDO *= 1.0 + (n - 0.5) * cel_speckle;
+	}
 }
 
 // In shadow the surface keeps shadow_band of the sun instead of dropping to
@@ -56,7 +79,12 @@ global uniform float cel_shadow_band;
 
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
-	float band = ndl > 0.3 ? 1.0 : (ndl > -0.15 ? cel_shade_band : cel_dark_band);
+	// Quantize the lambert term into cel_bands steps from the dark band to full
+	// light; squarely lit surfaces get the highlight on top.
+	float bands = max(cel_bands, 2.0);
+	float lit01 = clamp((ndl + 0.15) / 1.15, 0.0, 1.0);
+	float q = floor(lit01 * (bands - 0.001)) / (bands - 1.0);
+	float band = mix(cel_dark_band, 1.0, q) + (ndl > 0.82 ? cel_highlight : 0.0);
 	float lit = mix(cel_shadow_band, band, ATTENUATION);
 	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * lit;
 }

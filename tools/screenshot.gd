@@ -57,7 +57,10 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		scene = rs
 		root.add_child(scene)
 		if OS.get_cmdline_user_args().has("nofilter"):
-			rs.set_pixel_filter(false)
+			rs.set_look_mode("off")
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("look="):
+				rs.set_look_mode(a.trim_prefix("look="))
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("lean="):
 				rs.rider.lean_amount = float(a.trim_prefix("lean="))
