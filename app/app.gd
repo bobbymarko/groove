@@ -30,7 +30,7 @@ const TUNING_SPEC := [
 	["camera_height", "Camera height (m)", 1.0, 5.0, 0.1, 2.0],
 	["tree_density", "Tree density", 0.2, 3.0, 0.05, 2.0],
 	["internal_height", "Render height (px)", 144.0, 400.0, 8.0, 264.0],
-	["speckle", "Snow speckle", 0.0, 0.4, 0.01, 0.12],
+	["speckle", "Snow speckle", 0.0, 0.4, 0.01, 0.1],
 	["highlight", "Sun highlight", 0.0, 0.5, 0.01, 0.15],
 	["sharpen", "Sharpen", 0.0, 1.5, 0.05, 0.4],
 ]

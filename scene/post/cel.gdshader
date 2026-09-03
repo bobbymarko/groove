@@ -67,7 +67,7 @@ void fragment() {
 	if (speckle && cel_speckle > 0.0) {
 		// World-anchored so it does not swim with the camera; the palette snap
 		// turns the modulation into scattered single-pixel tone changes.
-		float n = hash3(floor(world_pos * 9.0));
+		float n = hash3(floor(world_pos * 24.0));   // ~4 cm cells: pixel-scale sparkle, not tiles
 		ALBEDO *= 1.0 + (n - 0.5) * cel_speckle;
 	}
 }
