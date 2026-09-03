@@ -9,7 +9,7 @@ const CRANK_R := 0.17
 const BB := Vector3(0.0, 0.34, 0.0)          # bottom bracket
 const HIP := Vector3(0.0, 1.06, -0.18)
 const SHOULDER := Vector3(0.0, 1.42, 0.22)
-const BAR := Vector3(0.0, 1.05, 0.56)
+const BAR := Vector3(0.0, 1.05, 0.50)
 const THIGH := 0.46
 const SHIN := 0.46
 
@@ -29,7 +29,7 @@ var _shin_r: MeshInstance3D
 var _body: Node3D
 var _mixamo: MixamoBody
 var _helmet: Node3D
-var lean_amount := 0.6   # torso lean in radians (debug-tunable)
+var lean_amount := 0.75   # torso lean in radians (debug-tunable)
 
 
 func _ready() -> void:
@@ -114,8 +114,8 @@ func animate(cadence_rpm: float, speed_mps: float, delta: float) -> void:
 		_pose_mixamo()
 	else:
 		_update_legs()
-	_body.rotation.z = lerpf(_body.rotation.z, -lean, clampf(delta * 3.0, 0.0, 1.0))
-	rotation.z = _body.rotation.z * 0.6
+	# Rider and bike lean together so hands stay on the grips through turns.
+	rotation.z = lerpf(rotation.z, -lean, clampf(delta * 3.0, 0.0, 1.0))
 
 
 func _update_cranks() -> void:
@@ -168,16 +168,17 @@ func _place(seg: MeshInstance3D, a: Vector3, b: Vector3) -> void:
 
 
 func _wheel(pos: Vector3) -> MeshInstance3D:
+	# Fat-bike tyre: a torus about 12 cm wide (4.7 in) on a 26-inch rim.
 	var mi := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = WHEEL_R
-	cyl.bottom_radius = WHEEL_R
-	cyl.height = 0.06
-	cyl.radial_segments = 12
-	mi.mesh = cyl
+	var tyre := TorusMesh.new()
+	tyre.inner_radius = WHEEL_R - 0.115
+	tyre.outer_radius = WHEEL_R
+	tyre.rings = 20
+	tyre.ring_segments = 10
+	mi.mesh = tyre
 	mi.material_override = MeshLib.cel_material(false, Palette.TIRE)
 	mi.position = pos
-	mi.rotation = Vector3(0.0, 0.0, PI * 0.5)
+	mi.rotation = Vector3(0.0, 0.0, PI * 0.5)   # torus axis (Y) becomes the axle (X)
 	# Spokes: a hub disc so rotation is visible
 	var hub := MeshInstance3D.new()
 	var box := BoxMesh.new()

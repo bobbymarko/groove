@@ -13,12 +13,24 @@ var grade_provider: Callable      # func(z: float) -> float grade in percent, or
 var _heights: PackedFloat64Array = [0.0]
 var _grade := 0.0
 var _noise := FastNoiseLite.new()
+var _seed := 7
 
 
 func _init(seed_value: int = 7) -> void:
+	_seed = seed_value
 	_noise.seed = seed_value
 	_noise.frequency = 0.02
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+
+
+## An independent copy for worker threads: same meander and the heights cached
+## so far. The copy extends itself with the default profile if asked further,
+## so callers must extend the original first (see TerrainStreamer._pump).
+func snapshot() -> Trail:
+	var t := Trail.new(_seed)
+	t._heights = _heights.duplicate()
+	t._grade = _grade
+	return t
 
 
 ## Lateral position of the trail centre at distance z.

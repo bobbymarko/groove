@@ -93,8 +93,9 @@ func pose(saddle: Vector3, lean_pitch: float, pedal_l: Vector3, pedal_r: Vector3
 	_leg("Left", to_skel * (pedal_l + Vector3(0.0, 0.07, -0.06)), to_skel * (pedal_l + Vector3(0.0, 0.0, 0.12)))
 	_leg("Right", to_skel * (pedal_r + Vector3(0.0, 0.07, -0.06)), to_skel * (pedal_r + Vector3(0.0, 0.0, 0.12)))
 	# Arms: elbows drop outward and down.
-	_arm("Left", to_skel * bar_l, Vector3(-1.0, -0.6, 0.0))
-	_arm("Right", to_skel * bar_r, Vector3(1.0, -0.6, 0.0))
+	# Elbows out and slightly forward, like a rider covering the brakes.
+	_arm("Left", to_skel * bar_l, Vector3(1.4, -0.35, 0.25))
+	_arm("Right", to_skel * bar_r, Vector3(-1.4, -0.35, 0.25))
 
 
 func _leg(side: String, ankle: Vector3, toe: Vector3) -> void:

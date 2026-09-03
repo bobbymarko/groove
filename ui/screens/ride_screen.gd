@@ -30,6 +30,7 @@ var _power: Label
 var _cadence_l: Label
 var _hr_l: Label
 var _grade_l: Label
+var _fps_l: Label
 var _bias_l: Label
 var _erg_l: Label
 var _message: Label
@@ -78,7 +79,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	match event.keycode:
 		KEY_SPACE: _runner.toggle_pause()
-		KEY_RIGHT: _runner.skip_segment()
+		KEY_S: _runner.skip_segment()
+		KEY_RIGHT: _scene.camera.orbit = wrapf(_scene.camera.orbit + deg_to_rad(15.0), -PI, PI)
+		KEY_LEFT: _scene.camera.orbit = wrapf(_scene.camera.orbit - deg_to_rad(15.0), -PI, PI)
+		KEY_0: _scene.camera.orbit = 0.0
 		KEY_UP: _runner.adjust_bias(1)
 		KEY_DOWN: _runner.adjust_bias(-1)
 		KEY_E: _runner.set_erg(not _runner.erg_enabled)
@@ -162,6 +166,7 @@ func _on_tick(snap: Dictionary) -> void:
 	_scene.riding = snap.state == WorkoutRunner.State.RUNNING
 	_scene.power = float(_actual_power)
 	_scene.cadence = float(_cadence)
+	_fps_l.text = "%d fps  %.1f ms" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0]
 	var g := _scene.current_grade()
 	_grade_l.text = "%s%d%% grade" % ["▲ " if g > 0.5 else ("▼ " if g < -0.5 else ""), int(round(absf(g)))]
 	_clock.text = "%s  /  %s" % [_fmt(snap.elapsed), _fmt(snap.total)]
@@ -356,6 +361,8 @@ func _build_ui() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(spacer)
+	_fps_l = _label(bar, "— fps", 20)
+	_fps_l.modulate = Color(0.75, 1.0, 0.75)
 	_button(bar, "End", func(): _runner.end_early())
 	_button(bar, "Home", func(): App.go_to("res://ui/screens/home_screen.tscn"))
 

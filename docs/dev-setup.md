@@ -43,7 +43,8 @@ Devices autoload touches the radio.
 
 Open the project in Godot and press Play, or run `tools/run-dev.sh`. Pick a workout,
 set FTP, press "Ride on simulator". Keys on the ride screen: Space pause/resume,
-Right skip segment, Up/Down bias ±1%, E toggle ERG, Esc end, F fast-forward (dev only).
+S skip segment, Up/Down bias ±1%, E toggle ERG, Esc end, T tuning panel, F fast-forward (dev only),
+Left/Right orbit the camera around the rider in 15° steps, 0 resets it.
 
 ## Rides, FIT files, and uploads
 

@@ -19,7 +19,11 @@ var _chunks: Dictionary = {}     # chunk index -> Node3D
 var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
 var _drift := FastNoiseLite.new()
-var _columns: PackedFloat64Array = []   # lateral grid offsets, dense near the trail
+var _fine_columns: PackedFloat64Array = []       # |x| <= 8 m: 0.2 m near the groove, then 0.5 m
+var _coarse_columns_l: PackedFloat64Array = []   # -HALF_WIDTH .. -8 m at RES
+var _coarse_columns_r: PackedFloat64Array = []   # 8 m .. HALF_WIDTH at RES
+var _pending: Array[int] = []
+var _thread: Thread
 var density_scale := 1.0                 # tree density multiplier (new chunks only)
 var _pines: Array[Mesh] = []      # variants; MeshLib procedural pine as fallback
 var _rocks: Array[Mesh] = []
@@ -39,12 +43,21 @@ func _init(t: Trail) -> void:
 	_drift.seed = 13
 	_drift.frequency = 0.07
 	_drift.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	var x := -HALF_WIDTH
+	var x := -8.0
+	while x < 8.0 - 0.001:
+		_fine_columns.append(x)
+		x += 0.2 if absf(x) < 3.0 else 0.5
+	_fine_columns.append(8.0)
+	x = -HALF_WIDTH
+	while x < -8.0 - 0.001:
+		_coarse_columns_l.append(x)
+		x += RES
+	_coarse_columns_l.append(-8.0)
+	x = 8.0
 	while x < HALF_WIDTH - 0.001:
-		_columns.append(x)
-		var ax := absf(x)
-		x += 0.2 if ax < 3.0 else (0.5 if ax < 8.0 else RES)
-	_columns.append(HALF_WIDTH)
+		_coarse_columns_r.append(x)
+		x += RES
+	_coarse_columns_r.append(HALF_WIDTH)
 	for i in range(1, 6):
 		var m := MeshLib.load_prop("res://assets/quaternius/Pine_%d.gltf" % i)
 		if m:
@@ -67,11 +80,11 @@ func _init(t: Trail) -> void:
 
 ## Terrain height at any point: the trail's own height on the trail, rising
 ## into a hillside on the left and dropping away on the right, with noise.
-func height(x: float, z: float) -> float:
-	var tx := trail.x_at(z)
+func height(x: float, z: float, t: Trail = trail) -> float:
+	var tx := t.x_at(z)
 	var d := x - tx
 	var ad := absf(d)
-	var base := trail.h_at(z)
+	var base := t.h_at(z)
 	# Groomed groove with a small bank on each side.
 	var groove := 0.0
 	if ad < TRAIL_HALF_WIDTH:
@@ -96,99 +109,150 @@ func rebuild() -> void:
 	for key in _chunks.keys():
 		_chunks[key].queue_free()
 	_chunks.clear()
+	_pending.clear()
 
 
 func update_around(z: float) -> void:
 	var center := int(floor(z / CHUNK_LEN))
-	for i in range(center - BEHIND, center + AHEAD + 1):
+	# Ground under and just ahead of the rider must exist this frame, even if
+	# the worker is behind (fast-forward, first frame): build those in place.
+	for i in [center, center + 1]:
 		if not _chunks.has(i):
-			_chunks[i] = _build_chunk(i)
+			_pending.erase(i)
+			trail.h_at((i + 2) * CHUNK_LEN + 4.0)
+			_finish_chunk(_build_chunk_arrays(i, trail.snapshot()))
+	for i in range(center - BEHIND, center + AHEAD + 1):
+		if not _chunks.has(i) and not _pending.has(i):
+			_pending.append(i)
 	for key in _chunks.keys():
 		if key < center - BEHIND or key > center + AHEAD:
 			_chunks[key].queue_free()
 			_chunks.erase(key)
+	_pump()
 
 
-func _build_chunk(index: int) -> Node3D:
-	var root := Node3D.new()
-	root.name = "Chunk%d" % index
+## Chunk builds run on a worker thread one at a time; the main thread only
+## turns finished arrays into meshes. Nearest chunks first.
+func _pump() -> void:
+	if _thread != null:
+		if _thread.is_alive():
+			return
+		var result: Dictionary = _thread.wait_to_finish()
+		_thread = null
+		_finish_chunk(result)
+	if _pending.is_empty():
+		return
+	_pending.sort()
+	var index: int = _pending.pop_front()
+	# Extend the real trail past this chunk on the main thread, then give the
+	# worker a private snapshot so no array is shared across threads.
+	trail.h_at((index + 2) * CHUNK_LEN + 4.0)
+	var snap := trail.snapshot()
+	_thread = Thread.new()
+	_thread.start(_build_chunk_arrays.bind(index, snap))
+
+
+func _process(_delta: float) -> void:
+	if _thread != null and not _thread.is_alive():
+		_pump()
+
+
+func _exit_tree() -> void:
+	if _thread != null:
+		_thread.wait_to_finish()
+
+
+## Worker: all geometry and scatter math for one chunk, no scene-tree access.
+func _build_chunk_arrays(index: int, t: Trail) -> Dictionary:
+	var t0 := Time.get_ticks_usec()
 	var z0 := index * CHUNK_LEN
-	var st := MeshLib.begin()
-	var row := 0.5
+	var out := {"index": index, "z0": z0}
+	# Fine strip around the trail (0.2 m columns within 3 m, 0.5 m to 8 m; 0.5 m rows),
+	# coarse field beyond (2 m grid). Heights are sampled once per grid vertex.
+	out["fine"] = _grid_arrays(z0, _fine_columns, 0.5, t)
+	out["coarse_l"] = _grid_arrays(z0, _coarse_columns_l, RES, t)
+	out["coarse_r"] = _grid_arrays(z0, _coarse_columns_r, RES, t)
+	out["scatter"] = _scatter_transforms(z0, t)
+	out["usec"] = Time.get_ticks_usec() - t0
+	return out
+
+
+## Vertex/normal/colour arrays for a grid of columns (offsets from the trail centre) × rows.
+func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> Dictionary:
 	var nz := int(CHUNK_LEN / row)
-	for iz in nz:
-		var za := z0 + iz * row
-		var zb := za + row
-		for ix in _columns.size() - 1:
-			var xa := _columns[ix]
-			var xb := _columns[ix + 1]
-			# Grid is centred on the trail so the trail is always covered.
-			var cx := trail.x_at((za + zb) * 0.5)
-			var p00 := Vector3(cx + xa, height(cx + xa, za), za)
-			var p10 := Vector3(cx + xb, height(cx + xb, za), za)
-			var p01 := Vector3(cx + xa, height(cx + xa, zb), zb)
-			var p11 := Vector3(cx + xb, height(cx + xb, zb), zb)
-			var c1 := _color_for((p00 + p10 + p11) / 3.0)
-			var c2 := _color_for((p00 + p11 + p01) / 3.0)
-			# Smooth normals from the height field so cel bands blend across facets.
-			_smooth_tri(st, p00, p11, p10, c1)
-			_smooth_tri(st, p00, p01, p11, c2)
-	var mi := MeshInstance3D.new()
-	mi.mesh = MeshLib.finish(st)
-	mi.material_override = _material
-	root.add_child(mi)
-	_scatter(root, z0)
-	add_child(root)
-	return root
+	var ncols := cols.size()
+	# Sample heights on a (nz+1) × ncols lattice, with one extra ring for normals.
+	var hs := PackedFloat64Array()
+	hs.resize((nz + 3) * (ncols + 2))
+	var xs := PackedFloat64Array()
+	xs.resize((nz + 3) * (ncols + 2))
+	for iz in nz + 3:
+		var zz := z0 + (iz - 1) * row
+		var cx := t.x_at(zz)
+		for ic in ncols + 2:
+			var col_off := cols[clampi(ic - 1, 0, ncols - 1)] + (-(RES) if ic == 0 else (RES if ic == ncols + 1 else 0.0))
+			var xx := cx + col_off
+			xs[iz * (ncols + 2) + ic] = xx
+			hs[iz * (ncols + 2) + ic] = height(xx, zz, t)
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var colors := PackedColorArray()
+	var W := ncols + 2
+	for iz in range(1, nz + 1):
+		for ic in range(1, ncols):
+			var p00 := Vector3(xs[iz * W + ic], hs[iz * W + ic], z0 + (iz - 1) * row)
+			var p10 := Vector3(xs[iz * W + ic + 1], hs[iz * W + ic + 1], z0 + (iz - 1) * row)
+			var p01 := Vector3(xs[(iz + 1) * W + ic], hs[(iz + 1) * W + ic], z0 + iz * row)
+			var p11 := Vector3(xs[(iz + 1) * W + ic + 1], hs[(iz + 1) * W + ic + 1], z0 + iz * row)
+			var n00 := _grid_normal(hs, xs, W, iz, ic, row)
+			var n10 := _grid_normal(hs, xs, W, iz, ic + 1, row)
+			var n01 := _grid_normal(hs, xs, W, iz + 1, ic, row)
+			var n11 := _grid_normal(hs, xs, W, iz + 1, ic + 1, row)
+			var c1 := _color_for_slope((p00 + p10 + p11) / 3.0, n00, t)
+			var c2 := _color_for_slope((p00 + p11 + p01) / 3.0, n01, t)
+			# Clockwise front faces (see MeshLib.tri).
+			for tri in [[p00, n00, p10, n10, p11, n11, c1], [p00, n00, p11, n11, p01, n01, c2]]:
+				verts.append(tri[0]); norms.append(tri[1]); colors.append(tri[6])
+				verts.append(tri[4]); norms.append(tri[5]); colors.append(tri[6])
+				verts.append(tri[2]); norms.append(tri[3]); colors.append(tri[6])
+	return {"verts": verts, "norms": norms, "colors": colors}
 
 
-func _normal_at(x: float, z: float) -> Vector3:
-	var e := 0.35
-	var dzx := height(x + e, z) - height(x - e, z)
-	var dzz := height(x, z + e) - height(x, z - e)
-	return Vector3(-dzx, 2.0 * e, -dzz).normalized()
+func _grid_normal(hs: PackedFloat64Array, xs: PackedFloat64Array, W: int, iz: int, ic: int, row: float) -> Vector3:
+	var dx := xs[iz * W + ic + 1] - xs[iz * W + ic - 1]
+	var dhx := hs[iz * W + ic + 1] - hs[iz * W + ic - 1]
+	var dhz := hs[(iz + 1) * W + ic] - hs[(iz - 1) * W + ic]
+	return Vector3(-dhx / maxf(dx, 0.01), 1.0, -dhz / (2.0 * row)).normalized()
 
 
-func _smooth_tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, col: Color) -> void:
-	# Same clockwise emission as MeshLib.tri, with per-vertex normals.
-	for v in [a, c, b]:
-		st.set_normal(_normal_at(v.x, v.z))
-		st.set_color(col)
-		st.add_vertex(v)
-
-
-func _color_for(p: Vector3) -> Color:
-	var ad := absf(p.x - trail.x_at(p.z))
+func _color_for_slope(p: Vector3, n: Vector3, t: Trail) -> Color:
+	var ad := absf(p.x - t.x_at(p.z))
 	if ad < TRAIL_HALF_WIDTH * 0.6:
-		return Palette.TRAIL_DARK      # packed centre of the groove
+		return Palette.TRAIL_DARK
 	if ad < TRAIL_HALF_WIDTH:
 		return Palette.TRAIL
 	if ad < TRAIL_HALF_WIDTH + BANK_WIDTH:
-		return Palette.SNOW_SHADE      # bank
+		return Palette.SNOW_SHADE
 	if ad < TRAIL_HALF_WIDTH + BANK_WIDTH + 0.6:
 		return Palette.SNOW_MID
-	# Slope from finite differences.
-	var dzx := (height(p.x + 2.0, p.z) - height(p.x - 2.0, p.z)) / 4.0
-	var dzz := (height(p.x, p.z + 2.0) - height(p.x, p.z - 2.0)) / 4.0
-	var slope := sqrt(dzx * dzx + dzz * dzz)
+	var slope := sqrt(maxf(1.0 - n.y * n.y, 0.0)) / maxf(n.y, 0.05)
 	if slope > 1.3:
 		return Palette.ROCK_DARK
 	if slope > 0.95:
 		return Palette.ROCK
-	# Drifts and wind texture: large soft patches plus finer ripples.
 	var d := _drift.get_noise_2d(p.x, p.z)
-	var n := _detail.get_noise_2d(p.x * 2.5, p.z * 2.5)
-	if d > 0.32 or n > 0.55:
+	var nn := _detail.get_noise_2d(p.x * 2.5, p.z * 2.5)
+	if d > 0.32 or nn > 0.55:
 		return Palette.SNOW_SHADE
 	if d < -0.25:
 		return Palette.SNOW_MID
 	return Palette.SNOW
 
 
-func _scatter(root: Node3D, z0: float) -> void:
+func _scatter_transforms(z0: float, t: Trail) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(int(z0))
-	var pines: Array = []       # per variant: Array[Transform3D]
+	var pines: Array = []
 	var rocks: Array = []
 	var dead: Array = []
 	for i in _pines.size():
@@ -197,39 +261,67 @@ func _scatter(root: Node3D, z0: float) -> void:
 		rocks.append([] as Array[Transform3D])
 	for i in _dead_trees.size():
 		dead.append([] as Array[Transform3D])
-	var shrubs: Array[Transform3D] = []
 	var samples := int(140 * maxf(density_scale, 1.0))
 	for i in samples:
 		var z := z0 + rng.randf() * CHUNK_LEN
 		var lateral := rng.randf_range(-HALF_WIDTH, HALF_WIDTH)
-		var x := trail.x_at(z) + lateral
+		var x := t.x_at(z) + lateral
 		var ad := absf(lateral)
 		if ad < TRAIL_HALF_WIDTH + 1.0:
 			continue
-		var y := height(x, z)
-		var dzx := height(x + 0.5, z) - height(x - 0.5, z)
-		var dzz := height(x, z + 0.5) - height(x, z - 0.5)
+		var y := height(x, z, t)
+		var dzx := height(x + 0.5, z, t) - height(x - 0.5, z, t)
+		var dzz := height(x, z + 0.5, t) - height(x, z - 0.5, t)
 		var slope := sqrt(dzx * dzx + dzz * dzz)
 		var basis := Basis(Vector3.UP, rng.randf() * TAU)
-		if ad < 4.0 and rng.randf() < 0.35:
-			shrubs.append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.7, 1.2)), Vector3(x, y - 0.05, z)))
-		elif slope > 0.9:
+		if slope > 0.9:
 			if rng.randf() < 0.3:
 				rocks[rng.randi() % rocks.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.6, 1.4)), Vector3(x, y - 0.1, z)))
 		elif ad > 3.0:
-			var density := (0.55 if lateral < 0.0 else 0.35) * minf(density_scale, 1.0)   # denser on the uphill side
+			var density := (0.55 if lateral < 0.0 else 0.35) * minf(density_scale, 1.0)
 			var r := rng.randf()
 			if r < density:
 				pines[rng.randi() % pines.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(PINE_SCALE.x, PINE_SCALE.y)), Vector3(x, y - 0.05, z)))
 			elif r < density + 0.04 and not dead.is_empty():
 				dead[rng.randi() % dead.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.5, 0.8)), Vector3(x, y - 0.05, z)))
+	return {"pines": pines, "rocks": rocks, "dead": dead}
+
+
+## Main thread: turn worker output into nodes.
+func _finish_chunk(r: Dictionary) -> void:
+	var index: int = r.index
+	if _chunks.has(index):
+		return
+	var root := Node3D.new()
+	root.name = "Chunk%d" % index
+	for key in ["fine", "coarse_l", "coarse_r"]:
+		var g: Dictionary = r[key]
+		if g.verts.is_empty():
+			continue
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = g.verts
+		arrays[Mesh.ARRAY_NORMAL] = g.norms
+		arrays[Mesh.ARRAY_COLOR] = g.colors
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.material_override = _material
+		root.add_child(mi)
+	var sc: Dictionary = r.scatter
 	for i in _pines.size():
-		_add_multimesh(root, _pines[i], pines[i])
+		_add_multimesh(root, _pines[i], sc.pines[i])
 	for i in _rocks.size():
-		_add_multimesh(root, _rocks[i], rocks[i])
+		_add_multimesh(root, _rocks[i], sc.rocks[i])
 	for i in _dead_trees.size():
-		_add_multimesh(root, _dead_trees[i], dead[i])
-	_add_multimesh(root, _shrub_mesh, shrubs)
+		_add_multimesh(root, _dead_trees[i], sc.dead[i])
+	add_child(root)
+	_chunks[index] = root
+	if OS.is_debug_build() and r.usec > 60000:
+		print("[terrain] chunk %d built in %d ms (worker)" % [index, r.usec / 1000])
+
+
 
 
 func _add_multimesh(root: Node3D, mesh: Mesh, transforms: Array[Transform3D]) -> void:
