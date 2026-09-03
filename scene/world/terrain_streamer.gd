@@ -77,6 +77,7 @@ func _init(t: Trail) -> void:
 	_shrub_mesh = MeshLib.shrub()
 	_material = MeshLib.cel_material(true)
 	_material.set_shader_parameter("speckle", true)
+	_material.set_shader_parameter("smooth_lighting", true)
 
 
 ## Terrain height at any point: the trail's own height on the trail, rising
@@ -209,13 +210,17 @@ func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> 
 			var n10 := _grid_normal(hs, xs, W, iz, ic + 1, row)
 			var n01 := _grid_normal(hs, xs, W, iz + 1, ic, row)
 			var n11 := _grid_normal(hs, xs, W, iz + 1, ic + 1, row)
-			var c1 := _color_for_slope((p00 + p10 + p11) / 3.0, n00, t)
-			var c2 := _color_for_slope((p00 + p11 + p01) / 3.0, n01, t)
+			# Per-vertex colours: zones (trail, bank, snow) blend across each triangle
+			# instead of switching at polygon edges.
+			var c00 := _color_for_slope(p00, n00, t)
+			var c10 := _color_for_slope(p10, n10, t)
+			var c01 := _color_for_slope(p01, n01, t)
+			var c11 := _color_for_slope(p11, n11, t)
 			# Clockwise front faces (see MeshLib.tri).
-			for tri in [[p00, n00, p10, n10, p11, n11, c1], [p00, n00, p11, n11, p01, n01, c2]]:
-				verts.append(tri[0]); norms.append(tri[1]); colors.append(tri[6])
-				verts.append(tri[4]); norms.append(tri[5]); colors.append(tri[6])
-				verts.append(tri[2]); norms.append(tri[3]); colors.append(tri[6])
+			for tri in [[p00, n00, c00, p10, n10, c10, p11, n11, c11], [p00, n00, c00, p11, n11, c11, p01, n01, c01]]:
+				verts.append(tri[0]); norms.append(tri[1]); colors.append(tri[2])
+				verts.append(tri[6]); norms.append(tri[7]); colors.append(tri[8])
+				verts.append(tri[3]); norms.append(tri[4]); colors.append(tri[5])
 	return {"verts": verts, "norms": norms, "colors": colors}
 
 

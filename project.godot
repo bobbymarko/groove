@@ -62,6 +62,10 @@ cel_prop_snow={
 "type": "float",
 "value": 0.78
 }
+cel_smooth_terrain={
+"type": "float",
+"value": 0.0
+}
 
 [rendering]
 

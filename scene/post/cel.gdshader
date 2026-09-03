@@ -24,6 +24,8 @@ global uniform float cel_bands;      // number of lighting steps (3 = 8-bit look
 global uniform float cel_colorize_steps;  // tonal steps for colourized textures
 global uniform float cel_texture_mix;     // how much of the real texture detail shows through the tint (16-bit)
 uniform bool prop = false;                 // imported prop: fine speckle, mottled snow
+uniform bool smooth_lighting = false;     // terrain: continuous lambert when cel_smooth_terrain is set (16-bit)
+global uniform float cel_smooth_terrain;
 global uniform float cel_prop_snow;         // snow threshold for props (lower = more snow)
 global uniform float cel_highlight;  // extra brightness where the sun hits squarely
 uniform bool speckle = false;
@@ -97,7 +99,10 @@ void light() {
 	float bands = max(cel_bands, 2.0);
 	float lit01 = clamp((ndl + 0.15) / 1.15, 0.0, 1.0);
 	float q = floor(lit01 * (bands - 0.001)) / (bands - 1.0);
-	float band = mix(cel_dark_band, 1.0, q) + (ndl > 0.82 ? cel_highlight : 0.0);
+	if (smooth_lighting && cel_smooth_terrain > 0.5) {
+		q = lit01;   // no steps: the ground shades as a continuous gradient
+	}
+	float band = mix(cel_dark_band, 1.0, q) + (ndl > 0.82 ? cel_highlight * (smooth_lighting && cel_smooth_terrain > 0.5 ? smoothstep(0.7, 0.95, ndl) : 1.0) : 0.0);
 	float lit = mix(cel_shadow_band, band, ATTENUATION);
 	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * lit;
 }
