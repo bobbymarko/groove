@@ -3,9 +3,9 @@ extends RefCounted
 ## Rider speed from power and grade: a simple bike model so hard efforts move
 ## faster, climbs slow you down, and coasting decays.
 
-const MASS := 88.0          # rider + bike, kg
-const CDA := 0.42           # upright mountain-bike position
-const CRR := 0.010          # snowy trail
+const MASS := 92.0          # rider + fat bike, kg
+const CDA := 0.55           # upright, winter clothing
+const CRR := 0.030          # fat tyres on groomed snow: slow going
 const RHO := 1.2
 const G := 9.81
 const MIN_SPEED := 1.5      # keep the world moving while the ride runs

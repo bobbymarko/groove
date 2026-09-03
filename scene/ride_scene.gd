@@ -192,7 +192,12 @@ func _process(raw_delta: float) -> void:
 	if riding:
 		distance += speed * delta
 		avg_speed = lerpf(avg_speed, speed, clampf(delta / 15.0, 0.0, 1.0))
-	rider.animate(cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
+	# Trainers without a cadence sensor report 0 rpm while power flows; keep the
+	# legs turning at a plausible rate so the rider never coasts under load.
+	var anim_cadence := cadence
+	if riding and cadence < 1.0 and power > 15.0:
+		anim_cadence = clampf(60.0 + power * 0.12, 60.0, 95.0)
+	rider.animate(anim_cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
 	_place_rider()
 	terrain.update_around(distance)
 	var anchor := trail.position_at(maxf(distance - camera.follow_distance, 0.0))

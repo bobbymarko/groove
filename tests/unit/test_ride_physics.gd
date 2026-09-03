@@ -8,7 +8,7 @@ func test_steady_speed_orders() -> void:
 	assert_true(flat_300 > flat_200)
 	# Visual grade must not change speed (GRADE_EFFECT 0) so hills stay in step with intervals.
 	assert_near(climb_200, flat_200, 0.01)
-	assert_true(flat_200 > 6.0 and flat_200 < 11.0, "flat 200 W = %f m/s" % flat_200)   # ~25–35 km/h
+	assert_true(flat_200 > 4.5 and flat_200 < 7.0, "flat 200 W = %f m/s" % flat_200)   # ~16–25 km/h on snow
 
 
 func test_step_converges_and_coasts() -> void:
