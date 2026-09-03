@@ -14,8 +14,8 @@ const SNOW_MID := Color("e4e2ee")
 const SNOW_SHADE := Color("cdd6ec")
 const SNOW_SHADOW := Color("8a9dcc")
 const SNOW_BRIGHT := Color("fbfaff")
-const TRAIL := Color("bfb0d2")
-const TRAIL_DARK := Color("a493bd")
+const TRAIL := Color("d6dbe8")        # packed snow, a shade below fresh snow
+const TRAIL_DARK := Color("bfc7da")   # the worn centre of the groove
 const ROCK := Color("6f7a95")
 const ROCK_DARK := Color("4d556e")
 
