@@ -81,6 +81,7 @@ func _ready() -> void:
 	_world.add_child(rider)
 	camera = HandheldCamera.new()
 	camera.shake_level = "low"   # the ride screen applies the user's setting via set_shake()
+	camera.ground_height = func(x: float, z: float) -> float: return terrain.height(x, z)
 	_world.add_child(camera)
 	camera.current = true
 	snow = Snow.new()
