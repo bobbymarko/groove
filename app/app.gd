@@ -9,6 +9,8 @@ const USER_WORKOUTS_DIR := "user://workouts"
 var workout: Workout
 var ftp: int = 200
 var camera_shake := "low"   # off | low | high
+var pixel_filter := true    # false = full-resolution render, no palette pass
+var show_fps := true
 var last_ride_journal := ""
 
 ## Scene look, adjustable in Settings and on the ride screen (T). Applied by RideScene.apply_tuning().
@@ -41,6 +43,8 @@ func _ready() -> void:
 	if _cfg.load(SETTINGS_PATH) == OK:
 		ftp = int(_cfg.get_value("rider", "ftp", ftp))
 		camera_shake = str(_cfg.get_value("scene", "camera_shake", camera_shake))
+		pixel_filter = bool(_cfg.get_value("scene", "pixel_filter", pixel_filter))
+		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
 		for key in scene_tuning:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
@@ -93,6 +97,8 @@ func list_rides() -> Array[Dictionary]:
 func save_settings() -> void:
 	_cfg.set_value("rider", "ftp", ftp)
 	_cfg.set_value("scene", "camera_shake", camera_shake)
+	_cfg.set_value("scene", "pixel_filter", pixel_filter)
+	_cfg.set_value("scene", "show_fps", show_fps)
 	for key in scene_tuning:
 		_cfg.set_value("scene_tuning", key, scene_tuning[key])
 	_cfg.save(SETTINGS_PATH)

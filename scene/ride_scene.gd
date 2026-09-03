@@ -7,6 +7,7 @@ extends Control
 
 const INTERNAL_HEIGHT := 240
 var _internal_height := INTERNAL_HEIGHT
+var pixel_filter := true
 
 var trail: Trail
 var terrain: TerrainStreamer
@@ -99,7 +100,9 @@ func _ready() -> void:
 	_fit_viewport()
 	var app := get_node_or_null("/root/App")
 	if app:
+		pixel_filter = app.pixel_filter
 		apply_tuning(app.scene_tuning)
+	set_pixel_filter(pixel_filter)
 	_place_rider()
 	terrain.update_around(distance)
 	if debug_material != "":
@@ -132,6 +135,15 @@ func set_shake(level: String) -> void:
 	camera.shake_level = level
 
 
+## On: low-resolution render through the palette post-process. Off: native
+## resolution, no post-process, same world and lighting.
+func set_pixel_filter(on: bool) -> void:
+	pixel_filter = on
+	_screen.material = _post if on else null
+	_screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if on else CanvasItem.TEXTURE_FILTER_LINEAR
+	_fit_viewport()
+
+
 ## Apply the user's scene tuning (see App.TUNING_SPEC). Safe to call every change.
 func apply_tuning(t: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("cel_shadow_band", 1.0 - float(t.get("shadow_strength", 0.55)))
@@ -157,6 +169,12 @@ func apply_tuning(t: Dictionary) -> void:
 
 
 func _fit_viewport() -> void:
+	if not pixel_filter:
+		var native := Vector2i(maxi(int(size.x), 64), maxi(int(size.y), 64))
+		# Retina: render at the window's pixel size, not its logical size.
+		var scale := DisplayServer.screen_get_scale() if DisplayServer.get_name() != "headless" else 1.0
+		_viewport.size = Vector2i(int(native.x * scale), int(native.y * scale))
+		return
 	var aspect := size.x / maxf(size.y, 1.0)
 	var w := int(round(_internal_height * aspect))
 	_viewport.size = Vector2i(maxi(w, 64), _internal_height)

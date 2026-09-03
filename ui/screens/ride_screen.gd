@@ -366,6 +366,7 @@ func _build_ui() -> void:
 	bar.add_child(spacer)
 	_fps_l = _label(bar, "— fps", 20)
 	_fps_l.modulate = Color(0.75, 1.0, 0.75)
+	_fps_l.visible = App.show_fps
 	_button(bar, "End", func(): _runner.end_early())
 	_button(bar, "Home", func(): App.go_to("res://ui/screens/home_screen.tscn"))
 

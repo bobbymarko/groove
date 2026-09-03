@@ -90,6 +90,19 @@ func _build_ui() -> void:
 	_shake.selected = ["off", "low", "high"].find(App.camera_shake)
 	shake_row.add_child(_shake)
 
+	var toggles := HBoxContainer.new()
+	toggles.add_theme_constant_override("separation", 24)
+	v.add_child(toggles)
+	var pixel_cb := CheckButton.new()
+	pixel_cb.text = "8-bit look (low-res render + palette)"
+	pixel_cb.button_pressed = App.pixel_filter
+	toggles.add_child(pixel_cb)
+	var fps_cb := CheckButton.new()
+	fps_cb.text = "Show FPS / frame time on the ride screen"
+	fps_cb.button_pressed = App.show_fps
+	fps_cb.toggled.connect(func(on: bool) -> void: App.show_fps = on; App.save_settings())
+	toggles.add_child(fps_cb)
+
 	# Scene tuning with a live preview.
 	var tune_row := HBoxContainer.new()
 	tune_row.add_theme_constant_override("separation", 16)
@@ -103,6 +116,10 @@ func _build_ui() -> void:
 	preview.power = 200.0
 	preview.cadence = 88.0
 	tune_row.add_child(preview)
+	pixel_cb.toggled.connect(func(on: bool) -> void:
+		App.pixel_filter = on
+		App.save_settings()
+		preview.set_pixel_filter(on))
 	var panel := TuningPanel.new()
 	panel.scene = preview
 	panel.custom_minimum_size.x = 520
