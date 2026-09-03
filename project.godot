@@ -58,6 +58,10 @@ cel_texture_mix={
 "type": "float",
 "value": 0.0
 }
+cel_prop_snow={
+"type": "float",
+"value": 0.78
+}
 
 [rendering]
 

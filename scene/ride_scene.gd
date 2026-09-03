@@ -172,6 +172,8 @@ func apply_tuning(t: Dictionary) -> void:
 	_post.set_shader_parameter("sharpen", float(t.get("sharpen", 0.4)))
 	RenderingServer.global_shader_parameter_set("cel_speckle", float(t.get("speckle", 0.12)))
 	RenderingServer.global_shader_parameter_set("cel_highlight", float(t.get("highlight", 0.15)))
+	# 0 -> threshold 1.05 (bare), 1 -> 0.5 (buried).
+	RenderingServer.global_shader_parameter_set("cel_prop_snow", 1.05 - 0.55 * float(t.get("tree_snow", 0.5)))
 	_post.set_shader_parameter("outline_darken", float(t.get("outline", 0.0)))
 	camera.follow_distance = float(t.get("camera_distance", 7.8))
 	camera.follow_height = float(t.get("camera_height", 2.7))

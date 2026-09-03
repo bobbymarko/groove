@@ -33,6 +33,7 @@ const TUNING_SPEC := [
 	["speckle", "Snow speckle", 0.0, 0.4, 0.01, 0.1],
 	["highlight", "Sun highlight", 0.0, 0.5, 0.01, 0.15],
 	["sharpen", "Sharpen", 0.0, 1.5, 0.05, 0.4],
+	["tree_snow", "Snow on trees", 0.0, 1.0, 0.02, 0.5],
 ]
 var scene_tuning: Dictionary = {}
 

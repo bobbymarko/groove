@@ -24,6 +24,7 @@ global uniform float cel_bands;      // number of lighting steps (3 = 8-bit look
 global uniform float cel_colorize_steps;  // tonal steps for colourized textures
 global uniform float cel_texture_mix;     // how much of the real texture detail shows through the tint (16-bit)
 uniform bool prop = false;                 // imported prop: fine speckle, mottled snow
+global uniform float cel_prop_snow;         // snow threshold for props (lower = more snow)
 global uniform float cel_highlight;  // extra brightness where the sun hits squarely
 uniform bool speckle = false;
 
@@ -54,8 +55,9 @@ void fragment() {
 			float steps = max(cel_colorize_steps, 2.0);
 			float l = floor(smoothstep(0.1, 0.75, tex_lum) * (steps - 0.001)) / (steps - 1.0);
 			base = mix(shade_dark, shade_light, l);
-			// Let some of the texture's own detail through, tinted toward the light shade.
-			vec3 detail = t.rgb * (shade_light / max(vec3(0.35), vec3(dot(shade_light, vec3(0.33)))));
+			// Let the texture's brightness detail through without its hue, so the
+			// palette colour holds while needles and bark keep their grain.
+			vec3 detail = mix(shade_dark, shade_light, clamp(tex_lum * 1.4, 0.0, 1.0));
 			base = mix(base, detail, cel_texture_mix);
 		} else {
 			base = t.rgb * albedo;
@@ -71,8 +73,9 @@ void fragment() {
 	}
 	// Snow on upward faces; on props the texture's bright spots catch it first,
 	// so it sits in mottled patches rather than along a hard line.
-	float snow_up = prop ? up + (tex_lum - 0.5) * 0.35 : up;
-	ALBEDO = snow_up > snow_threshold ? snow_color : base;
+	float snow_up = prop ? up + (tex_lum - 0.3) * 0.45 : up;   // bright needles catch snow first
+	float thr = (prop && snow_threshold < 1.5) ? cel_prop_snow : snow_threshold;
+	ALBEDO = snow_up > thr ? snow_color : base;
 	if ((speckle || prop) && cel_speckle > 0.0) {
 		// World-anchored so it does not swim with the camera; the palette snap
 		// turns the modulation into scattered single-pixel tone changes.
