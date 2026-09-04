@@ -240,7 +240,7 @@ func _on_tick(snap: Dictionary) -> void:
 	_scene.cadence = float(_cadence)
 	_fps_l.text = "%d fps  %.1f ms" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0]
 	var g := _scene.current_grade()
-	_grade_l.text = "%s%d%%" % ["▲" if g > 0.5 else ("▼" if g < -0.5 else ""), int(round(absf(g)))]
+	_grade_l.text = "%s%d%%" % ["-" if g < -0.5 else "", int(round(absf(g)))]
 	_clock.text = _fmt(snap.elapsed)
 	_countdown.text = _fmt(snap.segment_remaining)
 	_finish_l.text = _fmt(snap.remaining)
