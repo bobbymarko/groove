@@ -69,7 +69,7 @@ func choose_scene(simulator: bool) -> void:
 		if ResourceLoader.exists(thumb_path):
 			var tr := TextureRect.new()
 			tr.texture = load(thumb_path)
-			tr.custom_minimum_size = Vector2(0, 120)
+			tr.custom_minimum_size = Vector2(0, 120 if ScenePreset.ORDER.size() <= 4 else 88)
 			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 			tr.clip_contents = true

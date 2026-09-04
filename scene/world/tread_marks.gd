@@ -8,7 +8,6 @@ const MAX_POINTS := 360        # about 50 m of track
 const SPACING := 0.14          # metres between samples, one lug each
 const WIDTH := 0.11            # fat-bike contact patch
 const LIFT := 0.012            # just above the terrain so it does not z-fight
-const LIP := 0.3               # share of the width on each side that reads as the pushed-up edge
 
 var _pts: Array[Vector3] = []
 var _rights: Array[Vector3] = []
@@ -51,28 +50,23 @@ func _rebuild() -> void:
 	_mesh.clear_surfaces()
 	if _pts.size() < 2:
 		return
-	# A pressed-in track: dark floor in the middle, a lighter lip either side
-	# where the tyre pushed the surface up, both fading back to the ground colour.
+	# A pressed-in track: dark floor fading back to the ground colour. (A lighter
+	# lip either side was tried and dropped: it read as an outline.)
 	var ground := Palette.TRAIL_DARK
 	var lug := ground.darkened(0.38)
 	var gap := ground.darkened(0.18)
-	var lip := ground.lightened(0.16)
 	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	var n := _pts.size()
 	for i in range(1, n):
 		var age := 1.0 - float(i) / float(n)          # 0 = freshest, 1 = about to vanish
 		var fade := age * age
 		var floor_col := (lug if i % 2 == 0 else gap).lerp(ground, fade)
-		var lip_col := lip.lerp(ground, fade)
 		var half := WIDTH * 0.5 * (1.0 if i % 2 == 0 else 0.85)
-		var inner := half * (1.0 - LIP)
 		var a := _pts[i - 1]
 		var b := _pts[i]
-		var ra := _rights[i - 1]
-		var rb := _rights[i]
-		_quad(a - ra * inner, a + ra * inner, b + rb * inner, b - rb * inner, floor_col)
-		_quad(a - ra * half, a - ra * inner, b - rb * inner, b - rb * half, lip_col)
-		_quad(a + ra * inner, a + ra * half, b + rb * half, b + rb * inner, lip_col)
+		var ra := _rights[i - 1] * half
+		var rb := _rights[i] * half
+		_quad(a - ra, a + ra, b + rb, b - rb, floor_col)
 	_mesh.surface_end()
 
 

@@ -31,6 +31,8 @@ var _dead_trees: Array[Mesh] = []
 var _cover: Array[Mesh] = []       # grass, flowers, mushrooms near the trail
 var _cover_scale: Array[Vector2] = []   # min/max scale per cover mesh (the kit's flowers are huge at 1.0)
 var _dead_share := 0.04
+var _tree_scale := ScenePreset.DEFAULT_TREE_SCALE
+var _density_mult := 1.0            # preset factor: open desert scatters far fewer "trees"
 var _shrub_mesh: ArrayMesh
 var _material: Material
 const PINE_SCALE := Vector2(0.45, 0.8)   # Quaternius pines are ~7 m tall at scale 1
@@ -64,20 +66,23 @@ func _init(t: Trail) -> void:
 	var preset := ScenePreset.get_preset(Palette.preset_id)
 	var snow: bool = preset.prop_snow
 	_dead_share = float(preset.dead_share)
+	_density_mult = float(preset.get("tree_density", 1.0))
+	if preset.has("tree_scale"):
+		_tree_scale = Vector2(float(preset.tree_scale[0]), float(preset.tree_scale[1]))
 	for n in preset.trees:
-		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, snow)
+		var m := MeshLib.load_prop(ScenePreset.prop_path(n), snow)
 		if m:
 			_pines.append(m)
 	for n in preset.rocks:
-		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, snow)
+		var m := MeshLib.load_prop(ScenePreset.prop_path(n), snow)
 		if m:
 			_rocks.append(m)
 	for n in preset.dead:
-		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, false)
+		var m := MeshLib.load_prop(ScenePreset.prop_path(n), false)
 		if m:
 			_dead_trees.append(m)
 	for n in preset.cover:
-		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, false)
+		var m := MeshLib.load_prop(ScenePreset.prop_path(n), false)
 		if m:
 			_cover.append(m)
 			if "Flower" in n or "Mushroom" in n:
@@ -321,10 +326,10 @@ func _scatter_transforms(z0: float, t: Trail) -> Dictionary:
 			if rng.randf() < 0.3:
 				rocks[rng.randi() % rocks.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.6, 1.4)), Vector3(x, y - 0.1, z)))
 		elif ad > 3.0:
-			var density := (0.55 if lateral < 0.0 else 0.35) * minf(density_scale, 1.0)
+			var density := (0.55 if lateral < 0.0 else 0.35) * minf(density_scale, 1.0) * _density_mult
 			var r := rng.randf()
 			if r < density:
-				pines[rng.randi() % pines.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(PINE_SCALE.x, PINE_SCALE.y)), Vector3(x, y - 0.05, z)))
+				pines[rng.randi() % pines.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(_tree_scale.x, _tree_scale.y)), Vector3(x, y - 0.05, z)))
 			elif r < density + _dead_share and not dead.is_empty():
 				dead[rng.randi() % dead.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.5, 0.8)), Vector3(x, y - 0.05, z)))
 	return {"pines": pines, "rocks": rocks, "dead": dead, "cover": cover}

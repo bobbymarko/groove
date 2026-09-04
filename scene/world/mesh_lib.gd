@@ -13,9 +13,25 @@ static func cel_material(vertex_color := true, albedo := Color.WHITE, snow_thres
 	return m
 
 
-## Palette colour for a Quaternius material name.
-static func palette_for_material(mat_name: String) -> Color:
-	return shades_for_material(mat_name)[1]
+## Palette colour for an untextured surface. Quaternius's MegaKit names
+## materials by what they are (Leaves, Bark); the Ultimate Nature Pack names
+## them by colour (Green, Wood, White). Unknown names keep their own albedo.
+static func palette_for_material(mat_name: String, albedo := Color.WHITE) -> Color:
+	var n := mat_name.to_lower()
+	match n:
+		"green": return Palette.PINE
+		"darkgreen": return Palette.PINE_DARK
+		"wood", "black": return Palette.TRUNK
+		"lightwood": return Palette.BRANCH
+		"rock": return Palette.ROCK
+		"white": return Color("e9e7e2")
+		"pink": return Palette.FLOWER
+		"yellow": return Color("e8c85a")
+		"cyan": return Color("7fd0d8")
+		"lightorange": return Color("e08a3a")
+	if "leaves" in n or "leaf" in n or "bush" in n or "grass" in n or "bark" in n or "trunk" in n or "rock" in n or "stone" in n or "flower" in n:
+		return shades_for_material(mat_name)[1]
+	return albedo if albedo != Color.WHITE else Palette.ROCK
 
 
 ## Dark and light palette shades a textured surface blends between.
@@ -36,21 +52,30 @@ static func shades_for_material(mat_name: String) -> Array[Color]:
 static func load_prop(path: String, snow := true) -> Mesh:
 	if not ResourceLoader.exists(path):
 		return null
-	var packed: PackedScene = load(path)
-	if packed == null:
+	var res: Resource = load(path)
+	if res == null:
 		return null
-	var root := packed.instantiate()
-	var mi := _find_mesh_instance(root)
-	if mi == null:
-		root.free()
+	var root: Node = null
+	var mesh: Mesh
+	var xform := Transform3D.IDENTITY
+	if res is Mesh:
+		mesh = (res as Mesh).duplicate()          # .obj imports straight to a mesh
+	elif res is PackedScene:
+		root = (res as PackedScene).instantiate()
+		var mi := _find_mesh_instance(root)
+		if mi == null:
+			root.free()
+			return null
+		mesh = mi.mesh.duplicate()
+		xform = mi.transform
+	else:
 		return null
-	var mesh: Mesh = mi.mesh.duplicate()
-	var xform := mi.transform
 	for i in mesh.get_surface_count():
 		var src := mesh.surface_get_material(i)
 		var mat_name := src.resource_name if src else ""
-		var col := palette_for_material(mat_name)
-		var is_bark := col == Palette.TRUNK
+		var src_albedo: Color = src.albedo_color if src is BaseMaterial3D else Color.WHITE
+		var col := palette_for_material(mat_name, src_albedo)
+		var is_bark := col == Palette.TRUNK or col == Palette.BRANCH
 		# Textured surfaces keep their own colours (the post-process quantizes
 		# them to the palette); untextured ones take the palette colour.
 		var tex: Texture2D = src.albedo_texture if src is BaseMaterial3D else null
@@ -65,7 +90,8 @@ static func load_prop(path: String, snow := true) -> Mesh:
 			m.set_shader_parameter("shade_light", Vector3(shades[1].r, shades[1].g, shades[1].b))
 			m.set_shader_parameter("alpha_cutout", src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR or src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA)
 		mesh.surface_set_material(i, m)
-	root.free()
+	if root:
+		root.free()
 	# Bake the node transform (Quaternius models are Y-up, metres) if it is not identity.
 	if not xform.is_equal_approx(Transform3D.IDENTITY):
 		var st := SurfaceTool.new()

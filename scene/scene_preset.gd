@@ -5,7 +5,8 @@ extends RefCounted
 ## Winter is the reference look; the others reuse the same trail, terrain and
 ## mountains with different colours, trees and ground cover.
 
-const ORDER := ["winter", "summer", "autumn", "spring"]
+const ORDER := ["winter", "summer", "autumn", "spring", "desert", "birchwood"]
+const DEFAULT_TREE_SCALE := Vector2(0.45, 0.8)   # MegaKit pines are ~7 m tall at 1.0
 
 const PRESETS := {
 	"winter": {
@@ -68,7 +69,52 @@ const PRESETS := {
 		"cover": ["Flower_3_Group", "Flower_4_Group", "Grass_Common_Tall", "Bush_Common_Flowers"],
 		"snow": false, "prop_snow": false, "sun_lift": 22.0, "dead_share": 0.0, "rain_chance": 0.4,
 	},
+	"desert": {
+		"name": "Desert", "description": "Red rock, sand and cactus under a hard sun",
+		"colors": {
+			"SKY_TOP": "6fa8e6", "SKY_MID": "a8cbee", "SKY_LOW": "e6d7c0", "SKY_HORIZON": "f4e3c8", "FOG": "eadbc4",
+			"SNOW": "d8b77c", "SNOW_MID": "cba86a", "SNOW_SHADE": "b8935a", "SNOW_SHADOW": "8f7a5a", "SNOW_BRIGHT": "e8cd92",
+			"TRAIL": "b08a58", "TRAIL_DARK": "8e6c42", "ROCK": "b0664a", "ROCK_DARK": "7a4432",
+			"MOUNTAIN_FAR": "e6cdb8", "MOUNTAIN_FAR2": "d8b59d", "MOUNTAIN_MID": "c99a80", "MOUNTAIN_MID2": "b98066", "MOUNTAIN_NEAR": "a86a4c",
+			"MOUNTAIN_SNOW": "eedcc6",
+			"PINE": "5f9a4e", "PINE_LIGHT": "9cc86a", "PINE_DARK": "3a6a30", "TRUNK": "6a4a34", "BRANCH": "8a6446", "BERRY": "d04a4a",
+			"FLOWER": "f07090", "FLOWER_DARK": "b03060",
+		},
+		"trees": ["un/Cactus_1.obj", "un/Cactus_2.obj", "un/Cactus_3.obj", "un/Cactus_4.obj", "un/Cactus_5.obj",
+			"un/CactusFlowers_2.obj", "un/CactusFlowers_3.obj", "un/CactusFlowers_4.obj", "un/CactusFlowers_5.obj",
+			"un/PalmTree_1.obj", "un/PalmTree_2.obj", "un/PalmTree_3.obj", "un/PalmTree_4.obj"],
+		"tree_scale": [1.4, 2.2],
+		"dead": [],
+		"rocks": ["un/Rock_1.obj", "un/Rock_2.obj", "un/Rock_3.obj", "un/Rock_4.obj", "un/Rock_5.obj", "un/Rock_6.obj", "un/Rock_7.obj"],
+		"cover": ["un/Plant_1.obj", "un/Plant_2.obj", "un/Plant_3.obj", "un/Grass.obj"],
+		"snow": false, "prop_snow": false, "sun_lift": 40.0, "dead_share": 0.0, "rain_chance": 0.0, "tree_density": 0.28,
+	},
+	"birchwood": {
+		"name": "Birchwood", "description": "White birches and willows over soft green",
+		"colors": {
+			"SKY_TOP": "78aee4", "SKY_MID": "aacdee", "SKY_LOW": "dbe8f2", "SKY_HORIZON": "eef4f7", "FOG": "dfe9ee",
+			"SNOW": "8fb85e", "SNOW_MID": "7ea650", "SNOW_SHADE": "6a9244", "SNOW_SHADOW": "50784c", "SNOW_BRIGHT": "aacf70",
+			"TRAIL": "8a7050", "TRAIL_DARK": "6c563e", "ROCK": "8d929a", "ROCK_DARK": "60656d",
+			"MOUNTAIN_FAR": "d3d8e6", "MOUNTAIN_FAR2": "bcc4d8", "MOUNTAIN_MID": "9daac4", "MOUNTAIN_MID2": "8292b0", "MOUNTAIN_NEAR": "687e98",
+			"MOUNTAIN_SNOW": "f4f4f8",
+			"PINE": "5da24a", "PINE_LIGHT": "b0dc78", "PINE_DARK": "35702c", "TRUNK": "e9e7e2", "BRANCH": "6f5741", "BERRY": "d0404a",
+			"FLOWER": "f2d05a", "FLOWER_DARK": "b08a20",
+		},
+		"trees": ["un/BirchTree_1.obj", "un/BirchTree_2.obj", "un/BirchTree_3.obj", "un/BirchTree_4.obj", "un/BirchTree_5.obj",
+			"un/Willow_1.obj", "un/Willow_2.obj", "un/Willow_3.obj"],
+		"tree_scale": [1.3, 1.9],
+		"dead": ["un/TreeStump.obj", "un/WoodLog.obj"],
+		"rocks": ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"],
+		"cover": ["un/Flowers.obj", "un/Plant_1.obj", "un/BushBerries_1.obj", "Grass_Common_Tall"],
+		"snow": false, "prop_snow": false, "sun_lift": 24.0, "dead_share": 0.05, "rain_chance": 0.3,
+	},
 }
+
+
+## Prop names are MegaKit glTFs unless they carry an extension ("un/Cactus_1.obj"
+## is the Ultimate Nature Pack).
+static func prop_path(n: String) -> String:
+	return "res://assets/quaternius/" + (n if n.get_extension() != "" else n + ".gltf")
 
 
 static func get_preset(id: String) -> Dictionary:

@@ -145,3 +145,10 @@ Scene preset renders and thumbnails (thumbnails live in `assets/images/scenes/`)
 ```bash
 for p in winter summer autumn spring; do tools/shot.sh res://ui/screens/home_screen.tscn build/scene_$p.png scene look=16bit preset=$p; sips -Z 640 build/scene_$p.png --out assets/images/scenes/$p.png; done
 ```
+
+Ultimate Nature Pack models (OBJ, CC0) for the Desert and Birchwood presets:
+
+```bash
+tools/fetch-quaternius-un.sh            # list
+tools/fetch-quaternius-un.sh Cactus_1 PalmTree_2
+```
