@@ -21,6 +21,12 @@ func _ready() -> void:
 	add_child(icu)
 	icu.upload_finished.connect(_on_upload_finished)
 	connectors[icu.id()] = icu
+	var strava := StravaConnector.new()
+	strava.name = "StravaConnector"
+	add_child(strava)
+	strava.upload_finished.connect(_on_upload_finished)
+	strava.auth_state_changed.connect(func(_c: bool, _m: String) -> void: _save_strava_tokens(); process_next())
+	connectors[strava.id()] = strava
 	_load()
 	call_deferred("process_next")
 
@@ -32,6 +38,38 @@ func intervals() -> IntervalsConnector:
 func configure_intervals(api_key: String) -> void:
 	intervals().api_key = api_key
 	process_next()
+
+
+func strava() -> StravaConnector:
+	return connectors["strava"]
+
+
+func configure_strava(client_id: String, client_secret: String) -> void:
+	var s := strava()
+	s.client_id = client_id
+	s.client_secret = client_secret
+	s.access_token = App.get_secret("strava_access_token")
+	s.refresh_token = App.get_secret("strava_refresh_token")
+	s.expires_at = int(App.get_secret("strava_expires_at")) if App.get_secret("strava_expires_at") != "" else 0
+	s.athlete_name = App.get_secret("strava_athlete")
+	process_next()
+
+
+func _save_strava_tokens() -> void:
+	var s := strava()
+	App.set_secret("strava_access_token", s.access_token)
+	App.set_secret("strava_refresh_token", s.refresh_token)
+	App.set_secret("strava_expires_at", str(s.expires_at))
+	App.set_secret("strava_athlete", s.athlete_name)
+
+
+## Connectors that are ready to receive uploads.
+func configured_connectors() -> Array[Connector]:
+	var out: Array[Connector] = []
+	for c in connectors.values():
+		if c.is_configured():
+			out.append(c)
+	return out
 
 
 func enqueue(connector_id: String, fit_path: String, activity_name: String, description: String) -> Dictionary:

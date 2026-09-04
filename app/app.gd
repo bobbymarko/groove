@@ -54,6 +54,7 @@ func _ready() -> void:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
 	Sync.configure_intervals.call_deferred(get_secret("intervals_api_key"))
+	Sync.configure_strava.call_deferred(get_secret("strava_client_id"), get_secret("strava_client_secret"))
 
 
 ## Secrets (API keys) are stored encrypted with a random per-install key kept

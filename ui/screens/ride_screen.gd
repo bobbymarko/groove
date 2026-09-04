@@ -58,6 +58,9 @@ var _elev_gain := 0.0
 var _last_h := NAN
 var _controls: HBoxContainer
 var _coach: CoachDialog
+var _hud_root: MarginContainer
+var _effort_shot_done := false
+var _hardest_index := -1
 var _controls_idle := 0.0
 const CONTROLS_HIDE_AFTER := 3.0
 
@@ -90,6 +93,13 @@ func _ready() -> void:
 		if st == WorkoutRunner.State.RUNNING and _recorder.ride_id == "":
 			_recorder.begin(App.workout.name, App.ftp))
 	_runner.load_workout(App.workout, App.ftp)
+	# The segment with the highest target gets a screenshot at its midpoint.
+	var best := -1.0
+	for i in App.workout.segments.size():
+		var seg := App.workout.segments[i]
+		if seg.has_target() and seg.peak() > best:
+			best = seg.peak()
+			_hardest_index = i
 	_title.text = App.workout.name
 	_graph.set_workout(App.workout)
 	_on_tick(_runner.snapshot())
@@ -211,6 +221,9 @@ func _on_tick(snap: Dictionary) -> void:
 	var seg := _runner.current_segment()
 	_seg_bar.value = (snap.segment_elapsed / maxf(seg.duration, 1.0)) if seg else 0.0
 	_graph.set_progress(snap.elapsed, snap.bias)
+	if not _effort_shot_done and snap.segment_index == _hardest_index and seg and snap.segment_elapsed >= seg.duration * 0.5:
+		_effort_shot_done = true
+		_capture_screenshot("effort")
 	# Trip numbers from the scene: speed, distance ridden, climbing.
 	_speed_l.text = "%d" % int(round(_scene.physics.speed * 3.6))
 	if _start_distance < 0.0:
@@ -301,6 +314,7 @@ func _on_finished(completed: bool) -> void:
 		_trainer.set_target_power(0)
 	if _recorder.ride_id != "":
 		_recorder.finish(completed)
+		await _capture_screenshot("finish")
 		_finalize_ride()
 	var avg := 0
 	if _power_samples.size() > 0:
@@ -313,6 +327,22 @@ func _on_finished(completed: bool) -> void:
 	_start_btn.disabled = true
 	_block_name_l.text = "DONE"
 	_block_dur_l.text = ""
+
+
+## Save a clean scene screenshot (HUD hidden for one frame) beside the ride files.
+func _capture_screenshot(tag: String) -> void:
+	if _recorder == null or _recorder.ride_id == "":
+		return
+	var was_hud := _hud_root.visible
+	var was_coach := _coach.visible
+	_hud_root.visible = false
+	_coach.visible = false
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	_hud_root.visible = was_hud
+	_coach.visible = was_coach
+	var path := RideRecorder.RIDES_DIR.path_join("%s-%s.png" % [_recorder.ride_id, tag])
+	img.save_png(ProjectSettings.globalize_path(path))
 
 
 ## Target as a fraction of FTP at a point `metres_ahead` up the trail, for the
@@ -375,6 +405,7 @@ func _build_ui() -> void:
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 18)
 	add_child(margin)
+	_hud_root = margin
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	margin.add_child(v)

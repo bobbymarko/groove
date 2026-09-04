@@ -20,19 +20,59 @@ func _ready() -> void:
 	_refresh_upload()
 	if App.prompt_upload:
 		App.prompt_upload = false
-		if Sync.intervals().is_configured() and Sync.jobs_for(_fit_path).is_empty():
+		if not Sync.configured_connectors().is_empty() and Sync.jobs_for(_fit_path).is_empty():
 			_ask_to_share()
 
 
+## One dialog, a checkbox per connected service.
 func _ask_to_share() -> void:
 	var dlg := ConfirmationDialog.new()
 	dlg.title = "Share this ride?"
-	dlg.dialog_text = "Upload \"%s\" to intervals.icu?\n%s" % [str(_meta.get("workout", "Ride")), _description()]
-	dlg.ok_button_text = "Upload"
+	dlg.ok_button_text = "Share"
 	dlg.cancel_button_text = "Not now"
-	dlg.confirmed.connect(_on_upload_pressed)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	dlg.add_child(v)
+	var head := Label.new()
+	head.text = "%s\n%s" % [str(_meta.get("workout", "Ride")), _description()]
+	v.add_child(head)
+	var boxes: Array[CheckBox] = []
+	for c in Sync.configured_connectors():
+		var cb := CheckBox.new()
+		cb.text = "Post to " + c.display_name()
+		cb.button_pressed = Sync.jobs_for(_fit_path).filter(func(j): return j.connector == c.id()).is_empty()
+		cb.set_meta("connector", c.id())
+		v.add_child(cb)
+		boxes.append(cb)
+	dlg.confirmed.connect(func() -> void:
+		for cb in boxes:
+			if cb.button_pressed:
+				_share_to(str(cb.get_meta("connector"))))
 	add_child(dlg)
 	dlg.popup_centered()
+
+
+func _share_to(connector_id: String) -> void:
+	for j in Sync.jobs_for(_fit_path):
+		if j.connector == connector_id:
+			Sync.retry(j.id)
+			return
+	Sync.enqueue(connector_id, _fit_path, str(_meta.get("workout", "Ride")), _description())
+
+
+## Screenshots saved beside the ride: <id>-*.png
+func _screenshots() -> Array[String]:
+	var out: Array[String] = []
+	var dir := _fit_path.get_base_dir()
+	var stem := _fit_path.get_file().get_basename()
+	var d := DirAccess.open(dir)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if f.begins_with(stem) and f.ends_with(".png"):
+			out.append(dir.path_join(f))
+	out.sort()
+	return out
 
 
 func _refresh_upload() -> void:
@@ -46,20 +86,16 @@ func _refresh_upload() -> void:
 			"failed": lines.append("%s: failed after %d attempts. %s" % [label, int(job.attempts), str(job.last_error)])
 			_: lines.append("%s: waiting to upload%s" % [label, (" (%s)" % str(job.last_error)) if str(job.last_error) != "" else ""])
 	if lines.is_empty():
-		if Sync.intervals().is_configured():
-			lines.append("Not uploaded to intervals.icu yet")
+		if Sync.configured_connectors().is_empty():
+			lines.append("Connect intervals.icu or Strava in Settings to share rides")
 		else:
-			lines.append("Add your intervals.icu API key in Settings to upload automatically")
+			lines.append("Not shared yet")
 	_upload_l.text = "\n".join(lines)
-	_upload_btn.disabled = not Sync.intervals().is_configured() or not FileAccess.file_exists(_fit_path)
+	_upload_btn.disabled = Sync.configured_connectors().is_empty() or not FileAccess.file_exists(_fit_path)
 
 
 func _on_upload_pressed() -> void:
-	var existing := Sync.jobs_for(_fit_path)
-	if existing.is_empty():
-		Sync.enqueue("intervals", _fit_path, str(_meta.get("workout", "Ride")), _description())
-	else:
-		Sync.retry(existing[0].id)
+	_ask_to_share()
 
 
 func _description() -> String:
@@ -119,11 +155,29 @@ func _build_ui(j: Dictionary) -> void:
 	file_l.modulate = Color(1, 1, 1, 0.5)
 	file_l.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 
+	# Screenshots from the ride, for posting by hand (Strava's API takes no photos from third parties).
+	var shots := _screenshots()
+	if not shots.is_empty():
+		_label(v, "Screenshots  ·  add these to the activity in the Strava app", 14).modulate = Color(1, 1, 1, 0.7)
+		var strip := HBoxContainer.new()
+		strip.add_theme_constant_override("separation", 10)
+		v.add_child(strip)
+		for path in shots:
+			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
+			if img == null:
+				continue
+			var tr := TextureRect.new()
+			tr.texture = ImageTexture.create_from_image(img)
+			tr.custom_minimum_size = Vector2(240, 135)
+			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			strip.add_child(tr)
+
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	v.add_child(bar)
-	_upload_btn = _button(bar, "Upload to intervals.icu", _on_upload_pressed)
-	_button(bar, "Show FIT file in Finder", func() -> void: OS.shell_show_in_file_manager(ProjectSettings.globalize_path(_fit_path)))
+	_upload_btn = _button(bar, "Share…", _on_upload_pressed)
+	_button(bar, "Show ride files in Finder", func() -> void: OS.shell_show_in_file_manager(ProjectSettings.globalize_path(_fit_path)))
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(sp)
