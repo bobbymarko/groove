@@ -6,6 +6,8 @@ var _files: Array[String] = []
 var _list: VBoxContainer            # sections: planned days, then the library
 var _grids: Array[GridContainer] = []
 var _cal_status: Label
+var _cards: Array[Control] = []      # tiles in build order, for the entrance cascade
+var _cascaded := false               # animate once per visit, not on every calendar refresh
 var _devices_l: Label
 var _error: Label
 var _dialog: FileDialog
@@ -31,6 +33,7 @@ func _refresh_cards() -> void:
 	for c in _list.get_children():
 		c.queue_free()
 	_grids.clear()
+	_cards.clear()
 	_files = App.list_workout_files()
 	var linked := Sync.intervals().is_configured()
 	if linked:
@@ -45,6 +48,26 @@ func _refresh_cards() -> void:
 	_cal_status.text = Sync.calendar.status if linked else ""
 	_cal_status.visible = _cal_status.text != ""
 	_relayout()
+	if not _cascaded:
+		_cascaded = true
+		_cascade_in()
+
+
+## Tiles fade and grow in one after another, quickly.
+func _cascade_in() -> void:
+	for c in _cards:
+		c.modulate.a = 0.0
+	await get_tree().process_frame   # sizes are known now, so scaling can pivot on the centre
+	var delay := 0.0
+	for c in _cards:
+		if not is_instance_valid(c):
+			continue
+		c.pivot_offset = c.size * 0.5
+		c.scale = Vector2(0.94, 0.94)
+		var tw := create_tween().set_parallel(true).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tw.tween_property(c, "modulate:a", 1.0, 0.22).set_delay(delay)
+		tw.tween_property(c, "scale", Vector2.ONE, 0.26).set_delay(delay)
+		delay += 0.045
 
 
 const PLAN_DAYS := 5
@@ -90,6 +113,7 @@ func _add_empty_card(parent: Control) -> void:
 	card.add_theme_stylebox_override("panel", HudStyle.flat(Color(HudStyle.CARD, 0.45), HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
 	card.custom_minimum_size = Vector2(0, CARD_HEIGHT)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cards.append(card)
 	var c := CenterContainer.new()
 	card.add_child(c)
 	HudStyle.label(c, "Nothing planned", 14, 500, HudStyle.TEXT_DIM)
@@ -137,6 +161,7 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 	if flexible:
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_cards.append(card)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	card.add_child(v)
@@ -164,6 +189,7 @@ func _add_open_card(grid: GridContainer) -> void:
 	card.add_theme_stylebox_override("panel", HudStyle.flat(Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
 	card.custom_minimum_size = Vector2(300, CARD_HEIGHT)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_cards.append(card)
 	var c := CenterContainer.new()
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
