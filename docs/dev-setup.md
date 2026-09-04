@@ -16,7 +16,7 @@ tools/make-dev-runner.sh
 tools/run-dev.sh
 ```
 
-The first launch asks for Bluetooth permission for "RideDev". Allow it. Output goes to
+The first launch asks for Bluetooth permission for "GrooveDev". Allow it. Output goes to
 `build/run.log`. `build/` is ignored by git.
 
 Opening the project in the normal Godot editor is fine for everything that does not
@@ -36,7 +36,7 @@ tools/shot.sh res://ui/screens/ride_screen.tscn build/ride.png ride
 
 This goes through the dev runner with `open`, which matters: macOS applies the Bluetooth
 usage description only when the app is launched through LaunchServices. Executing
-`RideDev.app/Contents/MacOS/Godot` directly still crashes with a TCC abort as soon as the
+`GrooveDev.app/Contents/MacOS/Godot` directly still crashes with a TCC abort as soon as the
 Devices autoload touches the radio.
 
 ## Riding on the simulator
@@ -49,7 +49,7 @@ Left/Right orbit the camera around the rider in 15° steps, 0 resets it.
 ## Rides, FIT files, and uploads
 
 Rides are journalled one sample per second to `user://rides/<timestamp>.jsonl` (that is
-`~/Library/Application Support/Godot/app_userdata/Ride/rides/` on macOS) and encoded to a
+`~/Library/Application Support/Godot/app_userdata/Groove/rides/` on macOS) and encoded to a
 FIT file beside the journal when the ride ends. Unfinished journals are recovered on the
 next launch. Uploads are queued in `user://uploads.cfg` and retried on launch; the
 intervals.icu API key is stored encrypted in `user://secrets.cfg`.

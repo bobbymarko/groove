@@ -21,7 +21,7 @@ tools/fetch-quaternius-un.sh Cactus_1 Cactus_2 Cactus_3 Cactus_4 Cactus_5 Cactus
 tools/run-dev.sh              # launches a patched Godot copy that macOS lets use Bluetooth
 ```
 
-On macOS, Godot itself cannot open Bluetooth without a usage description in its bundle, so `tools/make-dev-runner.sh` builds a patched copy in `build/RideDev.app` and `run-dev.sh` launches it. Details in `docs/dev-setup.md`.
+On macOS, Godot itself cannot open Bluetooth without a usage description in its bundle, so `tools/make-dev-runner.sh` builds a patched copy in `build/GrooveDev.app` and `run-dev.sh` launches it. Details in `docs/dev-setup.md`.
 
 Connectors are configured in Settings: an intervals.icu personal API key, and your own Strava API application (client ID and secret, callback domain `localhost`). Secrets are stored encrypted in the app's user folder and never leave the machine except to those services.
 

@@ -4,7 +4,7 @@
 #   tools/shot.sh res://ui/screens/devices_screen.tscn build/devices.png [ride]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RUNNER="$ROOT/build/RideDev.app"
+RUNNER="$ROOT/build/GrooveDev.app"
 [ -d "$RUNNER" ] || "$ROOT/tools/make-dev-runner.sh"
 OUT="$2"; case "$OUT" in /*) ;; *) OUT="$ROOT/$OUT";; esac
 GODOT_BIN="$RUNNER/Contents/MacOS/Godot"

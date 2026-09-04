@@ -3,7 +3,7 @@
 # touched in the last three minutes). Pass --force to restart anyway.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RIDES="$HOME/Library/Application Support/Godot/app_userdata/Ride/rides"
+RIDES="$HOME/Library/Application Support/Godot/app_userdata/Groove/rides"
 if [ "${1:-}" != "--force" ] && [ -d "$RIDES" ]; then
   while IFS= read -r -d '' j; do
     if ! tail -n 1 "$j" | grep -q '"end"'; then
@@ -11,8 +11,8 @@ if [ "${1:-}" != "--force" ] && [ -d "$RIDES" ]; then
     fi
   done < <(find "$RIDES" -name '*.jsonl' -mmin -3 -print0 2>/dev/null)
 fi
-pkill -f "RideDev.app/Contents/MacOS/Godot" || true
+pkill -f "GrooveDev.app/Contents/MacOS/Godot" || true
 sleep 1
 "$ROOT/tools/run-dev.sh" >/dev/null 2>&1 &
 sleep 3
-pgrep -f RideDev >/dev/null && echo relaunched
+pgrep -f GrooveDev >/dev/null && echo relaunched

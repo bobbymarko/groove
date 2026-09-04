@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds build/RideDev.app: a copy of the installed Godot editor with a
+# Builds build/GrooveDev.app: a copy of the installed Godot editor with a
 # Bluetooth usage description added to its Info.plist and an ad-hoc signature.
 #
 # Why: macOS refuses CoreBluetooth access to apps whose Info.plist lacks
@@ -14,7 +14,7 @@ set -euo pipefail
 GODOT_APP="${GODOT_APP:-/Applications/Godot.app}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$ROOT/build" && touch "$ROOT/build/.gdignore"   # keep Godot from scanning build/
-OUT="$ROOT/build/RideDev.app"
+OUT="$ROOT/build/GrooveDev.app"
 ENT="$ROOT/build/godot.entitlements"
 
 [ -d "$GODOT_APP" ] || { echo "Godot not found at $GODOT_APP (set GODOT_APP)"; exit 1; }
@@ -28,7 +28,7 @@ DESC="Ride connects to your smart trainer and sensors over Bluetooth."
 plutil -replace NSBluetoothAlwaysUsageDescription -string "$DESC" "$PLIST"
 plutil -replace NSBluetoothPeripheralUsageDescription -string "$DESC" "$PLIST"
 plutil -replace CFBundleIdentifier -string "dev.ride.godot-dev" "$PLIST"
-plutil -replace CFBundleName -string "RideDev" "$PLIST"
+plutil -replace CFBundleName -string "GrooveDev" "$PLIST"
 
 # Keep Godot's own entitlements (notably disable-library-validation, which
 # lets the editor load third-party GDExtension dylibs), but re-sign ad hoc.
