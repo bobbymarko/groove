@@ -34,18 +34,7 @@ func _refresh_cards() -> void:
 	_files = App.list_workout_files()
 	var linked := Sync.intervals().is_configured()
 	if linked:
-		var today := IntervalsCalendar.today()
-		var days := Sync.calendar.by_day()
-		if days.is_empty() or str(days[0].date) != today:
-			var g := _section("Today", true)
-			HudStyle.label(g, "Nothing planned on intervals.icu today", 14, 500, HudStyle.TEXT_DIM)
-		for day in days:
-			var is_today: bool = str(day.date) == today
-			var g := _section(str(day.label), is_today)
-			for e in day.entries:
-				var w := WorkoutLoader.load_file(str(e.path), App.ftp)
-				if w != null:
-					_add_card(g, w, str(e.path), is_today)
+		_add_training_plan()
 	var lib := _section("Library" if linked else "Workouts", false)
 	for f in _files:
 		var w := WorkoutLoader.load_file(f, App.ftp)
@@ -56,6 +45,53 @@ func _refresh_cards() -> void:
 	_cal_status.text = Sync.calendar.status if linked else ""
 	_cal_status.visible = _cal_status.text != ""
 	_relayout()
+
+
+const PLAN_DAYS := 5
+const CARD_HEIGHT := 196.0
+
+## "Training plan": one row of the next five days, each a column with a day
+## subhead and that day's planned rides, or an equally sized "Nothing planned" box.
+func _add_training_plan() -> void:
+	HudStyle.section_label(_list, "Training plan", 13)
+	var today := IntervalsCalendar.today()
+	var by_date: Dictionary = {}
+	for day in Sync.calendar.by_day():
+		by_date[str(day.date)] = day.entries
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_list.add_child(row)
+	for i in PLAN_DAYS:
+		var date := IntervalsCalendar.date_offset(today, i)
+		var is_today := i == 0
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.size_flags_stretch_ratio = 1.0
+		col.add_theme_constant_override("separation", 8)
+		row.add_child(col)
+		var label := IntervalsCalendar.day_label(date, today)
+		if "," in label:
+			label = label.split(",")[0]   # "Wednesday, Sep 9" -> "Wednesday"
+		HudStyle.section_label(col, label, 12, HudStyle.ORANGE if is_today else HudStyle.TEXT_DIM)
+		var entries: Array = by_date.get(date, [])
+		var shown := 0
+		for e in entries:
+			var w := WorkoutLoader.load_file(str(e.path), App.ftp)
+			if w != null:
+				_add_card(col, w, str(e.path), is_today, true)
+				shown += 1
+		if shown == 0:
+			_add_empty_card(col)
+
+
+func _add_empty_card(parent: Control) -> void:
+	var card := HudStyle.panel(parent, Color(HudStyle.CARD, 0.45), HudStyle.RADIUS, 16)
+	card.custom_minimum_size = Vector2(0, CARD_HEIGHT)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var c := CenterContainer.new()
+	card.add_child(c)
+	HudStyle.label(c, "Nothing planned", 14, 500, HudStyle.TEXT_DIM)
 
 
 ## Header button with an icon and an uppercase word.
@@ -91,21 +127,25 @@ func _relayout() -> void:
 		g.columns = cols
 
 
-func _add_card(grid: GridContainer, w: Workout, path: String, highlight: bool) -> void:
-	var card := HudStyle.panel(grid, HudStyle.CARD, HudStyle.RADIUS, 12)
+## flexible: fill the parent's width (plan columns) instead of a fixed card width.
+func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexible := false) -> void:
+	var card := HudStyle.panel(parent, HudStyle.CARD, HudStyle.RADIUS, 16)
 	if highlight:
 		# Today's planned ride: the active state, an orange bar down the left edge.
-		var sb := HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 12, 8, HudStyle.BORDER)
+		var sb := HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 16, 11)
 		sb.border_width_left = 3
 		sb.border_color = HudStyle.ORANGE
 		card.add_theme_stylebox_override("panel", sb)
-	card.custom_minimum_size = Vector2(300, 0)
+	card.custom_minimum_size = Vector2(0.0 if flexible else 300.0, CARD_HEIGHT)
+	if flexible:
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
+	v.add_theme_constant_override("separation", 8)
 	card.add_child(v)
 	var graph := WorkoutGraph.new()
-	graph.custom_minimum_size = Vector2(276, 96)
+	graph.custom_minimum_size = Vector2(0.0 if flexible else 268.0, 96)
+	graph.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	graph.show_marker = false
 	graph.set_workout(w)
 	graph.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -122,8 +162,8 @@ func _add_card(grid: GridContainer, w: Workout, path: String, highlight: bool) -
 
 
 func _add_open_card(grid: GridContainer) -> void:
-	var card := HudStyle.panel(grid, Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 12)
-	card.custom_minimum_size = Vector2(300, 150)
+	var card := HudStyle.panel(grid, Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16)
+	card.custom_minimum_size = Vector2(300, CARD_HEIGHT)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var c := CenterContainer.new()
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -220,8 +260,14 @@ func _build_ui() -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	v.add_child(head)
-	var title := HudStyle.label(head, "GROOVE", 34, 900)
+	var title := TextureRect.new()
+	title.texture = load("res://assets/images/groove-wordmark-transparent.png")
+	title.custom_minimum_size = Vector2(212, 46)
+	title.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	title.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+	title.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
 	_devices_l = HudStyle.label(head, "", 13, 500, HudStyle.TEXT_DIM)
 	_devices_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_nav_button(head, "history", "Rides", open_rides)
