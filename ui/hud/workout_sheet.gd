@@ -78,21 +78,12 @@ func _build_content(v: VBoxContainer) -> void:
 	body.add_theme_constant_override("separation", 8)
 	scroll.add_child(body)
 	HudStyle.label(body, "Blocks", 14, 700, HudStyle.TEXT_DIM)
+	var blocks := HudStyle.panel(body, HudStyle.PANEL, 8, 8)
+	var bl := VBoxContainer.new()
+	bl.add_theme_constant_override("separation", 4)
+	blocks.add_child(bl)
 	for r in WorkoutSummary.rows(w, ftp):
-		var row := HudStyle.panel(body, HudStyle.PANEL_ROW, 6, 10)
-		if r.kind == "intervals":
-			var h := HBoxContainer.new()
-			h.add_theme_constant_override("separation", 12)
-			row.add_child(h)
-			var c := HudStyle.label(h, "%d x" % int(r.count), 22, 700)
-			c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			var lines := VBoxContainer.new()
-			lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			h.add_child(lines)
-			HudStyle.label(lines, "%s @ %dw" % [WorkoutSummary.duration(r.on_dur), int(r.on_w)], 15, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			HudStyle.label(lines, "%s @ %dw" % [WorkoutSummary.duration(r.off_dur), int(r.off_w)], 15, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		else:
-			HudStyle.label(row, r.text, 15, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		HudStyle.block_row(bl, r, 24, 16, Color(0.20, 0.23, 0.31, 0.9))
 	if w.description != "":
 		_coach_note(body, w.description)
 	if w.author != "":

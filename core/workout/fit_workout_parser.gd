@@ -87,8 +87,11 @@ static func parse(bytes: PackedByteArray, ftp: int, fallback_name := "Workout") 
 		var start := 0.0
 		for prev in w.segments:
 			start += prev.duration
+		# Step notes, else the step name, become a coach line at the segment start (first rep only).
 		var note := str(st.get(8, ""))
-		if note != "" and (int(entry.rep) <= 1):
+		if note == "":
+			note = str(st.get(0, ""))
+		if note != "" and int(entry.rep) <= 1:
 			w.text_events.append({"time": start, "message": note})
 		w.segments.append(s)
 	if w.segments.is_empty():

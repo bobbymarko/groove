@@ -93,19 +93,15 @@ static func open_ride(sheet: SideSheet, r: Dictionary) -> void:
 
 	var fit: String = r.fit
 	var sync := HudStyle.section(v, "Sharing")
-	var lines: Array[String] = []
-	for job in Sync.jobs_for(fit):
-		var c: Connector = Sync.connectors.get(job.connector)
-		var label := c.display_name() if c else str(job.connector)
-		match str(job.status):
-			"done": lines.append("%s   ·   uploaded" % label)
-			"uploading": lines.append("%s   ·   uploading…" % label)
-			"failed": lines.append("%s   ·   failed: %s" % [label, str(job.last_error)])
-			_: lines.append("%s   ·   waiting to upload" % label)
-	if lines.is_empty():
-		lines.append("Not shared yet" if not Sync.configured_connectors().is_empty() else "Connect intervals.icu or Strava in Settings to share rides")
-	for line in lines:
-		HudStyle.label(sync, line, 13, 500, HudStyle.TEXT_DIM).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var share_body := VBoxContainer.new()
+	share_body.add_theme_constant_override("separation", 6)
+	sync.add_child(share_body)
+	_fill_sharing(share_body, r)
+	var on_change := func() -> void:
+		if is_instance_valid(share_body):
+			_fill_sharing(share_body, r)
+	Sync.changed.connect(on_change)
+	share_body.tree_exiting.connect(func() -> void: Sync.changed.disconnect(on_change))
 
 	var shots := _screenshots(fit)
 	if not shots.is_empty():
@@ -130,13 +126,62 @@ static func open_ride(sheet: SideSheet, r: Dictionary) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	v.add_child(bar)
-	var share := HudStyle.button(bar, "Share…", 15, func() -> void:
-		App.last_ride_journal = r.journal
-		App.prompt_upload = true
-		App.go_to("res://ui/screens/summary_screen.tscn"))
-	share.disabled = Sync.configured_connectors().is_empty() or not FileAccess.file_exists(fit)
 	HudStyle.button(bar, "Show in Finder", 13, func() -> void: OS.shell_show_in_file_manager(ProjectSettings.globalize_path(fit)))
 	sheet.replace_content(v)
+
+
+## Per connected service: its upload state, or a checkbox if it has not been
+## posted yet. One Share button posts the checked ones; states refresh live.
+static func _fill_sharing(body: VBoxContainer, r: Dictionary) -> void:
+	for c in body.get_children():
+		body.remove_child(c)
+		c.queue_free()
+	var fit: String = r.fit
+	var connectors := Sync.configured_connectors()
+	if connectors.is_empty():
+		HudStyle.label(body, "Connect intervals.icu or Strava in Settings to share rides", 13, 500, HudStyle.TEXT_DIM).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		return
+	if not FileAccess.file_exists(fit):
+		HudStyle.label(body, "No FIT file for this ride", 13, 500, HudStyle.TEXT_DIM)
+		return
+	var boxes: Array[CheckBox] = []
+	for c in connectors:
+		var job := {}
+		for j in Sync.jobs_for(fit):
+			if j.connector == c.id():
+				job = j
+		var status := str(job.get("status", ""))
+		if status == "done" or status == "uploading" or status == "pending":
+			var text: String = {"done": "uploaded", "uploading": "uploading…", "pending": "waiting to upload"}[status]
+			var l := HudStyle.label(body, "%s   ·   %s" % [c.display_name(), text], 13, 500, HudStyle.OK_GREEN if status == "done" else HudStyle.TEXT_DIM)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			continue
+		var cb := CheckBox.new()
+		cb.text = "Post to %s" % c.display_name() + (("   ·   last try failed: %s" % str(job.get("last_error", ""))) if status == "failed" else "")
+		cb.button_pressed = true
+		cb.add_theme_font_override("font", HudStyle.font(500))
+		cb.add_theme_font_size_override("font_size", 13)
+		cb.set_meta("connector", c.id())
+		cb.set_meta("job", str(job.get("id", "")))
+		body.add_child(cb)
+		boxes.append(cb)
+	if boxes.is_empty():
+		return
+	var share := HudStyle.button(body, "Share", 14, func() -> void:
+		for cb in boxes:
+			if not cb.button_pressed:
+				continue
+			var job_id := str(cb.get_meta("job"))
+			if job_id != "":
+				Sync.retry(job_id)
+			else:
+				Sync.enqueue(str(cb.get_meta("connector")), fit, str(r.meta.get("workout", "Ride")), _description(r)))
+	share.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+
+
+static func _description(r: Dictionary) -> String:
+	var m := RideMetrics.compute(r.trace, int(r.meta.get("ftp", App.ftp)))
+	return "Ride · %d W avg · NP %d W · %d kJ · TSS %d" % [int(m.avg_power), int(m.normalized_power), int(m.kj), int(round(float(m.tss)))]
 
 
 static func _screenshots(fit: String) -> Array[String]:

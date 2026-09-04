@@ -226,6 +226,40 @@ static func _grabber(color: Color) -> Texture2D:
 	return tex
 
 
+## One workout block as in the ride HUD: intervals show "6 x" with the on/off
+## lines, other blocks a single right-aligned line. `g` is a WorkoutSummary row.
+static func block_row(parent: Control, g: Dictionary, big := 26, small := 16, bg := PANEL_ROW) -> PanelContainer:
+	var row := PanelContainer.new()
+	style_block_row(row, bg)
+	parent.add_child(row)
+	if g.kind == "intervals":
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 12)
+		row.add_child(h)
+		var count_l := label(h, "%d x" % int(g.count), big, 700)
+		count_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var lines := VBoxContainer.new()
+		lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lines.add_theme_constant_override("separation", 0)
+		h.add_child(lines)
+		label(lines, "%s @ %dw" % [duration(g.on_dur), int(g.on_w)], small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		label(lines, "%s @ %dw" % [duration(g.off_dur), int(g.off_w)], small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	else:
+		label(row, g.text, small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	return row
+
+
+static func style_block_row(row: PanelContainer, bg: Color) -> void:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	row.add_theme_stylebox_override("panel", sb)
+
+
 ## Settings card: title, optional one-line help, optional action button on the
 ## title row. Returns the box to fill.
 static func section(parent: Control, title: String, help := "", action_text := "", action := Callable()) -> VBoxContainer:

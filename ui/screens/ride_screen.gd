@@ -507,26 +507,7 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	_groups = WorkoutSummary.rows(App.workout, App.ftp)
 	_rows.clear()
 	for g in _groups:
-		var row := HudStyle.panel(v, HudStyle.PANEL_ROW, 6, 10)
-		_rows.append(row)
-		if g.kind == "intervals":
-			var h := HBoxContainer.new()
-			h.add_theme_constant_override("separation", 12)
-			row.add_child(h)
-			var count_l := HudStyle.label(h, "%d x" % int(g.count), 26, 700)
-			count_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			var lines := VBoxContainer.new()
-			lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			lines.add_theme_constant_override("separation", 0)
-			h.add_child(lines)
-			var l1 := HudStyle.label(lines, "%s @ %dw" % [HudStyle.duration(g.on_dur), int(g.on_w)], 16, 700)
-			l1.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			var l2 := HudStyle.label(lines, "%s @ %dw" % [HudStyle.duration(g.off_dur), int(g.off_w)], 16, 700)
-			l2.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		else:
-			var l := HudStyle.label(row, g.text, 16, 700)
-			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		_style_row(row, false)
+		_rows.append(HudStyle.block_row(v, g))
 
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 6)
@@ -544,14 +525,7 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 
 
 func _style_row(row: PanelContainer, active: bool) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = HudStyle.ACCENT if active else HudStyle.PANEL_ROW
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
-	sb.content_margin_top = 4
-	sb.content_margin_bottom = 4
-	row.add_theme_stylebox_override("panel", sb)
+	HudStyle.style_block_row(row, HudStyle.ACCENT if active else HudStyle.PANEL_ROW)
 
 
 ## Top-centre: trip numbers, progress, current block, power, live metrics.
