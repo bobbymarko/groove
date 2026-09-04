@@ -87,6 +87,7 @@ func _add_training_plan() -> void:
 
 func _add_empty_card(parent: Control) -> void:
 	var card := HudStyle.panel(parent, Color(HudStyle.CARD, 0.45), HudStyle.RADIUS, 16)
+	card.add_theme_stylebox_override("panel", HudStyle.flat(Color(HudStyle.CARD, 0.45), HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
 	card.custom_minimum_size = Vector2(0, CARD_HEIGHT)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var c := CenterContainer.new()
@@ -130,6 +131,7 @@ func _relayout() -> void:
 ## flexible: fill the parent's width (plan columns) instead of a fixed card width.
 func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexible := false) -> void:
 	var card := HudStyle.panel(parent, HudStyle.CARD, HudStyle.RADIUS, 16)
+	card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 16, 16, HudStyle.BORDER))   # equal padding all round
 	# Today's card looks like every other card; the orange subhead marks the day.
 	card.custom_minimum_size = Vector2(0.0 if flexible else 300.0, CARD_HEIGHT)
 	if flexible:
@@ -141,6 +143,7 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 	var graph := WorkoutGraph.new()
 	graph.custom_minimum_size = Vector2(0.0 if flexible else 268.0, 96)
 	graph.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	graph.size_flags_vertical = Control.SIZE_EXPAND_FILL   # spare height goes into the graph, not under the text
 	graph.show_marker = false
 	graph.set_workout(w)
 	graph.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -158,6 +161,7 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 
 func _add_open_card(grid: GridContainer) -> void:
 	var card := HudStyle.panel(grid, Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16)
+	card.add_theme_stylebox_override("panel", HudStyle.flat(Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
 	card.custom_minimum_size = Vector2(300, CARD_HEIGHT)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var c := CenterContainer.new()
