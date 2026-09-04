@@ -4,6 +4,7 @@ extends VBoxContainer
 ## segmented control, each a scroll of cards. Values save as they change.
 
 var _pages: Array[Control] = []
+var _tabs: HBoxContainer
 var _ftp: LineEdit
 var _key: LineEdit
 var _key_status: Label
@@ -70,6 +71,11 @@ func _set_status(l: Label, msg: String, ok: bool) -> void:
 	l.add_theme_color_override("font_color", HudStyle.OK_GREEN if ok else HudStyle.WARN_RED)
 
 
+## Select a page as if its tab were clicked.
+func show_page(i: int) -> void:
+	_tabs.get_child(i).pressed.emit()
+
+
 func _show_page(i: int) -> void:
 	for p in _pages.size():
 		_pages[p].visible = p == i
@@ -89,7 +95,7 @@ func _page() -> VBoxContainer:
 
 
 func _build_ui() -> void:
-	HudStyle.segmented(self, ["Rider & sync", "Look"], 0, _show_page, 14)
+	_tabs = HudStyle.segmented(self, ["Rider & sync", "Look"], 0, _show_page, 14)
 
 	# --- Rider & sync ---
 	var rider := _page()

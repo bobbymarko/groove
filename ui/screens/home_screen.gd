@@ -230,6 +230,7 @@ func open_settings() -> void:
 	v.add_theme_constant_override("separation", 10)
 	_side.header(v, "Settings")
 	var p := SettingsPanel.new()
+	p.name = "SettingsPanel"
 	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(p)
 	_side.show_content(v)
@@ -249,10 +250,4 @@ func open_devices() -> void:
 
 
 func open_rides() -> void:
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	_side.header(v, "Recent rides")
-	var p := RidesPanel.new()
-	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(p)
-	_side.show_content(v)
+	RidesPanel.open_in(_side, true)

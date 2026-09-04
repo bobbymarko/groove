@@ -15,6 +15,7 @@ func _initialize() -> void:
 
 func _run(scene_path: String, out_path: String, mode: String) -> void:
 	await process_frame
+	print("[dbg] mode '%s' user args %s" % [mode, OS.get_cmdline_user_args()])
 	var app: Node = root.get_node("App")
 	var devices: Node = root.get_node("Devices")
 	var ride := mode == "ride"
@@ -22,25 +23,11 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		app.workout = ZwoParser.parse_file("res://workouts/cadence_today.zwo")
 		app.dry_run = true   # never record preview rides into the real library
 		devices.use_simulated_devices()
-	if mode == "summary":
-		# Synthesize a finished 20-minute ride so the summary has data.
-		var rec := RideRecorder.new()
-		rec.name = "RideRecorder"
-		root.add_child(rec)
-		rec.begin("Cadence: Corner Exit", 250, 1756800000)
-		for i in 1200:
-			var hard := (i / 60) % 3 == 1
-			rec.on_power((265 if hard else 125) + (i % 9) - 4)
-			rec.on_cadence(95 if hard else 85)
-			rec.on_heart_rate((160 if hard else 128) + (i % 4))
-			rec.on_speed(34.0 if hard else 24.0)
-			rec.record_sample(float(i), 1756800000 + i)
-		rec.finish(true, 1756800000 + 1200)
-		var metrics := RideMetrics.compute(rec.samples, 250)
-		var f := FileAccess.open(rec.fit_path(), FileAccess.WRITE)
-		f.store_buffer(FitEncoder.encode(rec.meta, rec.samples, metrics, true))
-		f.close()
-		app.last_ride_journal = rec.journal_path()
+	var fake: RideRecorder = null
+	if mode == "summary" or OS.get_cmdline_user_args().has("fake"):
+		fake = _fake_ride()
+		if mode == "summary":
+			app.last_ride_journal = fake.journal_path()
 	var scene: Node
 	if mode == "scene":
 		# Standalone scene preview with demo telemetry.
@@ -133,6 +120,17 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		if mode in ["settings", "devices", "rides"]:
 			await process_frame
 			scene.call("open_" + mode)
+			for i in 30:
+				await process_frame
+			if mode == "settings" and OS.get_cmdline_user_args().has("look"):
+				scene.find_child("SettingsPanel", true, false).show_page(1)
+			if mode == "rides" and OS.get_cmdline_user_args().has("detail"):
+				var rides: Array = root.get_node("App").list_rides()
+				print("[dbg] rides %d, sheet visible %s" % [rides.size(), scene.get_node("SideSheet").visible])
+				if not rides.is_empty():
+					# Loaded at run time: this script compiles before the autoloads RidesPanel refers to exist.
+					load("res://ui/panels/rides_panel.gd").open_ride(scene.get_node("SideSheet"), rides[0])
+					print("[dbg] detail opened, sheet visible %s" % scene.get_node("SideSheet").visible)
 			for i in 40:
 				await process_frame
 	if ride:
@@ -163,12 +161,33 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 	for i in 5:
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()
-	if mode == "summary":
+	if fake:
 		# Do not leave the synthetic ride in the real library.
-		var rec: RideRecorder = root.get_node("RideRecorder")
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(rec.journal_path()))
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(rec.fit_path()))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(fake.journal_path()))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(fake.fit_path()))
 	var abs := ProjectSettings.globalize_path(out_path) if out_path.begins_with("res://") else out_path
 	var err := img.save_png(abs)
 	print("screenshot %s -> %s" % [scene_path, abs if err == OK else error_string(err)])
 	quit(0 if err == OK else 1)
+
+
+## A finished 20-minute ride with 3-minute hard reps, dated so it sorts first.
+func _fake_ride() -> RideRecorder:
+	var rec := RideRecorder.new()
+	rec.name = "RideRecorder"
+	root.add_child(rec)
+	var start := int(Time.get_unix_time_from_system())
+	rec.begin("Cadence: Corner Exit", 250, start)
+	for i in 1200:
+		var hard := (i / 60) % 3 == 1
+		rec.on_power((265 if hard else 125) + (i % 9) - 4)
+		rec.on_cadence(95 if hard else 85)
+		rec.on_heart_rate((160 if hard else 128) + (i % 4))
+		rec.on_speed(34.0 if hard else 24.0)
+		rec.record_sample(float(i), start + i)
+	rec.finish(true, start + 1200)
+	var metrics := RideMetrics.compute(rec.samples, 250)
+	var f := FileAccess.open(rec.fit_path(), FileAccess.WRITE)
+	f.store_buffer(FitEncoder.encode(rec.meta, rec.samples, metrics, true))
+	f.close()
+	return rec

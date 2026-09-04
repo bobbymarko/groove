@@ -91,6 +91,7 @@ func _ready() -> void:
 	_screen.texture = _viewport.get_texture()
 	_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_screen.stretch_mode = TextureRect.STRETCH_SCALE
+	_screen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # the render target must not dictate our minimum size
 	_screen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_post = ShaderMaterial.new()

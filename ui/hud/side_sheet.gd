@@ -8,6 +8,7 @@ signal closed
 
 var width := 520.0
 var _panel: PanelContainer
+var _holder: Control         # plain Control: children cannot widen the sheet, overflow is clipped
 var _scrim: ColorRect
 var _tween: Tween
 
@@ -27,6 +28,11 @@ func _ready() -> void:
 	_panel.custom_minimum_size.x = width
 	_panel.offset_top = 0.0
 	_panel.offset_bottom = 0.0
+	_holder = Control.new()
+	_holder.clip_contents = true
+	_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_panel.add_child(_holder)
 	visible = false
 
 
@@ -36,9 +42,7 @@ func is_open() -> bool:
 
 ## Replace the sheet's content and slide it in.
 func show_content(content: Control) -> void:
-	for c in _panel.get_children():
-		c.queue_free()
-	_panel.add_child(content)
+	_mount(content)
 	visible = true
 	_scrim.modulate.a = 0.0
 	_panel.offset_left = 0.0
@@ -68,11 +72,26 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		close()
 
 
-## Standard header row: title and a close button.
-func header(parent: Control, title: String) -> void:
+## Swap the content without the slide-in (navigating within the sheet).
+func replace_content(content: Control) -> void:
+	_mount(content)
+	visible = true
+
+
+func _mount(content: Control) -> void:
+	for c in _holder.get_children():
+		c.queue_free()
+	_holder.add_child(content)
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+
+## Standard header row: optional back arrow, title and a close button.
+func header(parent: Control, title: String, on_back := Callable()) -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)
 	parent.add_child(head)
+	if on_back.is_valid():
+		HudStyle.button(head, "←", 16, on_back).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var t := HudStyle.label(head, title, 24, 900)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

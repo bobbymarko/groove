@@ -94,9 +94,7 @@ func _build_content(v: VBoxContainer) -> void:
 		else:
 			HudStyle.label(row, r.text, 15, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	if w.description != "":
-		HudStyle.label(body, "About", 14, 700, HudStyle.TEXT_DIM)
-		var desc := HudStyle.label(body, w.description, 15, 500)
-		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_coach_note(body, w.description)
 	if w.author != "":
 		HudStyle.label(body, "by %s" % w.author, 13, 500, HudStyle.TEXT_DIM)
 
@@ -108,6 +106,25 @@ func _build_content(v: VBoxContainer) -> void:
 	_ride.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ride.custom_minimum_size.y = 44
 	HudStyle.button(bar, "Simulator", 15, _start.bind(true))
+
+
+## The workout description, presented as the coach's briefing: avatar on the
+## left, speech bubble on the right.
+func _coach_note(parent: Control, text: String) -> void:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	parent.add_child(h)
+	var face := TextureRect.new()
+	face.texture = load(CoachDialog.PORTRAIT_PATH)
+	face.custom_minimum_size = Vector2(56, 56)
+	face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	h.add_child(face)
+	var bubble := HudStyle.panel(h, HudStyle.CARD, 10, 14)
+	bubble.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var desc := HudStyle.label(bubble, text, 15, 500)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 
 func _stat(parent: Control, value: String, unit: String) -> void:

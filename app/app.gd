@@ -97,7 +97,8 @@ func list_rides() -> Array[Dictionary]:
 		var j := RideRecorder.load_journal(path)
 		if j.is_empty() or j.samples.is_empty():
 			continue
-		out.append({"journal": path, "fit": path.get_basename() + ".fit", "meta": j.meta, "samples": j.samples.size(), "finished": j.has("end")})
+		out.append({"journal": path, "fit": path.get_basename() + ".fit", "meta": j.meta, "samples": j.samples.size(),
+			"trace": j.samples, "completed": bool(j.get("end", {}).get("completed", false)), "finished": j.has("end")})
 	return out
 
 
