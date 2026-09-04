@@ -464,6 +464,7 @@ func _build_ui() -> void:
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE   # the workout panel's footer hangs into this area
 	v.add_child(spacer)
 
 	# Coach notes: centred dialog with portrait (see CoachDialog). Added last so it draws on top.

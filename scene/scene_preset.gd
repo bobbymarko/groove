@@ -15,7 +15,7 @@ const PRESETS := {
 		"dead": ["DeadTree_1", "DeadTree_2", "DeadTree_3", "DeadTree_4", "DeadTree_5"],
 		"rocks": ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"],
 		"cover": [],
-		"snow": true, "prop_snow": true, "sun_lift": 0.0, "dead_share": 0.04,
+		"snow": true, "prop_snow": true, "sun_lift": 0.0, "dead_share": 0.04, "rain_chance": 0.0,
 	},
 	"summer": {
 		"name": "Summer", "description": "Dusty singletrack under leafy trees",
@@ -32,7 +32,7 @@ const PRESETS := {
 		"dead": [],
 		"rocks": ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"],
 		"cover": ["Grass_Common_Tall", "Grass_Wispy_Tall", "Bush_Common", "Bush_Common_Flowers"],
-		"snow": false, "prop_snow": false, "sun_lift": 28.0, "dead_share": 0.0,
+		"snow": false, "prop_snow": false, "sun_lift": 28.0, "dead_share": 0.0, "rain_chance": 0.1,
 	},
 	"autumn": {
 		"name": "Autumn", "description": "Amber woods, cool air, soft late light",
@@ -49,7 +49,7 @@ const PRESETS := {
 		"dead": ["DeadTree_1", "DeadTree_2", "DeadTree_3"],
 		"rocks": ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"],
 		"cover": ["Mushroom_Common", "Bush_Common", "Grass_Wispy_Tall"],
-		"snow": false, "prop_snow": false, "sun_lift": 14.0, "dead_share": 0.06,
+		"snow": false, "prop_snow": false, "sun_lift": 14.0, "dead_share": 0.06, "rain_chance": 0.25,
 	},
 	"spring": {
 		"name": "Spring", "description": "Fresh green meadows and wildflowers",
@@ -66,7 +66,7 @@ const PRESETS := {
 		"dead": [],
 		"rocks": ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"],
 		"cover": ["Flower_3_Group", "Flower_4_Group", "Grass_Common_Tall", "Bush_Common_Flowers"],
-		"snow": false, "prop_snow": false, "sun_lift": 22.0, "dead_share": 0.0,
+		"snow": false, "prop_snow": false, "sun_lift": 22.0, "dead_share": 0.0, "rain_chance": 0.4,
 	},
 }
 

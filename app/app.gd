@@ -12,6 +12,7 @@ var camera_shake := "low"   # off | low | high
 var look_mode := "16bit"    # "8bit" (palette, low-res) | "16bit" (posterized, higher-res) | "off" (native)
 var show_fps := true
 var scene_preset := "winter"   # ScenePreset id chosen before a ride
+var time_of_day := "live"      # Daylight.MODES key: live (¼-speed real day), morning, noon, sunset, night
 var last_ride_journal := ""
 var prompt_upload := false   # the summary screen asks about sharing the ride just finished
 var dry_run := false         # tooling: ride without recording, screenshots or uploads
@@ -20,8 +21,8 @@ var dry_run := false         # tooling: ride without recording, screenshots or u
 const TUNING_SPEC := [
 	# key, label, min, max, step, default
 	["shadow_strength", "Shadow strength", 0.0, 1.0, 0.01, 0.93],
-	["sun_elevation", "Sun elevation (°)", 5.0, 75.0, 1.0, 10.0],
-	["sun_azimuth", "Sun direction (°)", 0.0, 360.0, 1.0, 40.0],
+	["sun_elevation", "Noon sun height (°)", 5.0, 75.0, 1.0, 25.0],
+	["sun_azimuth", "Noon sun direction (°)", 0.0, 360.0, 1.0, 40.0],
 	["sun_energy", "Sun brightness", 0.2, 1.6, 0.01, 0.8],
 	["ambient_energy", "Ambient light", 0.0, 1.2, 0.01, 0.4],
 	["shade_band", "Shaded-side brightness", 0.3, 1.0, 0.01, 0.66],
@@ -53,6 +54,7 @@ func _ready() -> void:
 		look_mode = str(_cfg.get_value("scene", "look_mode", "8bit" if bool(_cfg.get_value("scene", "pixel_filter", true)) else "off"))
 		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
 		scene_preset = str(_cfg.get_value("scene", "preset", scene_preset))
+		time_of_day = str(_cfg.get_value("scene", "time_of_day", time_of_day))
 		for key in scene_tuning:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
@@ -110,6 +112,7 @@ func save_settings() -> void:
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)
+	_cfg.set_value("scene", "time_of_day", time_of_day)
 	for key in scene_tuning:
 		_cfg.set_value("scene_tuning", key, scene_tuning[key])
 	_cfg.save(SETTINGS_PATH)

@@ -15,6 +15,7 @@ const LAYERS := [
 ]
 
 var _layers: Array[Node3D] = []
+var _mats: Array[StandardMaterial3D] = []
 
 
 func _ready() -> void:
@@ -43,6 +44,7 @@ func _ridge(dist: float, width: float, base_h: float, amp: float, seed_value: in
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.vertex_color_use_as_albedo = true
+	_mats.append(m)
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -84,3 +86,9 @@ func _profile(st: SurfaceTool, dist: float, width: float, base_h: float, amp: fl
 		var off := Vector3(0.0, 0.0, -2.0)
 		var cap_col := snow if rising else snow.lerp(shade, 0.35)
 		MeshLib.quad(st, Vector3(a.x, snow_a, dist) + off, Vector3(b.x, snow_b, dist) + off, b + off, a + off, cap_col)
+
+
+## Unshaded ridges take the time of day as a multiplier (night blue, dusk warm).
+func set_tint(c: Color) -> void:
+	for m in _mats:
+		m.albedo_color = c

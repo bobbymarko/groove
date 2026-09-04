@@ -27,3 +27,7 @@ func _init() -> void:
 
 func follow(pos: Vector3) -> void:
 	global_position = pos + Vector3(0.0, 6.0, 8.0)
+
+
+func set_tint(c: Color) -> void:
+	(material_override as StandardMaterial3D).albedo_color = Palette.SNOW * c

@@ -126,6 +126,12 @@ void light() {
 		q = lit01;   // no steps: the ground shades as a continuous gradient
 	}
 	float band = mix(cel_dark_band, 1.0, q) + (ndl > 0.82 ? cel_highlight * (smooth_lighting && cel_smooth_terrain > 0.5 ? smoothstep(0.7, 0.95, ndl) : 1.0) : 0.0);
-	float lit = mix(cel_shadow_band, band, ATTENUATION);
-	DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * lit;
+	if (LIGHT_IS_DIRECTIONAL) {
+		// Sun or moon: ATTENUATION is the shadow term; shadowed surfaces keep the shadow band.
+		float lit = mix(cel_shadow_band, band, ATTENUATION);
+		DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * lit;
+	} else {
+		// Spot and omni lights (the bar light): cone and distance falloff apply fully.
+		DIFFUSE_LIGHT += ALBEDO * LIGHT_COLOR * band * ATTENUATION;
+	}
 }

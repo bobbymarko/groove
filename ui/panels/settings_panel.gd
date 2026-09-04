@@ -149,6 +149,12 @@ func _build_ui() -> void:
 			App.camera_shake = ["off", "low", "high"][i]
 			App.save_settings()
 			preview.set_shake(App.camera_shake))
+	var times := ["live", "morning", "noon", "sunset", "night"]
+	HudStyle.segmented(HudStyle.row(l, "Time of day"), ["Live", "Morning", "Noon", "Sunset", "Night"], maxi(times.find(App.time_of_day), 0),
+		func(i: int) -> void:
+			App.time_of_day = times[i]
+			App.save_settings()
+			preview.set_time_mode(App.time_of_day))
 	HudStyle.segmented(HudStyle.row(l, "FPS readout"), ["Hide", "Show"], 1 if App.show_fps else 0,
 		func(i: int) -> void:
 			App.show_fps = i == 1

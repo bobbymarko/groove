@@ -31,6 +31,7 @@ var _shin_r: MeshInstance3D
 var _body: Node3D
 var _mixamo: MixamoBody
 var _stopped := 0.0          # 0 = feet on the pedals, 1 = one foot down on the ground
+var _headlight: SpotLight3D
 const FOOT_DOWN := Vector3(0.36, 0.0, -0.02)   # rig-Left (+X) foot planted beside the bike
 var _helmet: Node3D
 var lean_amount := 0.75   # torso lean in radians (debug-tunable)
@@ -41,6 +42,18 @@ func _ready() -> void:
 	add_child(_body)
 	# Bike
 	_rear_wheel = _wheel(Vector3(0.0, WHEEL_R, -0.55))
+	# Bar light: a spot from the stem, forward and a little down. Off by day.
+	_headlight = SpotLight3D.new()
+	_headlight.position = Vector3(0.0, 1.03, 0.56)
+	_headlight.rotation_degrees = Vector3(-9.0, 0.0, 0.0)   # -Z is forward for a light; aim slightly down
+	_headlight.rotate_y(PI)                                  # the bike faces +Z
+	_headlight.spot_range = 28.0
+	_headlight.spot_angle = 22.0
+	_headlight.spot_attenuation = 1.6
+	_headlight.light_color = Color(1.0, 0.95, 0.85)
+	_headlight.light_energy = 0.0
+	_headlight.shadow_enabled = false
+	add_child(_headlight)
 	_front_wheel = _wheel(Vector3(0.0, WHEEL_R, 0.62))
 	_bar(Vector3(0.0, WHEEL_R, -0.55), BB, 0.05, Palette.BIKE)                 # chainstay
 	_bar(BB, Vector3(0.0, 0.95, -0.12), 0.06, Palette.BIKE)                     # seat tube
@@ -253,3 +266,9 @@ func _box(center: Vector3, size: Vector3, col: Color, parent: Node3D = self) -> 
 	mi.position = center
 	parent.add_child(mi)
 	return mi
+
+
+## 0 = off (daylight), 1 = full beam (night).
+func set_headlight(k: float) -> void:
+	_headlight.light_energy = 1.1 * clampf(k, 0.0, 1.0)
+	_headlight.visible = k > 0.01

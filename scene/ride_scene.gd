@@ -17,6 +17,15 @@ var camera: HandheldCamera
 var physics := RidePhysics.new()
 var snow: Snow
 var marks: TreadMarks
+var dust: WheelDust
+var rain: Rain
+var rain_override := -1.0        ## tooling: fixed rain intensity
+var _rain := 0.0                 ## current rain intensity 0..1, eased toward the schedule
+var time_mode := "live"          ## Daylight.MODES key; "live" follows the clock at 4x
+var hour_override := -1.0        ## tooling: fixed world hour
+var _tuning: Dictionary = {}
+var _sky_mat: ProceduralSkyMaterial
+var _daylight_clock := 1.0
 var preset_id := "winter"        ## ScenePreset in use (from App unless overridden)
 var preset_override := ""        ## tooling: force a preset regardless of settings
 var _preset: Dictionary = {}
@@ -55,6 +64,7 @@ func _ready() -> void:
 		var app0 := get_node_or_null("/root/App")
 		if app0:
 			preset_id = str(app0.scene_preset)
+			time_mode = str(app0.time_of_day)
 	Palette.apply(preset_id)
 	_preset = ScenePreset.get_preset(preset_id)
 	_viewport = SubViewport.new()
@@ -94,6 +104,10 @@ func _ready() -> void:
 	_world.add_child(marks)
 	rider = Rider.new()
 	_world.add_child(rider)
+	dust = WheelDust.new()
+	dust.position = Vector3(0.0, 0.04, -0.62)   # just behind the rear contact patch
+	dust.set_ground(bool(_preset.get("snow", true)))
+	rider.add_child(dust)
 	camera = HandheldCamera.new()
 	camera.shake_level = "low"   # the ride screen applies the user's setting via set_shake()
 	camera.ground_height = func(x: float, z: float) -> float: return terrain.height(x, z)
@@ -102,6 +116,8 @@ func _ready() -> void:
 	snow = Snow.new()
 	snow.emitting = bool(_preset.get("snow", true))
 	_world.add_child(snow)
+	rain = Rain.new()
+	_world.add_child(rain)
 
 	_screen = TextureRect.new()
 	_screen.texture = _viewport.get_texture()
@@ -171,6 +187,62 @@ func set_look_mode(mode: String) -> void:
 	_fit_viewport()
 
 
+## Showers come and go on a schedule: eight-minute windows, each raining with
+## the preset's chance, the same for everyone at the same wall-clock time.
+func _rain_target() -> float:
+	if rain_override >= 0.0:
+		return rain_override
+	var chance := float(_preset.get("rain_chance", 0.0))
+	if chance <= 0.0:
+		return 0.0
+	var window := int(Time.get_unix_time_from_system() / 480.0)
+	var roll := float(hash(window * 7919) % 1000) / 1000.0
+	return (0.6 + 0.4 * float(hash(window) % 100) / 100.0) if roll < chance else 0.0
+
+
+func set_time_mode(mode: String) -> void:
+	time_mode = mode
+	_apply_daylight()
+
+
+## Sun or moon, sky, fog and ambient for the current world hour, on top of the
+## user's tuning (noon sun height and direction, brightness, shadow strength).
+func _apply_daylight() -> void:
+	if _sun == null or _env == null or _tuning.is_empty():
+		return
+	var hour := hour_override if hour_override >= 0.0 else Daylight.hour_for_mode(time_mode)
+	var noon := float(_tuning.get("sun_elevation", 25.0)) + float(_preset.get("sun_lift", 0.0))
+	var st := Daylight.state(hour, noon, float(_tuning.get("sun_azimuth", 40.0)))
+	if _rain > 0.0:
+		# Overcast: dimmer, greyer, thicker air.
+		var grey := Color(0.55, 0.6, 0.68)
+		st.energy_mult = float(st.energy_mult) * (1.0 - 0.5 * _rain)
+		st.ambient_mult = float(st.ambient_mult) * (1.0 - 0.15 * _rain)
+		st.sky_top = (st.sky_top as Color).lerp(grey.darkened(0.2), 0.75 * _rain)
+		st.sky_horizon = (st.sky_horizon as Color).lerp(grey, 0.7 * _rain)
+		st.fog = (st.fog as Color).lerp(grey, 0.6 * _rain)
+		st.tint = (st.tint as Color).lerp(grey, 0.5 * _rain)
+		st.shadow_mult = float(st.shadow_mult) * (1.0 - 0.6 * _rain)
+	rain.set_intensity(_rain)
+	rider.set_headlight(1.0 - float(st.daylight))
+	_sun.rotation_degrees = Vector3(-float(st.elev), float(st.az), 0.0)
+	_sun.light_color = st.color
+	_sun.light_energy = float(_tuning.get("sun_energy", 0.8)) * float(st.energy_mult)
+	_env.ambient_light_energy = float(_tuning.get("ambient_energy", 0.4)) * float(st.ambient_mult)
+	_env.ambient_light_color = st.ambient_color
+	_env.fog_light_color = st.fog
+	if _sky_mat:
+		_sky_mat.sky_top_color = st.sky_top
+		_sky_mat.sky_horizon_color = st.sky_horizon
+		_sky_mat.ground_horizon_color = st.sky_horizon
+		_sky_mat.ground_bottom_color = Palette.SNOW_SHADE * st.tint
+	RenderingServer.global_shader_parameter_set("cel_shadow_band", 1.0 - float(_tuning.get("shadow_strength", 0.55)) * float(st.shadow_mult))
+	if backdrop:
+		backdrop.set_tint(st.tint)
+	if snow:
+		snow.set_tint(st.tint)
+
+
 ## Kept for callers that only know the on/off toggle.
 func set_pixel_filter(on: bool) -> void:
 	set_look_mode(("16bit" if look_mode == "off" else look_mode) if on else "off")
@@ -178,13 +250,11 @@ func set_pixel_filter(on: bool) -> void:
 
 ## Apply the user's scene tuning (see App.TUNING_SPEC). Safe to call every change.
 func apply_tuning(t: Dictionary) -> void:
-	RenderingServer.global_shader_parameter_set("cel_shadow_band", 1.0 - float(t.get("shadow_strength", 0.55)))
 	RenderingServer.global_shader_parameter_set("cel_shade_band", float(t.get("shade_band", 0.66)))
 	RenderingServer.global_shader_parameter_set("cel_dark_band", float(t.get("shade_band", 0.66)) * 0.76)
-	_sun.rotation_degrees = Vector3(-(float(t.get("sun_elevation", 32.0)) + float(_preset.get("sun_lift", 0.0))), float(t.get("sun_azimuth", 40.0)), 0.0)
-	_sun.light_energy = float(t.get("sun_energy", 0.8))
-	_env.ambient_light_energy = float(t.get("ambient_energy", 0.4))
-	_env.fog_density = float(t.get("fog_density", 0.0028))
+	_tuning = t
+	_apply_daylight()
+	_env.fog_density = float(t.get("fog_density", 0.0028)) * (1.0 + 1.5 * _rain)
 	_post.set_shader_parameter("dither_strength", float(t.get("dither", 0.0)))
 	_post.set_shader_parameter("sharpen", float(t.get("sharpen", 0.4)))
 	RenderingServer.global_shader_parameter_set("cel_speckle", float(t.get("speckle", 0.12)))
@@ -239,6 +309,7 @@ func _process(raw_delta: float) -> void:
 	_place_rider()
 	if riding and speed > 0.05:
 		marks.add(rider.to_global(Vector3(0.0, 0.0, -0.55)), rider.global_transform.basis.x, terrain.height)
+	dust.update(speed if riding else 0.0)
 	terrain.update_around(distance)
 	var anchor := trail.position_at(maxf(distance - camera.follow_distance, 0.0))
 	var ground := terrain.height(anchor.x, anchor.z)
@@ -259,7 +330,13 @@ func _process(raw_delta: float) -> void:
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)
 	snow.follow(camera.global_position)
+	rain.follow(camera.global_position)
 	backdrop.follow(rider.global_position)
+	_rain = move_toward(_rain, _rain_target(), raw_delta / 25.0)   # showers arrive and pass over ~25 s
+	_daylight_clock += raw_delta
+	if _daylight_clock >= 0.25:
+		_daylight_clock = 0.0
+		_apply_daylight()
 
 
 func _place_rider() -> void:
@@ -291,6 +368,7 @@ func _environment() -> WorldEnvironment:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var mat := ProceduralSkyMaterial.new()
+	_sky_mat = mat
 	mat.sky_top_color = Palette.SKY_TOP
 	mat.sky_horizon_color = Palette.SKY_HORIZON
 	mat.ground_horizon_color = Palette.SKY_HORIZON
