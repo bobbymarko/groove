@@ -43,12 +43,12 @@ func _refresh_cards() -> void:
 			var is_today: bool = str(day.date) == today
 			var g := _section(str(day.label), is_today)
 			for e in day.entries:
-				var w := ZwoParser.parse_file(str(e.path))
+				var w := WorkoutLoader.load_file(str(e.path), App.ftp)
 				if w != null:
 					_add_card(g, w, str(e.path), is_today)
 	var lib := _section("Library" if linked else "Workouts", false)
 	for f in _files:
-		var w := ZwoParser.parse_file(f)
+		var w := WorkoutLoader.load_file(f, App.ftp)
 		if w == null:
 			continue
 		_add_card(lib, w, f, false)
@@ -97,7 +97,7 @@ func _add_card(grid: GridContainer, w: Workout, path: String, highlight: bool) -
 	HudStyle.label(v, "%s  ·  %s  ·  %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
 	card.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			_sheet.open(ZwoParser.parse_file(path)))
+			_sheet.open(WorkoutLoader.load_file(path, App.ftp)))
 	card.mouse_entered.connect(func() -> void: card.modulate = Color(1.15, 1.15, 1.2))
 	card.mouse_exited.connect(func() -> void: card.modulate = Color.WHITE)
 
@@ -110,7 +110,7 @@ func _add_open_card(grid: GridContainer) -> void:
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(c)
-	var l := HudStyle.label(c, "+  Open .zwo file…", 16, 700, HudStyle.TEXT_DIM)
+	var l := HudStyle.label(c, "+  Open workout file…", 16, 700, HudStyle.TEXT_DIM)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
@@ -161,9 +161,9 @@ func _on_open_pressed() -> void:
 
 
 func _on_file_chosen(path: String) -> void:
-	var w := ZwoParser.parse_file(path)
+	var w := WorkoutLoader.load_file(path, App.ftp)
 	if w == null:
-		_error.text = "Could not load %s: %s" % [path.get_file(), ZwoParser.last_error]
+		_error.text = "Could not load %s: %s" % [path.get_file(), WorkoutLoader.last_error]
 		return
 	var dest := App.USER_WORKOUTS_DIR.path_join(path.get_file())
 	DirAccess.copy_absolute(path, ProjectSettings.globalize_path(dest))
@@ -212,7 +212,7 @@ func _build_ui() -> void:
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	_dialog.use_native_dialog = true
-	_dialog.filters = PackedStringArray(["*.zwo ; Zwift workout"])
+	_dialog.filters = PackedStringArray([WorkoutLoader.FILTER])
 	_dialog.file_selected.connect(_on_file_chosen)
 	add_child(_dialog)
 

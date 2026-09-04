@@ -126,10 +126,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_RIGHT: _scene.camera.orbit = wrapf(_scene.camera.orbit + deg_to_rad(15.0), -PI, PI)
 		KEY_LEFT: _scene.camera.orbit = wrapf(_scene.camera.orbit - deg_to_rad(15.0), -PI, PI)
 		KEY_0: _scene.camera.orbit = 0.0
-		KEY_UP: _runner.adjust_bias(1)
-		KEY_DOWN: _runner.adjust_bias(-1)
+		KEY_P: _runner.toggle_pause()
+		KEY_UP, KEY_EQUAL, KEY_PLUS, KEY_KP_ADD: _runner.adjust_bias(5 if event.shift_pressed else 1)
+		KEY_DOWN, KEY_MINUS, KEY_KP_SUBTRACT: _runner.adjust_bias(-5 if event.shift_pressed else -1)
 		KEY_E: _runner.set_erg(not _runner.erg_enabled)
 		KEY_ESCAPE: _runner.end_early()
+		KEY_H:
+			# Home only when not mid-effort, so a stray key cannot abandon a ride.
+			if _runner.state != WorkoutRunner.State.RUNNING:
+				App.go_to("res://ui/screens/home_screen.tscn")
 		KEY_F:
 			_runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
 			_scene.time_scale = _runner.time_scale
@@ -444,20 +449,19 @@ func _build_ui() -> void:
 	centre.add_child(_coach)
 	_message = _coach.label
 
-	_graph = WorkoutGraph.new()
-	_graph.custom_minimum_size.y = 70
-	v.add_child(_graph)
-
-	# ---- bottom controls: hidden while riding, shown when the mouse moves ----
+	# ---- controls just above the plan graph: hidden while riding, shown when the mouse moves ----
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	v.add_child(bar)
 	_controls = bar
 	_controls.modulate.a = 0.0
 	_start_btn = HudStyle.button(bar, "Start", 16, func(): _runner.toggle_pause())
+	_hint(bar, "space")
 	HudStyle.button(bar, "Skip ›", 16, func(): _runner.skip_segment())
+	_hint(bar, "S")
 	_erg_l = HudStyle.label(bar, "ERG on", 14, 500, HudStyle.TEXT_DIM)
 	HudStyle.button(bar, "Toggle ERG", 16, func(): _runner.set_erg(not _runner.erg_enabled))
+	_hint(bar, "E")
 	_state_l = HudStyle.label(bar, "", 14, 600, HudStyle.TEXT_DIM)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -465,7 +469,20 @@ func _build_ui() -> void:
 	_fps_l = HudStyle.label(bar, "— fps", 16, 500, Color(0.75, 1.0, 0.75))
 	_fps_l.visible = App.show_fps
 	HudStyle.button(bar, "End", 16, func(): _runner.end_early())
+	_hint(bar, "esc")
 	HudStyle.button(bar, "Home", 16, func(): App.go_to("res://ui/screens/home_screen.tscn"))
+	_hint(bar, "H")
+
+	_graph = WorkoutGraph.new()
+	_graph.custom_minimum_size.y = 70
+	v.add_child(_graph)
+
+
+## Small key hint next to a control.
+func _hint(bar: Control, key: String) -> Label:
+	var l := HudStyle.label(bar, key, 11, 700, Color(1, 1, 1, 0.4))
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
 
 
 ## Top-left: workout name, overall progress, finish time, block list, bias, reps.
@@ -517,6 +534,7 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	HudStyle.button(foot, "−", 20, func(): _runner.adjust_bias(-1))
 	_bias_l = HudStyle.label(foot, "100%", 20, 700)
 	HudStyle.button(foot, "+", 20, func(): _runner.adjust_bias(1))
+	_hint(foot, "↑↓")
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(sp)

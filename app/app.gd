@@ -126,7 +126,7 @@ func list_workout_files() -> Array[String]:
 		if d == null:
 			continue
 		for f in d.get_files():
-			if f.get_extension().to_lower() == "zwo":
+			if WorkoutLoader.supported(f):
 				out.append(dir_path.path_join(f))
 	out.sort()
 	return out
