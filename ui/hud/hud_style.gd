@@ -161,9 +161,9 @@ static func icon_button(parent: Control, icon_name: String, on_pressed: Callable
 	var b := Button.new()
 	b.icon = load("res://assets/icons/%s.svg" % icon_name)
 	b.expand_icon = true
-	b.custom_minimum_size = Vector2(size + 16, size + 12)
+	b.custom_minimum_size = Vector2(size + 14, size + 10)
 	b.add_theme_constant_override("icon_max_width", size)
-	style_button(b, kind, 6, 4)   # slim padding so the icon has room to draw
+	style_button(b, kind, 5, 3)   # slim padding so the icon has room to draw
 	var tint := INK_TEXT if kind == "primary" else (CYAN if kind == "secondary" else TEXT)
 	for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
 		b.add_theme_color_override(st, tint)

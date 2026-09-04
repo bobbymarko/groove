@@ -93,8 +93,8 @@ func header(parent: Control, title: String, on_back := Callable()) -> void:
 	head.add_theme_constant_override("separation", 10)
 	parent.add_child(head)
 	if on_back.is_valid():
-		HudStyle.icon_button(head, "chevron-left", on_back, 16).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		HudStyle.icon_button(head, "chevron-left", on_back, 22).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var t := HudStyle.label(head, title, 24, 900)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	HudStyle.icon_button(head, "close", close, 14).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	HudStyle.icon_button(head, "close", close, 20).size_flags_vertical = Control.SIZE_SHRINK_CENTER
