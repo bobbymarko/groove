@@ -295,8 +295,8 @@ func _build_ui() -> void:
 	head.add_child(title)
 	_devices_l = HudStyle.label(head, "", 13, 500, HudStyle.TEXT_DIM)
 	_devices_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_nav_button(head, "bluetooth", "Devices", open_devices)   # beside the device status text
 	_nav_button(head, "history", "Rides", open_rides)
-	_nav_button(head, "bluetooth", "Devices", open_devices)
 	_nav_button(head, "gear", "Settings", open_settings)
 
 	_cal_status = HudStyle.label(v, "", 13, 500, HudStyle.TEXT_DIM)
