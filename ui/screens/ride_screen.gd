@@ -268,6 +268,7 @@ func _on_tick(snap: Dictionary) -> void:
 		_power_samples.append(_actual_power)
 		_total_kj += _actual_power / 1000.0
 		_graph.add_heart_rate(snap.elapsed, _bpm)
+		_graph.add_power(snap.elapsed, _actual_power / maxf(float(App.ftp), 1.0))
 
 
 func _on_segment(i: int, s: WorkoutSegment) -> void:
@@ -324,11 +325,11 @@ func _on_state(s: WorkoutRunner.State) -> void:
 		WorkoutRunner.State.READY: "Start",
 		WorkoutRunner.State.RUNNING: "Pause",
 		WorkoutRunner.State.PAUSED: "Resume",
-	}.get(s, "Done")
+	}.get(s, "Done").to_upper()
 
 
 func _on_erg(enabled: bool) -> void:
-	_erg_l.text = "ERG on" if enabled else "ERG off"
+	_erg_l.text = "ERG ON" if enabled else "ERG OFF"
 	if _trainer:
 		if enabled:
 			_trainer.set_target_power(_runner.current_target)
@@ -483,7 +484,7 @@ func _build_ui() -> void:
 	v.add_child(bar)
 	_controls = bar
 	_controls.modulate.a = 0.0
-	_start_btn = HudStyle.button(bar, "Start", 16, func(): _runner.toggle_pause())
+	_start_btn = HudStyle.button(bar, "Start", 16, func(): _runner.toggle_pause(), "primary")
 	HudStyle.button(bar, "Skip", 16, func(): _runner.skip_segment())
 	_erg_l = HudStyle.button(bar, "ERG on", 16, func(): _runner.set_erg(not _runner.erg_enabled))
 	_state_l = HudStyle.label(bar, "", 14, 600, HudStyle.TEXT_DIM)
@@ -558,9 +559,9 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	var trip := HBoxContainer.new()
 	trip.add_theme_constant_override("separation", 30)
 	v.add_child(trip)
-	_speed_l = _metric(trip, "0", App.speed_unit())
-	_dist_l = _metric(trip, "0.0", App.distance_unit())
-	_elev_l = _metric(trip, "0", "M")
+	_speed_l = _metric(trip, "0", App.speed_unit(), "gauge", HudStyle.TEAL)
+	_dist_l = _metric(trip, "0.0", App.distance_unit(), "flag", HudStyle.CYAN)
+	_elev_l = _metric(trip, "0", "M", "mountain", HudStyle.TEAL)
 	_clock = _metric(trip, "0:00", "ET")
 	_overall_bar2 = HudStyle.bar(v, 8, 4)
 
@@ -568,7 +569,7 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	body.add_theme_constant_override("separation", 18)
 	v.add_child(body)
 	# Current block box
-	var block := HudStyle.panel(body, Color(0.55, 0.57, 0.63, 0.55), 8, 12)
+	var block := HudStyle.panel(body, Color(HudStyle.NAVY, 0.7), HudStyle.RADIUS, 12)
 	block.custom_minimum_size = Vector2(190, 0)
 	var bv := VBoxContainer.new()
 	bv.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -598,6 +599,7 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	prow.alignment = BoxContainer.ALIGNMENT_CENTER
 	prow.add_theme_constant_override("separation", 6)
 	mid.add_child(prow)
+	HudStyle.icon(prow, "bolt", 34, HudStyle.YELLOW)
 	_power = HudStyle.label(prow, "—", 96, 900)
 	var wl := HudStyle.label(prow, "w", 36, 700)
 	HudStyle.share_baseline(prow, _power, wl)
@@ -605,28 +607,33 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 2)
 	body.add_child(col)
-	_cadence_l = _side_metric(col, "—", "rpm")
-	_hr_l = _side_metric(col, "—", "bpm")
-	_grade_l = _side_metric(col, "0%", "grade")
-	_kj_l = _side_metric(col, "0", "kJ")
+	_cadence_l = _side_metric(col, "—", "rpm", "bike", HudStyle.CYAN)
+	_hr_l = _side_metric(col, "—", "bpm", "heart", HudStyle.RED)
+	_grade_l = _side_metric(col, "0%", "grade", "mountain", HudStyle.TEAL)
+	_kj_l = _side_metric(col, "0", "kJ", "bolt", HudStyle.YELLOW)
 	return panel
 
 
-func _metric(parent: Control, value: String, unit: String) -> Label:
+func _metric(parent: Control, value: String, unit: String, icon_name := "", icon_color := HudStyle.TEXT) -> Label:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
 	parent.add_child(h)
+	if icon_name != "":
+		var ic := HudStyle.icon(h, icon_name, 18, icon_color)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_END
 	var val := HudStyle.label(h, value, 40, 900)
 	var u := HudStyle.label(h, unit, 17, 700, HudStyle.TEXT_DIM)
 	HudStyle.share_baseline(h, val, u)
 	return val
 
 
-func _side_metric(parent: Control, value: String, unit: String) -> Label:
+func _side_metric(parent: Control, value: String, unit: String, icon_name := "", icon_color := HudStyle.TEXT) -> Label:
 	var h := HBoxContainer.new()
 	h.alignment = BoxContainer.ALIGNMENT_END
 	h.add_theme_constant_override("separation", 6)
 	parent.add_child(h)
+	if icon_name != "":
+		HudStyle.icon(h, icon_name, 16, icon_color).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var val := HudStyle.label(h, value, 26, 700)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	val.custom_minimum_size.x = 70

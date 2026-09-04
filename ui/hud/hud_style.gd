@@ -6,20 +6,34 @@ extends RefCounted
 const FONT_REGULAR := "res://assets/fonts/Lato-Regular.ttf"
 const FONT_BOLD := "res://assets/fonts/Lato-Bold.ttf"
 const FONT_BLACK := "res://assets/fonts/Lato-Black.ttf"
-const PANEL := Color(0.06, 0.07, 0.11, 0.62)
-const PANEL_ROW := Color(0.10, 0.12, 0.17, 0.55)
-const ACCENT := Color(0.86, 0.33, 0.30, 0.85)
-const BAR_BG := Color(0.12, 0.13, 0.19, 0.9)
-const BAR_FG := Color(0.93, 0.93, 0.96)
-const TEXT := Color(0.97, 0.97, 0.99)
-const TEXT_DIM := Color(0.97, 0.97, 0.99, 0.65)
-const CARD := Color(0.13, 0.15, 0.21, 0.85)
-const INPUT := Color(0.07, 0.08, 0.12, 0.9)
-const BUTTON := Color(0.20, 0.22, 0.30, 0.95)
-const BUTTON_HOVER := Color(0.28, 0.31, 0.41, 1.0)
-const BUTTON_PRESSED := Color(0.15, 0.17, 0.23, 1.0)
-const OK_GREEN := Color(0.55, 0.85, 0.6)
-const WARN_RED := Color(1, 0.6, 0.6)
+# Groove tokens (Design.md). Change colours here, never per screen.
+const INK := Color("000c18")
+const NAVY := Color("012041")
+const ICE := Color("f4f5f5")
+const CYAN := Color("00b7f5")
+const TEAL := Color("01b5cc")
+const YELLOW := Color("feb801")
+const ORANGE := Color("ef6a01")
+const RED := Color("dc352d")
+const GREEN := Color("3ccf6a")
+const BORDER := Color(0.4, 0.52, 0.66, 0.35)
+const INK_TEXT := Color("01040a")
+
+const PANEL := Color(0.008, 0.055, 0.12, 0.82)
+const PANEL_ROW := Color(0.043, 0.165, 0.32, 0.75)
+const ACCENT := ORANGE
+const BAR_BG := Color(0.024, 0.094, 0.18, 0.95)
+const BAR_FG := CYAN
+const TEXT := ICE
+const TEXT_DIM := Color(0.957, 0.961, 0.961, 0.6)
+const CARD := Color(0.024, 0.094, 0.18, 0.9)
+const INPUT := Color(0.0, 0.047, 0.094, 0.92)
+const BUTTON := Color(0.043, 0.165, 0.32, 0.9)
+const BUTTON_HOVER := Color(0.086, 0.29, 0.525, 1.0)
+const BUTTON_PRESSED := Color(0.024, 0.125, 0.25, 1.0)
+const OK_GREEN := GREEN
+const WARN_RED := RED
+const RADIUS := 4
 
 static var _fonts: Dictionary = {}
 
@@ -64,7 +78,7 @@ static func share_baseline(row: BoxContainer, big: Label, small: Label) -> void:
 	row.move_child(m, idx)
 
 
-static func panel(parent: Control, color := PANEL, radius := 8, pad := 12) -> PanelContainer:
+static func panel(parent: Control, color := PANEL, radius := RADIUS, pad := 12, border := true) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = color
@@ -73,6 +87,9 @@ static func panel(parent: Control, color := PANEL, radius := 8, pad := 12) -> Pa
 	sb.content_margin_right = pad
 	sb.content_margin_top = pad * 0.6
 	sb.content_margin_bottom = pad * 0.6
+	if border:
+		sb.set_border_width_all(1)
+		sb.border_color = BORDER
 	p.add_theme_stylebox_override("panel", sb)
 	parent.add_child(p)
 	return p
@@ -97,24 +114,81 @@ static func bar(parent: Control, height := 12, radius := 6, fg := BAR_FG) -> Pro
 	return b
 
 
-static func button(parent: Control, text: String, size: int, on_pressed: Callable) -> Button:
+## kind: "ghost" (row fill, ice text; HUD and toolbars), "primary" (cyan fill,
+## ink text), "secondary" (cyan outline). Button text is uppercase per Design.md.
+static func button(parent: Control, text: String, size: int, on_pressed: Callable, kind := "ghost") -> Button:
 	var b := Button.new()
-	b.text = text
+	b.text = text.to_upper()
 	b.add_theme_font_override("font", font(700))
 	b.add_theme_font_size_override("font_size", size)
-	b.add_theme_stylebox_override("normal", flat(BUTTON, 6, 12, 6))
-	b.add_theme_stylebox_override("hover", flat(BUTTON_HOVER, 6, 12, 6))
-	b.add_theme_stylebox_override("pressed", flat(BUTTON_PRESSED, 6, 12, 6))
-	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.add_theme_stylebox_override("disabled", flat(Color(BUTTON, 0.35), 6, 12, 6))
-	b.add_theme_color_override("font_color", TEXT)
-	b.add_theme_color_override("font_hover_color", Color.WHITE)
-	b.add_theme_color_override("font_pressed_color", Color.WHITE)
-	b.add_theme_color_override("font_focus_color", TEXT)
-	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
+	style_button(b, kind)
 	b.pressed.connect(on_pressed)
 	parent.add_child(b)
 	return b
+
+
+static func style_button(b: Button, kind := "ghost", pad_x := 14, pad_y := 7) -> void:
+	match kind:
+		"primary":
+			b.add_theme_stylebox_override("normal", flat(CYAN, RADIUS, pad_x, pad_y))
+			b.add_theme_stylebox_override("hover", flat(CYAN.lightened(0.15), RADIUS, pad_x, pad_y))
+			b.add_theme_stylebox_override("pressed", flat(CYAN.darkened(0.2), RADIUS, pad_x, pad_y))
+			b.add_theme_stylebox_override("disabled", flat(Color(CYAN, 0.3), RADIUS, pad_x, pad_y))
+			for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+				b.add_theme_color_override(st, INK_TEXT)
+			b.add_theme_color_override("font_disabled_color", Color(INK_TEXT, 0.5))
+		"secondary":
+			b.add_theme_stylebox_override("normal", flat(Color(0, 0, 0, 0), RADIUS, pad_x, pad_y, CYAN))
+			b.add_theme_stylebox_override("hover", flat(Color(CYAN, 0.15), RADIUS, pad_x, pad_y, CYAN))
+			b.add_theme_stylebox_override("pressed", flat(Color(CYAN, 0.3), RADIUS, pad_x, pad_y, CYAN))
+			b.add_theme_stylebox_override("disabled", flat(Color(0, 0, 0, 0), RADIUS, pad_x, pad_y, Color(CYAN, 0.3)))
+			for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+				b.add_theme_color_override(st, CYAN)
+			b.add_theme_color_override("font_disabled_color", Color(CYAN, 0.4))
+		_:
+			b.add_theme_stylebox_override("normal", flat(BUTTON, RADIUS, pad_x, pad_y, BORDER))
+			b.add_theme_stylebox_override("hover", flat(BUTTON_HOVER, RADIUS, pad_x, pad_y, Color(CYAN, 0.6)))
+			b.add_theme_stylebox_override("pressed", flat(BUTTON_PRESSED, RADIUS, pad_x, pad_y, CYAN))
+			b.add_theme_stylebox_override("disabled", flat(Color(BUTTON, 0.35), RADIUS, pad_x, pad_y, Color(BORDER, 0.2)))
+			for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+				b.add_theme_color_override(st, TEXT)
+			b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+## Icon-only button (24-unit SVG from assets/icons), tinted ice.
+static func icon_button(parent: Control, icon_name: String, on_pressed: Callable, size := 16, kind := "ghost") -> Button:
+	var b := Button.new()
+	b.icon = load("res://assets/icons/%s.svg" % icon_name)
+	b.expand_icon = true
+	b.custom_minimum_size = Vector2(size + 16, size + 12)
+	b.add_theme_constant_override("icon_max_width", size)
+	style_button(b, kind, 6, 4)   # slim padding so the icon has room to draw
+	var tint := INK_TEXT if kind == "primary" else (CYAN if kind == "secondary" else TEXT)
+	for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+		b.add_theme_color_override(st, tint)
+	b.pressed.connect(on_pressed)
+	parent.add_child(b)
+	return b
+
+
+## Tinted vector icon.
+static func icon(parent: Control, icon_name: String, size := 16, color := TEXT) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load("res://assets/icons/%s.svg" % icon_name)
+	t.custom_minimum_size = Vector2(size, size)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	t.modulate = color
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	parent.add_child(t)
+	return t
+
+
+## Small uppercase section label in cyan.
+static func section_label(parent: Control, text: String, size := 12, color := CYAN) -> Label:
+	return label(parent, text.to_upper(), size, 700, color)
 
 
 static func flat(color: Color, radius := 6, pad_x := 10, pad_y := 6, border := Color(0, 0, 0, 0)) -> StyleBoxFlat:
@@ -139,9 +213,9 @@ static func input(parent: Control, text: String, placeholder := "", secret := fa
 	e.secret = secret
 	e.add_theme_font_override("font", font(500))
 	e.add_theme_font_size_override("font_size", size)
-	e.add_theme_stylebox_override("normal", flat(INPUT, 6, 10, 7))
-	e.add_theme_stylebox_override("focus", flat(INPUT, 6, 10, 7, Color(0.55, 0.6, 0.78, 0.9)))
-	e.add_theme_stylebox_override("read_only", flat(INPUT, 6, 10, 7))
+	e.add_theme_stylebox_override("normal", flat(INPUT, RADIUS, 10, 7, BORDER))
+	e.add_theme_stylebox_override("focus", flat(INPUT, RADIUS, 10, 7, CYAN))
+	e.add_theme_stylebox_override("read_only", flat(INPUT, RADIUS, 10, 7, BORDER))
 	e.add_theme_color_override("font_color", TEXT)
 	e.add_theme_color_override("font_placeholder_color", Color(1, 1, 1, 0.35))
 	e.add_theme_color_override("caret_color", TEXT)
@@ -153,14 +227,14 @@ static func input(parent: Control, text: String, placeholder := "", secret := fa
 ## Segmented control: one button per option, the selected one lit. Calls
 ## on_change(index) when the user picks another. Returns the button row.
 static func segmented(parent: Control, options: Array, selected: int, on_change: Callable, size := 13) -> HBoxContainer:
-	var wrap := panel(parent, INPUT, 7, 3)
+	var wrap := panel(parent, INPUT, RADIUS + 1, 3)
 	wrap.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
 	wrap.add_child(row)
-	var on_sb := flat(BUTTON_HOVER, 5, 11, 4)
-	var off_sb := flat(Color(0, 0, 0, 0), 5, 11, 4)
-	var off_hover := flat(Color(1, 1, 1, 0.05), 5, 11, 4)
+	var on_sb := flat(CYAN, RADIUS - 1, 11, 4)
+	var off_sb := flat(Color(0, 0, 0, 0), RADIUS - 1, 11, 4)
+	var off_hover := flat(Color(CYAN, 0.12), RADIUS - 1, 11, 4)
 	var buttons: Array[Button] = []
 	for opt in options:
 		var b := Button.new()
@@ -169,8 +243,8 @@ static func segmented(parent: Control, options: Array, selected: int, on_change:
 		b.focus_mode = Control.FOCUS_NONE
 		b.add_theme_font_override("font", font(700))
 		b.add_theme_font_size_override("font_size", size)
-		b.add_theme_color_override("font_pressed_color", TEXT)
-		b.add_theme_color_override("font_hover_pressed_color", TEXT)
+		b.add_theme_color_override("font_pressed_color", INK_TEXT)
+		b.add_theme_color_override("font_hover_pressed_color", INK_TEXT)
 		b.add_theme_color_override("font_hover_color", TEXT)
 		row.add_child(b)
 		buttons.append(b)
@@ -182,7 +256,7 @@ static func segmented(parent: Control, options: Array, selected: int, on_change:
 			b.add_theme_stylebox_override("hover", on_sb if i == sel else off_hover)
 			b.add_theme_stylebox_override("pressed", on_sb)
 			b.add_theme_stylebox_override("hover_pressed", on_sb)
-			b.add_theme_color_override("font_color", TEXT if i == sel else TEXT_DIM)
+			b.add_theme_color_override("font_color", INK_TEXT if i == sel else TEXT_DIM)
 	for i in buttons.size():
 		buttons[i].pressed.connect(func() -> void:
 			apply.call(i)
@@ -195,7 +269,7 @@ static func segmented(parent: Control, options: Array, selected: int, on_change:
 static func slider(parent: Control) -> HSlider:
 	var s := HSlider.new()
 	var track := flat(BAR_BG, 3, 0, 3)
-	var fill := flat(Color(0.72, 0.75, 0.86), 3, 0, 3)
+	var fill := flat(CYAN, 3, 0, 3)
 	s.add_theme_stylebox_override("slider", track)
 	s.add_theme_stylebox_override("grabber_area", fill)
 	s.add_theme_stylebox_override("grabber_area_highlight", fill)
@@ -234,6 +308,7 @@ static func block_row(parent: Control, g: Dictionary, big := 26, small := 16, bg
 	var tinted := WorkoutColors.row_background(bg, effort)
 	row.set_meta("bg", tinted)   # the ride HUD restores this after the active highlight moves on
 	style_block_row(row, tinted)
+	row.set_meta("effort", effort)
 	parent.add_child(row)
 	if g.kind == "intervals":
 		var h := HBoxContainer.new()
@@ -255,7 +330,7 @@ static func block_row(parent: Control, g: Dictionary, big := 26, small := 16, bg
 static func style_block_row(row: PanelContainer, bg: Color) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
-	sb.set_corner_radius_all(6)
+	sb.set_corner_radius_all(RADIUS)
 	sb.content_margin_left = 10
 	sb.content_margin_right = 10
 	sb.content_margin_top = 4
@@ -266,14 +341,14 @@ static func style_block_row(row: PanelContainer, bg: Color) -> void:
 ## Settings card: title, optional one-line help, optional action button on the
 ## title row. Returns the box to fill.
 static func section(parent: Control, title: String, help := "", action_text := "", action := Callable()) -> VBoxContainer:
-	var card := panel(parent, CARD, 10, 16)
+	var card := panel(parent, CARD, RADIUS, 16)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	card.add_child(v)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)
 	v.add_child(head)
-	label(head, title, 15, 700).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section_label(head, title, 12).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if action_text != "":
 		button(head, action_text, 12, action)
 	if help != "":

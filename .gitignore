@@ -6,3 +6,7 @@ export_presets.cfg.credentials
 build/
 # macOS
 .DS_Store
+
+# Design references (Bob's drops; keep locally, do not commit)
+design/reference/*
+!design/reference/README.md

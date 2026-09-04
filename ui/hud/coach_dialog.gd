@@ -19,7 +19,7 @@ var _full_text := ""
 
 func _ready() -> void:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.06, 0.07, 0.11, 0.78)
+	sb.bg_color = HudStyle.PANEL
 	sb.set_corner_radius_all(12)
 	sb.content_margin_left = 18
 	sb.content_margin_right = 26
@@ -29,7 +29,7 @@ func _ready() -> void:
 	sb.border_width_top = 3
 	sb.border_width_left = 3
 	sb.border_width_right = 3
-	sb.border_color = Color(0.93, 0.93, 0.96, 0.85)
+	sb.border_color = Color(HudStyle.CYAN, 0.7)
 	add_theme_stylebox_override("panel", sb)
 	custom_minimum_size = Vector2(880, 0)
 	var h := HBoxContainer.new()

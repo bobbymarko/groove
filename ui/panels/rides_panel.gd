@@ -180,6 +180,7 @@ static func _fill_sharing(body: VBoxContainer, r: Dictionary) -> void:
 			else:
 				Sync.enqueue(str(cb.get_meta("connector")), fit, str(r.meta.get("workout", "Ride")), _description(r)))
 	share.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	HudStyle.style_button(share, "primary")
 
 
 static func _description(r: Dictionary) -> String:

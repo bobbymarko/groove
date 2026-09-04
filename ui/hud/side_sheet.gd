@@ -23,7 +23,9 @@ func _ready() -> void:
 		if e is InputEventMouseButton and e.pressed:
 			close())
 	add_child(_scrim)
-	_panel = HudStyle.panel(self, Color(0.11, 0.12, 0.17, 0.98), 0, 22)
+	_panel = HudStyle.panel(self, Color(0.004, 0.09, 0.2, 0.98), 0, 22, false)
+	_panel.get_theme_stylebox("panel").border_width_left = 1
+	_panel.get_theme_stylebox("panel").border_color = HudStyle.BORDER
 	_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 	_panel.custom_minimum_size.x = width
 	_panel.offset_top = 0.0
@@ -91,8 +93,8 @@ func header(parent: Control, title: String, on_back := Callable()) -> void:
 	head.add_theme_constant_override("separation", 10)
 	parent.add_child(head)
 	if on_back.is_valid():
-		HudStyle.button(head, "←", 16, on_back).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		HudStyle.icon_button(head, "chevron-left", on_back, 16).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var t := HudStyle.label(head, title, 24, 900)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	HudStyle.button(head, "✕", 16, close)
+	HudStyle.icon_button(head, "close", close, 14).size_flags_vertical = Control.SIZE_SHRINK_CENTER

@@ -75,7 +75,7 @@ func choose_scene(simulator: bool) -> void:
 			tr.clip_contents = true
 			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			cv.add_child(tr)
-		HudStyle.label(cv, str(p.name), 16, 700).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		HudStyle.label(cv, str(p.name), 15, 700, HudStyle.CYAN).mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var d := HudStyle.label(cv, str(p.description), 12, 500, HudStyle.TEXT_DIM)
 		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -95,6 +95,7 @@ func choose_scene(simulator: bool) -> void:
 			Devices.use_simulated_devices()
 		App.go_to("res://ui/screens/ride_screen.tscn"))
 	go.custom_minimum_size.y = 44
+	HudStyle.style_button(go, "primary")
 	replace_content(v)
 
 
@@ -102,8 +103,8 @@ func _mark_scene_cards(cards: Dictionary) -> void:
 	for id in cards:
 		var card: PanelContainer = cards[id]
 		var chosen: bool = id == App.scene_preset
-		card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD if not chosen else Color(0.22, 0.26, 0.36, 0.95), 10, 10, 8,
-			Color(0.75, 0.8, 0.95, 0.9) if chosen else Color(0, 0, 0, 0)))
+		card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 10, 8,
+			HudStyle.CYAN if chosen else HudStyle.BORDER))
 
 
 func _build_content(v: VBoxContainer) -> void:
@@ -113,6 +114,7 @@ func _build_content(v: VBoxContainer) -> void:
 
 	var graph := WorkoutGraph.new()
 	graph.custom_minimum_size.y = 130
+	graph.show_marker = false
 	graph.set_workout(w)
 	v.add_child(graph)
 
@@ -154,10 +156,10 @@ func _build_content(v: VBoxContainer) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 10)
 	v.add_child(bar)
-	_ride = HudStyle.button(bar, "Ride", 18, _start.bind(false))
+	_ride = HudStyle.button(bar, "Ride", 18, _start.bind(false), "primary")
 	_ride.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ride.custom_minimum_size.y = 44
-	HudStyle.button(bar, "Simulator", 15, _start.bind(true))
+	HudStyle.button(bar, "Simulator", 15, _start.bind(true), "secondary")
 
 
 ## The workout description, presented as the coach's briefing: avatar on the

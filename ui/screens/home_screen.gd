@@ -58,12 +58,24 @@ func _refresh_cards() -> void:
 	_relayout()
 
 
+## Header button with an icon and an uppercase word.
+func _nav_button(parent: Control, icon_name: String, text: String, on_pressed: Callable) -> Button:
+	var b := HudStyle.button(parent, text, 13, on_pressed)
+	b.icon = load("res://assets/icons/%s.svg" % icon_name)
+	b.expand_icon = true
+	b.add_theme_constant_override("icon_max_width", 16)
+	b.add_theme_constant_override("h_separation", 8)
+	for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+		b.add_theme_color_override(st, HudStyle.CYAN)
+	return b
+
+
 func _section(title: String, highlight: bool) -> GridContainer:
 	if not _list.get_children().is_empty():
 		var gap := Control.new()
 		gap.custom_minimum_size.y = 6
 		_list.add_child(gap)
-	HudStyle.label(_list, title, 18, 900 if highlight else 700, HudStyle.TEXT if highlight else HudStyle.TEXT_DIM)
+	HudStyle.section_label(_list, title, 13, HudStyle.ORANGE if highlight else HudStyle.CYAN)
 	var grid := GridContainer.new()
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 16)
@@ -80,7 +92,13 @@ func _relayout() -> void:
 
 
 func _add_card(grid: GridContainer, w: Workout, path: String, highlight: bool) -> void:
-	var card := HudStyle.panel(grid, Color(0.16, 0.19, 0.27, 0.8) if highlight else HudStyle.PANEL_ROW, 10, 12)
+	var card := HudStyle.panel(grid, HudStyle.CARD, HudStyle.RADIUS, 12)
+	if highlight:
+		# Today's planned ride: the active state, an orange bar down the left edge.
+		var sb := HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 12, 8, HudStyle.BORDER)
+		sb.border_width_left = 3
+		sb.border_color = HudStyle.ORANGE
+		card.add_theme_stylebox_override("panel", sb)
 	card.custom_minimum_size = Vector2(300, 0)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := VBoxContainer.new()
@@ -88,10 +106,11 @@ func _add_card(grid: GridContainer, w: Workout, path: String, highlight: bool) -
 	card.add_child(v)
 	var graph := WorkoutGraph.new()
 	graph.custom_minimum_size = Vector2(276, 96)
+	graph.show_marker = false
 	graph.set_workout(w)
 	graph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(graph)
-	var name_l := HudStyle.label(v, w.name, 18, 700)
+	var name_l := HudStyle.label(v, w.name, 16, 700, HudStyle.CYAN)
 	name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var est := WorkoutSummary.estimates(w, App.ftp)
 	HudStyle.label(v, "%s  ·  %s  ·  %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
@@ -103,14 +122,14 @@ func _add_card(grid: GridContainer, w: Workout, path: String, highlight: bool) -
 
 
 func _add_open_card(grid: GridContainer) -> void:
-	var card := HudStyle.panel(grid, Color(0.10, 0.12, 0.17, 0.35), 10, 12)
+	var card := HudStyle.panel(grid, Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 12)
 	card.custom_minimum_size = Vector2(300, 150)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var c := CenterContainer.new()
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(c)
-	var l := HudStyle.label(c, "+  Open workout file…", 16, 700, HudStyle.TEXT_DIM)
+	var l := HudStyle.label(c, "+  OPEN WORKOUT FILE", 14, 700, HudStyle.CYAN)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
@@ -172,9 +191,23 @@ func _on_file_chosen(path: String) -> void:
 
 func _build_ui() -> void:
 	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.1, 0.14)
+	bg.color = HudStyle.INK
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	# Pixel night mountains behind everything, under an ink wash so cards stay legible.
+	var art := TextureRect.new()
+	art.texture = load("res://assets/images/menu-bg.png")
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(art)
+	var wash := ColorRect.new()
+	wash.color = Color(HudStyle.INK, 0.45)
+	wash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(wash)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
@@ -187,12 +220,13 @@ func _build_ui() -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	v.add_child(head)
-	var title := HudStyle.label(head, "Ride", 34, 900)
+	var title := HudStyle.label(head, "GROOVE", 34, 900)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_devices_l = HudStyle.label(head, "", 14, 500, HudStyle.TEXT_DIM)
-	HudStyle.button(head, "Rides", 15, open_rides)
-	HudStyle.button(head, "Devices", 15, open_devices)
-	HudStyle.button(head, "Settings", 15, open_settings)
+	_devices_l = HudStyle.label(head, "", 13, 500, HudStyle.TEXT_DIM)
+	_devices_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_nav_button(head, "history", "Rides", open_rides)
+	_nav_button(head, "bluetooth", "Devices", open_devices)
+	_nav_button(head, "gear", "Settings", open_settings)
 
 	_cal_status = HudStyle.label(v, "", 13, 500, HudStyle.TEXT_DIM)
 	_cal_status.visible = false
