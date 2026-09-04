@@ -420,7 +420,6 @@ func _build_ui() -> void:
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fade)
-	_scene.set_shake(App.camera_shake)
 	_scene.target_fraction_ahead = _target_fraction_ahead
 	_tuning = TuningPanel.new()
 	_tuning.scene = _scene

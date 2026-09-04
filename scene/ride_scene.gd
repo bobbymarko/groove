@@ -8,7 +8,7 @@ extends Control
 const INTERNAL_HEIGHT := 240
 var _internal_height := INTERNAL_HEIGHT
 var pixel_filter := true
-var look_mode := "8bit"
+var look_mode := "16bit"         ## "16bit" (pixel look) or "off" (native); "8bit" is accepted and mapped to 16bit
 
 var trail: Trail
 var terrain: TerrainStreamer
@@ -109,7 +109,6 @@ func _ready() -> void:
 	dust.set_ground(bool(_preset.get("snow", true)))
 	rider.add_child(dust)
 	camera = HandheldCamera.new()
-	camera.shake_level = "low"   # the ride screen applies the user's setting via set_shake()
 	camera.ground_height = func(x: float, z: float) -> float: return terrain.height(x, z)
 	_world.add_child(camera)
 	camera.current = true
@@ -167,23 +166,23 @@ func _apply_debug_material() -> void:
 				child.material_override = m
 
 
-func set_shake(level: String) -> void:
-	camera.shake_level = level
 
 
-## "8bit": low-res render snapped to the palette, 3 shading bands.
+## "16bit": low-res render posterized per channel, 6 shading bands; "off": native.
 ## "16bit": ~40 % more rows, colours posterized to 5 bits per channel, 6 bands,
 ## finer tonal steps on textures. "off": native resolution, no post-process.
 func set_look_mode(mode: String) -> void:
+	if mode == "8bit":
+		mode = "16bit"
 	look_mode = mode
 	pixel_filter = mode != "off"
 	_screen.material = _post if pixel_filter else null
 	_screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if pixel_filter else CanvasItem.TEXTURE_FILTER_LINEAR
 	_post.set_shader_parameter("mode", 1 if mode == "16bit" else 0)
-	RenderingServer.global_shader_parameter_set("cel_bands", 6.0 if mode != "8bit" else 3.0)
-	RenderingServer.global_shader_parameter_set("cel_colorize_steps", 8.0 if mode != "8bit" else 3.0)
-	RenderingServer.global_shader_parameter_set("cel_texture_mix", 0.4 if mode != "8bit" else 0.0)
-	RenderingServer.global_shader_parameter_set("cel_smooth_terrain", 1.0 if mode != "8bit" else 0.0)
+	RenderingServer.global_shader_parameter_set("cel_bands", 6.0)
+	RenderingServer.global_shader_parameter_set("cel_colorize_steps", 8.0)
+	RenderingServer.global_shader_parameter_set("cel_texture_mix", 0.4)
+	RenderingServer.global_shader_parameter_set("cel_smooth_terrain", 1.0)
 	_fit_viewport()
 
 
@@ -283,7 +282,7 @@ func _fit_viewport() -> void:
 		_viewport.size = Vector2i(int(native.x * scale), int(native.y * scale))
 		return
 	var aspect := size.x / maxf(size.y, 1.0)
-	var rows := _internal_height if look_mode == "8bit" else int(_internal_height * 1.4)
+	var rows := int(_internal_height * 1.4)
 	var w := int(round(rows * aspect))
 	_viewport.size = Vector2i(maxi(w, 64), rows)
 	_post.set_shader_parameter("texel", Vector2(1.0 / _viewport.size.x, 1.0 / rows))
@@ -305,6 +304,10 @@ func _process(raw_delta: float) -> void:
 	var anim_cadence := cadence
 	if riding and cadence < 1.0 and power > 15.0:
 		anim_cadence = clampf(60.0 + power * 0.12, 60.0, 95.0)
+	# Legs cannot spin faster than the wheels allow in the lowest gear, so the
+	# rider winds up with the bike instead of pedalling at 90 rpm while barely moving.
+	const LOW_GEAR_METRES_PER_REV := 2.26 * 0.85   # wheel roll-out x smallest ratio
+	anim_cadence = minf(anim_cadence, speed / LOW_GEAR_METRES_PER_REV * 60.0)
 	rider.animate(anim_cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
 	_place_rider()
 	if riding and speed > 0.05:

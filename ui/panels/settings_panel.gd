@@ -139,16 +139,11 @@ func _build_ui() -> void:
 	preview.riding = true
 	preview.power = 200.0
 	preview.cadence = 88.0
-	HudStyle.segmented(HudStyle.row(l, "Filter"), ["8-bit", "16-bit", "Off"], ["8bit", "16bit", "off"].find(App.look_mode),
+	HudStyle.segmented(HudStyle.row(l, "Pixel look"), ["On", "Off"], 1 if App.look_mode == "off" else 0,
 		func(i: int) -> void:
-			App.look_mode = ["8bit", "16bit", "off"][i]
+			App.look_mode = "off" if i == 1 else "16bit"
 			App.save_settings()
 			preview.set_look_mode(App.look_mode))
-	HudStyle.segmented(HudStyle.row(l, "Camera shake"), ["Off", "Low", "High"], ["off", "low", "high"].find(App.camera_shake),
-		func(i: int) -> void:
-			App.camera_shake = ["off", "low", "high"][i]
-			App.save_settings()
-			preview.set_shake(App.camera_shake))
 	var times := ["live", "morning", "noon", "sunset", "night"]
 	HudStyle.segmented(HudStyle.row(l, "Time of day"), ["Live", "Morning", "Noon", "Sunset", "Night"], maxi(times.find(App.time_of_day), 0),
 		func(i: int) -> void:

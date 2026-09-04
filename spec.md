@@ -75,7 +75,7 @@ A rider can do this end to end with no other software:
 - R20. Keep all ride files in a local library the user can open in Finder.
 
 **Settings**
-- R21. FTP, weight, units, Strava connection, paired devices, camera shake (off, low, high), scene options.
+- R21. FTP, weight, units, Strava connection, paired devices, scene options. (Camera shake setting removed 2026-09-03: Bob never turned it on and found it annoying. The 8-bit palette filter was removed the same day for looking broken; the pixel look is the posterized mode, on or off.)
 - R22. Planned workouts: with an intervals.icu key set, the home screen fetches the next 14 days of Ride workouts from the athlete's calendar (one request, .zwo files come base64-encoded in the event list), caches them under `user://intervals/`, and shows them by day: Today first and highlighted, then Tomorrow and named days, then the local library. Runs, notes and races are skipped. The list refreshes on the home screen when older than five minutes; a fetch failure keeps the cached list and says so. (Bob, 2026-09-03.)
 - R23. Home-screen sheets: Settings (Rider & sync / Look pages as cards), Devices (trainer and heart-rate cards side by side), Recent rides (list with a power-trace thumbnail per ride; a ride opens in place with a back arrow: trace with HR, metrics, sharing state, screenshots, Share and Finder buttons). The workout sheet shows the .zwo description as a note from the coach, avatar beside a speech bubble. (Bob, 2026-09-03.)
 - R24. Workout files: .zwo, .mrc and .erg (CompuTrainer/TrainerRoad course text; .erg watts use the file's FTP or the rider's), and FIT workout files (messages 26/27, repeats expanded, power targets in % FTP, watts or zone; heart-rate and cadence steps become free ride). `WorkoutLoader` dispatches by extension. (Bob, 2026-09-03.)
@@ -183,7 +183,7 @@ Desktop OAuth: the app opens the Strava authorization page in the system browser
 - **Pixel pipeline.** The 3D world renders into a `SubViewport` at a fixed internal height of 240 pixels (width follows the window aspect). It is drawn to the window with nearest-neighbor scaling at an integer factor where possible. A post-process shader quantizes to a per-season palette of roughly 24 colors, applies ordered dithering on gradients, and draws single-pixel outlines from depth and normal edges. Lighting is two-band cel shading with flat colors and no textures.
 - **World.** A heightmap from layered noise, with a trail carved along a spline that meanders and climbs. Trees, rocks, and stumps are scattered as instanced low-poly meshes with density by slope and distance from the trail. Terrain streams ahead of the rider in chunks and is recycled behind. Snow is a particle system; ground snow is a shader layer.
 - **Rider.** A low-poly rider and bike built from primitives, about 40 internal pixels tall on screen. Wheels and cranks rotate with measured cadence. Legs follow the pedals with `SkeletonIK3D`. The rider leans with trail curvature. Speed along the trail comes from power via a simple physics model so harder intervals visibly move faster.
-- **Camera.** Third-person follow camera with layered noise on position and rotation for the handheld feel, tuned so it reads as lively and never as nauseating. The user chooses one of three shake levels: off, low, or high. The amplitude behind each level is tuned during development and is not user-editable.
+- **Camera.** Third-person follow camera with layered noise on position and rotation for the handheld feel, tuned so it reads as lively and never as nauseating. Shake was removed 2026-09-03; the camera keeps its smoothed follow only.
 - **Seasons.** A season is a palette, a weather preset, a scatter preset, and a ground shader preset. Winter ships in v1; the data structure is in place so spring, summer, and autumn are content, not code.
 - **Reactivity (v1.1).** Hooks exist from day one for gradient, speed, and camera amplitude to respond to power and interval type. Only speed is wired in v1. The intended design: the trail's grade tracks the workout, so a hard interval is a climb and a recovery is a descent. The terrain generator should therefore take the upcoming target profile as input, not just noise.
 - **Spoken coach notes (later).** Text events are read aloud with text-to-speech, using the OS voices Godot exposes through `DisplayServer.tts_*`, with an on/off setting.
@@ -240,7 +240,7 @@ From the intent, still open and not blocking v1: platform order after Windows, w
 
 Decided during review (2026-09-02):
 - Rides are always tagged as Virtual Ride in the FIT file. No setting.
-- Camera shake is a three-level user setting: off, low, high. The amplitudes behind low and high are tuned by the team while riding.
+- Camera shake was a three-level user setting; removed 2026-09-03 (see R21).
 
 New from this spec, still open:
 - Whether v1 needs a cadence sensor separate from the trainer. The KICKR CORE reports cadence itself, so proposed: no.

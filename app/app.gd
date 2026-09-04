@@ -8,8 +8,7 @@ const USER_WORKOUTS_DIR := "user://workouts"
 
 var workout: Workout
 var ftp: int = 200
-var camera_shake := "low"   # off | low | high
-var look_mode := "16bit"    # "8bit" (palette, low-res) | "16bit" (posterized, higher-res) | "off" (native)
+var look_mode := "16bit"    # "16bit" (pixel look) | "off" (native). The 8-bit palette mode was removed 2026-09-03.
 var show_fps := true
 var scene_preset := "winter"   # ScenePreset id chosen before a ride
 var time_of_day := "live"      # Daylight.MODES key: live (¼-speed real day), morning, noon, sunset, night
@@ -51,8 +50,9 @@ func _ready() -> void:
 		scene_tuning[row[0]] = float(row[5])
 	if _cfg.load(SETTINGS_PATH) == OK:
 		ftp = int(_cfg.get_value("rider", "ftp", ftp))
-		camera_shake = str(_cfg.get_value("scene", "camera_shake", camera_shake))
-		look_mode = str(_cfg.get_value("scene", "look_mode", "8bit" if bool(_cfg.get_value("scene", "pixel_filter", true)) else "off"))
+		look_mode = str(_cfg.get_value("scene", "look_mode", look_mode))
+		if look_mode == "8bit":
+			look_mode = "16bit"
 		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
 		scene_preset = str(_cfg.get_value("scene", "preset", scene_preset))
 		time_of_day = str(_cfg.get_value("scene", "time_of_day", time_of_day))
@@ -109,7 +109,6 @@ func list_rides() -> Array[Dictionary]:
 
 func save_settings() -> void:
 	_cfg.set_value("rider", "ftp", ftp)
-	_cfg.set_value("scene", "camera_shake", camera_shake)
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)
