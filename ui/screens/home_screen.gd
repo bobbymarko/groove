@@ -130,12 +130,7 @@ func _relayout() -> void:
 ## flexible: fill the parent's width (plan columns) instead of a fixed card width.
 func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexible := false) -> void:
 	var card := HudStyle.panel(parent, HudStyle.CARD, HudStyle.RADIUS, 16)
-	if highlight:
-		# Today's planned ride: the active state, an orange bar down the left edge.
-		var sb := HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 16, 11)
-		sb.border_width_left = 3
-		sb.border_color = HudStyle.ORANGE
-		card.add_theme_stylebox_override("panel", sb)
+	# Today's card looks like every other card; the orange subhead marks the day.
 	card.custom_minimum_size = Vector2(0.0 if flexible else 300.0, CARD_HEIGHT)
 	if flexible:
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -51,10 +51,10 @@ The workout is not a row of blocks but one continuous path: height is target pow
 
 ## Shapes
 - Corner radius 4 everywhere (6 on big buttons). Hairline border on panels, cards, inputs.
-- Panel states: default (border), focus (cyan border), active (3 px orange bar on the left), disabled (40 %).
+- Panel states: default (border), focus (cyan border), active (orange text or outline, no side bars), disabled (40 %).
 - Buttons: **primary** cyan fill + ink text; **secondary** cyan outline + cyan text; **ghost** row-colour fill + ice text (HUD and toolbars); disabled 40 %.
 - Segmented control: ink track, selected segment cyan with ink text.
-- Cards: image on top, title in Cyan, one line of dim body text, chevron on the right when it opens something; highlighted = cyan border; today's planned ride = orange left bar.
+- Cards: image on top, title in Cyan, one line of dim body text, chevron on the right when it opens something; highlighted = cyan border. Today's planned ride gets an orange day subhead, not a bar on the card (Bob, 2026-09-04).
 - Live metrics: icon (coloured by metric: power yellow, cadence cyan, heart red, speed/grade teal) + big number + small unit.
 - Nav tabs: uppercase text, selected in cyan with a 3 px underline.
 
