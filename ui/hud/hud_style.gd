@@ -93,12 +93,15 @@ static func font(weight: int = 500, size: int = 0) -> Font:
 	return _fonts[path]
 
 
-## Sizes snap to each face's native grid so the pixels stay square:
-## Pixel Operator every 16 px, Departure Mono every 11 px.
+## Sizes snap UP to each face's native grid so the pixels stay square, and never
+## below the TV floor: UI text is 22 px (33 for larger UI), display text 32 px and up.
+const UI_FLOOR := 22
+const DISPLAY_FLOOR := 32
+
 static func snap_size(size: int) -> int:
 	if size < DISPLAY_FROM:
-		return maxi(11, int(round(size / 11.0)) * 11)
-	return maxi(16, int(round(size / 16.0)) * 16)
+		return maxi(UI_FLOOR, int(ceil(size / 11.0)) * 11)
+	return maxi(DISPLAY_FLOOR, int(ceil(size / 16.0)) * 16)
 
 
 ## Icon texture: a cell of the sprite sheet, or the SVG of that name.

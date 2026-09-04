@@ -539,12 +539,12 @@ func _build_ui() -> void:
 ## Top-left: workout name, overall progress, finish time, block list, bias, reps.
 func _build_workout_panel(parent: Control) -> PanelContainer:
 	var panel := HudStyle.panel(parent, HudStyle.PANEL, 10, 14)
-	panel.custom_minimum_size.x = 300
+	panel.custom_minimum_size.x = 380
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	panel.add_child(v)
 	_title = HudStyle.label(v, App.workout.name, 20, 700)
-	_title.custom_minimum_size.x = 270
+	_title.custom_minimum_size.x = 350
 	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_overall_bar = HudStyle.bar(v, 12, 6)
 	var fin := HBoxContainer.new()
