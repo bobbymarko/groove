@@ -20,6 +20,8 @@ var _full_text := ""
 func _ready() -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = HudStyle.PANEL
+	sb.corner_detail = 1
+	sb.anti_aliasing = false
 	sb.set_corner_radius_all(12)
 	sb.content_margin_left = 18
 	sb.content_margin_right = 26

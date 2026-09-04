@@ -9,17 +9,41 @@ const FONT_DISPLAY := "res://assets/fonts/PixelOperator.ttf"
 const FONT_DISPLAY_BOLD := "res://assets/fonts/PixelOperator-Bold.ttf"
 const DISPLAY_FROM := 20        # labels this size and up use the display face
 const SPRITE_SHEET := "res://assets/images/groove-icon-sprite-sheet-8x4-transparent.png"
-const SPRITE_CELL := 256
-## Icon name -> (column, row) in the sprite sheet. Names not here fall back to assets/icons/*.svg.
+## Icon name -> pixel region in the sprite sheet, trimmed to the glyph so icons
+## centre and align like the vectors. Names not here fall back to assets/icons/*.svg.
 const SPRITES := {
-	"bluetooth": Vector2i(0, 0), "heart": Vector2i(1, 0), "signal": Vector2i(2, 0), "gear": Vector2i(3, 0),
-	"pause": Vector2i(4, 0), "camera": Vector2i(5, 0), "sound": Vector2i(6, 0), "lock": Vector2i(7, 0),
-	"check": Vector2i(0, 1), "warning": Vector2i(1, 1), "play": Vector2i(2, 1), "trash": Vector2i(3, 1),
-	"bolt": Vector2i(4, 1), "rider": Vector2i(5, 1), "gauge": Vector2i(6, 1), "stopwatch": Vector2i(7, 1),
-	"home": Vector2i(0, 2), "bike": Vector2i(1, 2), "history": Vector2i(2, 2), "flag": Vector2i(3, 2),
-	"mountain": Vector2i(4, 2), "user": Vector2i(5, 2), "trophy": Vector2i(6, 2), "star": Vector2i(7, 2),
-	"pizza": Vector2i(0, 3), "bottle": Vector2i(1, 3), "snowflake": Vector2i(2, 3), "thermometer": Vector2i(3, 3),
-	"wrench": Vector2i(4, 3), "music": Vector2i(5, 3), "refresh": Vector2i(6, 3), "chevron-right": Vector2i(7, 3),
+	"bluetooth": Rect2(110, 66, 109, 170),
+	"heart": Rect2(338, 85, 157, 145),
+	"signal": Rect2(588, 88, 158, 135),
+	"gear": Rect2(827, 69, 160, 160),
+	"pause": Rect2(1096, 88, 115, 128),
+	"camera": Rect2(1311, 92, 163, 130),
+	"sound": Rect2(1557, 88, 169, 128),
+	"lock": Rect2(1814, 73, 125, 150),
+	"check": Rect2(85, 302, 170, 146),
+	"warning": Rect2(337, 302, 162, 152),
+	"play": Rect2(606, 311, 119, 137),
+	"trash": Rect2(837, 301, 130, 154),
+	"bolt": Rect2(1099, 302, 100, 147),
+	"rider": Rect2(1301, 298, 173, 153),
+	"gauge": Rect2(1546, 311, 178, 139),
+	"stopwatch": Rect2(1808, 290, 143, 171),
+	"home": Rect2(79, 531, 153, 152),
+	"bike": Rect2(320, 555, 190, 213),
+	"history": Rect2(567, 571, 189, 100),
+	"flag": Rect2(827, 531, 166, 237),
+	"mountain": Rect2(1068, 520, 157, 183),
+	"user": Rect2(1323, 539, 133, 146),
+	"trophy": Rect2(1557, 546, 153, 137),
+	"star": Rect2(1808, 539, 148, 144),
+	"pizza": Rect2(84, 772, 171, 162),
+	"bottle": Rect2(368, 768, 81, 173),
+	"snowflake": Rect2(580, 776, 145, 157),
+	"thermometer": Rect2(860, 768, 82, 172),
+	"wrench": Rect2(1068, 777, 157, 163),
+	"music": Rect2(1317, 777, 134, 150),
+	"refresh": Rect2(1557, 784, 146, 149),
+	"chevron-right": Rect2(1802, 801, 155, 113),
 }
 static var _sheet: Texture2D
 # Groove tokens (Design.md). Change colours here, never per screen.
@@ -49,7 +73,7 @@ const BUTTON_HOVER := Color(0.086, 0.29, 0.525, 1.0)
 const BUTTON_PRESSED := Color(0.024, 0.125, 0.25, 1.0)
 const OK_GREEN := GREEN
 const WARN_RED := RED
-const RADIUS := 4
+const RADIUS := 6   # the size of the corner step
 
 static var _fonts: Dictionary = {}
 
@@ -69,11 +93,12 @@ static func font(weight: int = 500, size: int = 0) -> Font:
 	return _fonts[path]
 
 
-## Display sizes snap to the face's 8 px grid so the pixels stay square.
+## Sizes snap to each face's native grid so the pixels stay square:
+## Pixel Operator every 16 px, Departure Mono every 11 px.
 static func snap_size(size: int) -> int:
 	if size < DISPLAY_FROM:
-		return size
-	return maxi(16, int(round(size / 8.0)) * 8)
+		return maxi(11, int(round(size / 11.0)) * 11)
+	return maxi(16, int(round(size / 16.0)) * 16)
 
 
 ## Icon texture: a cell of the sprite sheet, or the SVG of that name.
@@ -83,8 +108,7 @@ static func icon_texture(icon_name: String) -> Texture2D:
 			_sheet = load(SPRITE_SHEET)
 		var at := AtlasTexture.new()
 		at.atlas = _sheet
-		var c: Vector2i = SPRITES[icon_name]
-		at.region = Rect2(c.x * SPRITE_CELL, c.y * SPRITE_CELL, SPRITE_CELL, SPRITE_CELL)
+		at.region = SPRITES[icon_name]
 		return at
 	return load("res://assets/icons/%s.svg" % icon_name)
 
@@ -130,7 +154,7 @@ static func panel(parent: Control, color := PANEL, radius := RADIUS, pad := 12, 
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = color
-	sb.set_corner_radius_all(radius)
+	pixel_corners(sb, radius)
 	sb.content_margin_left = pad
 	sb.content_margin_right = pad
 	sb.content_margin_top = pad * 0.6
@@ -152,10 +176,10 @@ static func bar(parent: Control, height := 12, radius := 6, fg := BAR_FG) -> Pro
 	b.custom_minimum_size.y = height
 	var bg := StyleBoxFlat.new()
 	bg.bg_color = BAR_BG
-	bg.set_corner_radius_all(radius)
+	pixel_corners(bg, radius)
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = fg
-	fill.set_corner_radius_all(radius)
+	pixel_corners(fill, radius)
 	b.add_theme_stylebox_override("background", bg)
 	b.add_theme_stylebox_override("fill", fill)
 	parent.add_child(b)
@@ -244,10 +268,17 @@ static func section_label(parent: Control, text: String, size := 12, color := CY
 	return label(parent, text.to_upper(), size, 700, color)
 
 
+## Corners are a single 45° step (corner_detail 1), not a curve: blocky like the type.
+static func pixel_corners(sb: StyleBoxFlat, radius: int) -> void:
+	sb.set_corner_radius_all(radius)
+	sb.corner_detail = 1
+	sb.anti_aliasing = false
+
+
 static func flat(color: Color, radius := 6, pad_x := 10, pad_y := 6, border := Color(0, 0, 0, 0)) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = color
-	sb.set_corner_radius_all(radius)
+	pixel_corners(sb, radius)
 	sb.content_margin_left = pad_x
 	sb.content_margin_right = pad_x
 	sb.content_margin_top = pad_y
@@ -383,7 +414,7 @@ static func block_row(parent: Control, g: Dictionary, big := 26, small := 16, bg
 static func style_block_row(row: PanelContainer, bg: Color) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
-	sb.set_corner_radius_all(RADIUS)
+	pixel_corners(sb, RADIUS)
 	sb.content_margin_left = 10
 	sb.content_margin_right = 10
 	sb.content_margin_top = 4

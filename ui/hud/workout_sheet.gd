@@ -28,15 +28,15 @@ func _refresh_devices() -> void:
 	if _ride == null or not is_instance_valid(_ride):
 		return
 	if Devices.real_trainer_ready():
-		_ride.text = "Ride"
+		_ride.text = "RIDE"
 		_ride.disabled = false
 		_devices_l.text = "%s connected" % Devices.trainer.display_name()
 	elif Devices.remembered.has("trainer"):
-		_ride.text = "Waiting for %s…" % Devices.remembered.trainer.name
+		_ride.text = "WAITING FOR TRAINER…"
 		_ride.disabled = true
 		_devices_l.text = "Looking for your trainer"
 	else:
-		_ride.text = "Pair a trainer to ride"
+		_ride.text = "PAIR A TRAINER TO RIDE"
 		_ride.disabled = true
 		_devices_l.text = "No trainer paired"
 
@@ -158,6 +158,8 @@ func _build_content(v: VBoxContainer) -> void:
 	v.add_child(bar)
 	_ride = HudStyle.button(bar, "Ride", 18, _start.bind(false), "primary")
 	_ride.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ride.clip_text = true
+	_ride.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_ride.custom_minimum_size.y = 44
 	HudStyle.button(bar, "Simulator", 15, _start.bind(true), "secondary")
 
