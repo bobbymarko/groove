@@ -31,12 +31,14 @@ plutil -replace CFBundleIdentifier -string "dev.ride.godot-dev" "$PLIST"
 plutil -replace CFBundleName -string "GrooveDev" "$PLIST"
 plutil -replace CFBundleDisplayName -string "Groove" "$PLIST"
 
-# App icon: the coach's face, converted from the avatar PNG via an iconset.
+# App icon: the coach's face inside the macOS squircle (tools/make_icon.py), as an iconset.
 ICONSET="$ROOT/build/Groove.iconset"
+SRC_ICON="$ROOT/assets/images/app-icon.png"
+[ -f "$SRC_ICON" ] || python3 "$ROOT/tools/make_icon.py" "$ROOT/assets/images/coach-avatar.png" "$SRC_ICON"
 rm -rf "$ICONSET" && mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
-  sips -z $s $s "$ROOT/assets/images/coach-avatar.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
-  sips -z $((s*2)) $((s*2)) "$ROOT/assets/images/coach-avatar.png" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+  sips -z $s $s "$SRC_ICON" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+  sips -z $((s*2)) $((s*2)) "$SRC_ICON" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
 done
 iconutil -c icns "$ICONSET" -o "$OUT/Contents/Resources/Groove.icns"
 plutil -replace CFBundleIconFile -string "Groove.icns" "$PLIST"
