@@ -5,11 +5,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RIDES="$HOME/Library/Application Support/Godot/app_userdata/Ride/rides"
 if [ "${1:-}" != "--force" ] && [ -d "$RIDES" ]; then
-  for j in $(find "$RIDES" -name '*.jsonl' -mmin -3 2>/dev/null); do
-    if ! tail -1 "$j" | grep -q '"end"'; then
-      echo "ride in progress ($j); not relaunching"; exit 2
+  while IFS= read -r -d '' j; do
+    if ! tail -n 1 "$j" | grep -q '"end"'; then
+      echo "ride in progress ($(basename "$j")); not relaunching"; exit 2
     fi
-  done
+  done < <(find "$RIDES" -name '*.jsonl' -mmin -3 -print0 2>/dev/null)
 fi
 pkill -f "RideDev.app/Contents/MacOS/Godot" || true
 sleep 1
