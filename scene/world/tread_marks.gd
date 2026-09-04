@@ -55,6 +55,10 @@ func _rebuild() -> void:
 	var ground := Palette.TRAIL_DARK
 	var lug := ground.darkened(0.38)
 	var gap := ground.darkened(0.18)
+	if bool(ScenePreset.get_preset(Palette.preset_id).get("snow", false)):
+		# Packed snow: the track is a slightly deeper, bluer snow, never brown.
+		lug = ground.lerp(Palette.SNOW_SHADOW, 0.55)
+		gap = ground.lerp(Palette.SNOW_SHADOW, 0.25)
 	_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	var n := _pts.size()
 	for i in range(1, n):
