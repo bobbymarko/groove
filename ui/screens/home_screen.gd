@@ -9,6 +9,7 @@ var _rides: ItemList
 var _ride_entries: Array[Dictionary] = []
 var _error: Label
 var _dialog: FileDialog
+var _sheet: WorkoutSheet
 
 
 func _ready() -> void:
@@ -52,8 +53,7 @@ func _add_card(w: Workout, path: String) -> void:
 	HudStyle.label(v, "%s  ·  %s  ·  %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
 	card.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			App.workout = ZwoParser.parse_file(path)
-			App.go_to("res://ui/screens/workout_detail_screen.tscn"))
+			_sheet.open(ZwoParser.parse_file(path)))
 	card.mouse_entered.connect(func() -> void: card.modulate = Color(1.15, 1.15, 1.2))
 	card.mouse_exited.connect(func() -> void: card.modulate = Color.WHITE)
 
@@ -184,3 +184,7 @@ func _build_ui() -> void:
 	_dialog.filters = PackedStringArray(["*.zwo ; Zwift workout"])
 	_dialog.file_selected.connect(_on_file_chosen)
 	add_child(_dialog)
+
+	_sheet = WorkoutSheet.new()
+	_sheet.name = "WorkoutSheet"
+	add_child(_sheet)
