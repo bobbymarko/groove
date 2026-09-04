@@ -86,16 +86,18 @@ func _ready() -> void:
 	_runner.bias_changed.connect(func(b: int): _bias_l.text = "%d%%" % b)
 	_runner.finished.connect(_on_finished)
 
+	# The recorder must exist before devices are bound, or it never hears
+	# power, cadence or heart rate (every ride before 2026-09-04 recorded zeros).
+	_recorder = RideRecorder.new()
+	_recorder.name = "RideRecorder"
+	add_child(_recorder)
+	_recorder.attach_runner(_runner)
+
 	_bind_trainer(Devices.trainer)
 	_bind_heart_rate(Devices.heart_rate)
 	Devices.trainer_changed.connect(_bind_trainer)
 	Devices.heart_rate_sensor_changed.connect(_bind_heart_rate)
 	_refresh_connection()
-
-	_recorder = RideRecorder.new()
-	_recorder.name = "RideRecorder"
-	add_child(_recorder)
-	_recorder.attach_runner(_runner)
 	_runner.state_changed.connect(func(st: WorkoutRunner.State) -> void:
 		if st == WorkoutRunner.State.RUNNING and _recorder.ride_id == "" and not App.dry_run:
 			_recorder.begin(App.workout.name, App.ftp))
@@ -181,8 +183,7 @@ func _bind_trainer(t: Trainer) -> void:
 		return
 	t.power_changed.connect(_on_power)
 	t.cadence_changed.connect(_on_cadence)
-	if _recorder:
-		_recorder.attach_trainer(t)
+	_recorder.attach_trainer(t)
 	t.connected.connect(_on_trainer_connected)
 	t.disconnected.connect(_refresh_connection)
 	t.status_changed.connect(func(_s: String) -> void: _refresh_connection())
@@ -195,8 +196,7 @@ func _bind_heart_rate(h: HeartRateSensor) -> void:
 		_refresh_connection()
 		return
 	h.heart_rate_changed.connect(_on_bpm)
-	if _recorder:
-		_recorder.attach_heart_rate(h)
+	_recorder.attach_heart_rate(h)
 	h.connected.connect(_refresh_connection)
 	h.disconnected.connect(_refresh_connection)
 	_refresh_connection()

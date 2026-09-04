@@ -49,3 +49,8 @@ Status 2026-09-02: step 1 imported into COROS fine; Strava forwarding still bein
 2. Reopen the home screen (or wait five minutes and revisit). Expect a highlighted **Today** section with the workout card, a day-named section for the later one, then **Library**.
 3. Click a planned card: the side sheet shows the plan and **Ride** starts it like a library workout.
 4. Disconnect the network and revisit home: cached cards stay, a status line reports the failed refresh.
+
+## Recorded values (regression for the 2026-09-04 zero-ride bug)
+
+1. Ride a minute on the simulator or trainer while pedalling, End, open the ride in Recent rides.
+2. Avg power, cadence and heart rate must be non-zero and the trace must show your power. A journal full of `"p":0` means the recorder was not attached to the devices.

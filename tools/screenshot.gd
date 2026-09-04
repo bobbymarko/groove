@@ -184,6 +184,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			devices.trainer.step(1.0)
 		if devices.heart_rate is SimulatedHeartRate:
 			devices.heart_rate.step(1.0)
+		# The recorder must be hearing the devices, or rides save as zeros.
+		print("[dbg] recorder hears %s" % str(scene.get_node("RideRecorder").live_values()))
 	for i in 5:
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()

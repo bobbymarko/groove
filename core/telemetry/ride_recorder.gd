@@ -81,6 +81,11 @@ func on_speed(kph: float) -> void:
 	_speed_kph = kph
 
 
+## What the recorder currently believes (for tooling and tests).
+func live_values() -> Dictionary:
+	return {"power": _power, "cadence": _cadence, "heart_rate": _heart_rate, "speed_kph": _speed_kph}
+
+
 func _on_tick(snap: Dictionary) -> void:
 	if snap.state != WorkoutRunner.State.RUNNING:
 		return
