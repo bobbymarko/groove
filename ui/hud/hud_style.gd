@@ -240,6 +240,8 @@ static func icon_button(parent: Control, icon_name: String, on_pressed: Callable
 	b.focus_mode = Control.FOCUS_NONE
 	b.icon = icon_texture(icon_name)
 	b.expand_icon = true
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER       # Godot parks a lone icon at the left otherwise
+	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	b.custom_minimum_size = Vector2(size + 14, size + 10)
 	b.add_theme_constant_override("icon_max_width", size)
 	style_button(b, kind, 5, 3)   # slim padding so the icon has room to draw
