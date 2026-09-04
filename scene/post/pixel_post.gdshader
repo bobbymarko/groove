@@ -12,6 +12,8 @@ uniform float outline_threshold : hint_range(0.0, 1.5) = 0.45;
 uniform float outline_darken : hint_range(0.0, 1.0) = 0.0;   // 0 = no outlines
 uniform float sharpen : hint_range(0.0, 1.5) = 0.4;          // local contrast before the palette snap
 uniform vec2 texel = vec2(0.0023474, 0.0041667);
+uniform float motion_blur : hint_range(0.0, 1.0) = 0.0;   // radial streaking at the frame edges; the scene scales it by speed
+uniform float blur_edge : hint_range(0.0, 1.0) = 0.3;     // where streaking starts (0 = centre, 1 = corners)
 
 const float BAYER[16] = float[16](
 	 0.0,  8.0,  2.0, 10.0,
@@ -32,9 +34,22 @@ vec3 nearest(vec3 c) {
 	return out_c;
 }
 
+// Average along the line to the frame centre: speed streaks that grow toward the edges.
+vec3 radial(sampler2D tex, vec2 uv, float k) {
+	vec2 d = uv - vec2(0.5);
+	vec2 step = d * k * 0.11;
+	vec3 acc = vec3(0.0);
+	for (int i = 0; i < 8; i++) {
+		acc += texture(tex, uv + step * (float(i) / 7.0 - 0.5)).rgb;
+	}
+	return acc / 8.0;
+}
+
 void fragment() {
 	vec2 uv = UV;
-	vec3 c = texture(TEXTURE, uv).rgb;
+	float r = length(uv - vec2(0.5)) / 0.7071;
+	float k = smoothstep(blur_edge, 1.0, r) * motion_blur;
+	vec3 c = k > 0.002 ? radial(TEXTURE, uv, k) : texture(TEXTURE, uv).rgb;
 	// Edge strength from the four neighbours in the low-res image.
 	vec3 n = texture(TEXTURE, uv + vec2(0.0, -texel.y)).rgb;
 	vec3 s = texture(TEXTURE, uv + vec2(0.0, texel.y)).rgb;
@@ -42,7 +57,7 @@ void fragment() {
 	vec3 e = texture(TEXTURE, uv + vec2(texel.x, 0.0)).rgb;
 	float edge = distance(c, n) + distance(c, s) + distance(c, w) + distance(c, e);
 	vec3 blur = (n + s + w + e) * 0.25;
-	c = clamp(c + (c - blur) * sharpen, 0.0, 1.0);
+	c = clamp(c + (c - blur) * sharpen * (1.0 - k), 0.0, 1.0);
 	ivec2 px = ivec2(floor(uv / texel));
 	float d = BAYER[(px.x % 4) + (px.y % 4) * 4] / 16.0 - 0.5;
 	vec3 q = mode == 0 ? nearest(c + d * dither_strength) : floor((c + d * dither_strength) * levels + 0.5) / levels;

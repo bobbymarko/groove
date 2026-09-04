@@ -333,6 +333,8 @@ func _process(raw_delta: float) -> void:
 	rain.follow(camera.global_position)
 	backdrop.follow(rider.global_position)
 	_rain = move_toward(_rain, _rain_target(), raw_delta / 25.0)   # showers arrive and pass over ~25 s
+	# Edge streaking grows with speed; nothing when stopped.
+	_post.set_shader_parameter("motion_blur", float(_tuning.get("motion_blur", 0.6)) * clampf(speed / 9.0, 0.0, 1.0))
 	_daylight_clock += raw_delta
 	if _daylight_clock >= 0.25:
 		_daylight_clock = 0.0
