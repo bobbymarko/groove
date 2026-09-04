@@ -6,6 +6,8 @@ extends VBoxContainer
 var _adapter_l: Label
 var _status_l: Label
 var _trainer_name: Label
+var _trainer_forget: Button
+var _hr_forget: Button
 var _trainer_state: Label
 var _trainer_live: Label
 var _hr_name: Label
@@ -68,12 +70,14 @@ func _refresh() -> void:
 	var t := Devices.trainer
 	var remembered_t: Dictionary = Devices.remembered.get("trainer", {})
 	_trainer_name.text = t.display_name() if t else str(remembered_t.get("name", "No trainer"))
+	_trainer_forget.visible = not remembered_t.is_empty() or (t != null and not (t is SimulatedTrainer))
 	_trainer_state.text = _state_text(t, remembered_t)
 	if _live_power < 0:
 		_trainer_live.text = ""
 	var h := Devices.heart_rate
 	var remembered_h: Dictionary = Devices.remembered.get("heart_rate", {})
 	_hr_name.text = h.display_name() if h else str(remembered_h.get("name", "No heart-rate sensor"))
+	_hr_forget.visible = not remembered_h.is_empty() or (h != null and not (h is SimulatedHeartRate))
 	_hr_state.text = _state_text(h, remembered_h)
 	if _live_bpm < 0:
 		_hr_live.text = ""
@@ -123,16 +127,22 @@ func _on_scan_pressed() -> void:
 
 func _build_ui() -> void:
 	_adapter_l = HudStyle.label(self, "", 13, 500, HudStyle.TEXT_DIM)
-	var tcard := _card("Trainer")
+	# Trainer and heart-rate cards side by side; each owns its Forget button.
+	var cards := HBoxContainer.new()
+	cards.add_theme_constant_override("separation", 12)
+	add_child(cards)
+	var tcard := _card(cards, "Trainer")
 	_trainer_name = HudStyle.label(tcard, "", 18, 700)
+	_trainer_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_trainer_state = HudStyle.label(tcard, "", 13, 500, HudStyle.TEXT_DIM)
 	_trainer_live = HudStyle.label(tcard, "", 26, 900)
-	HudStyle.button(tcard, "Forget", 13, func() -> void: Devices.forget("trainer"); _refresh()).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var hcard := _card("Heart rate")
+	_trainer_forget = _forget_button(tcard, "trainer")
+	var hcard := _card(cards, "Heart rate")
 	_hr_name = HudStyle.label(hcard, "", 18, 700)
+	_hr_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_hr_state = HudStyle.label(hcard, "", 13, 500, HudStyle.TEXT_DIM)
 	_hr_live = HudStyle.label(hcard, "", 26, 900)
-	HudStyle.button(hcard, "Forget", 13, func() -> void: Devices.forget("heart_rate"); _refresh()).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_hr_forget = _forget_button(hcard, "heart_rate")
 
 	var scan_row := HBoxContainer.new()
 	scan_row.add_theme_constant_override("separation", 8)
@@ -153,10 +163,23 @@ func _build_ui() -> void:
 	HudStyle.button(bar, "Use simulator", 14, func() -> void: Devices.use_simulated_devices())
 
 
-func _card(heading: String) -> VBoxContainer:
-	var panel := HudStyle.panel(self, HudStyle.PANEL_ROW, 8, 12)
+func _card(parent: Control, heading: String) -> VBoxContainer:
+	var panel := HudStyle.panel(parent, Color(0.13, 0.15, 0.21, 0.85), 10, 14)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_stretch_ratio = 1.0
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
 	panel.add_child(box)
 	HudStyle.label(box, heading, 12, 700, HudStyle.TEXT_DIM)
 	return box
+
+
+## Sits at the bottom of its card; hidden while there is nothing to forget.
+func _forget_button(card: VBoxContainer, role: String) -> Button:
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.custom_minimum_size.y = 8
+	card.add_child(spacer)
+	var b := HudStyle.button(card, "Forget", 13, func() -> void: Devices.forget(role); _refresh())
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	return b
