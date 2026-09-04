@@ -39,6 +39,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		rs.debug_top_down = OS.get_cmdline_user_args().has("top")
 		rs.debug_closeup = OS.get_cmdline_user_args().has("closeup") or OS.get_cmdline_user_args().has("hands")
 		rs.debug_hands = OS.get_cmdline_user_args().has("hands")
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("preset="):
+				rs.preset_override = a.trim_prefix("preset=")
 		for opt in ["nocull", "plain"]:
 			if OS.get_cmdline_user_args().has(opt):
 				rs.debug_material = opt
@@ -102,6 +105,10 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			scene.get_node("WorkoutSheet").open(ZwoParser.parse_file("res://workouts/cadence_today.zwo"))
 			for i in 30:
 				await process_frame
+			if OS.get_cmdline_user_args().has("scenes"):
+				scene.get_node("WorkoutSheet").choose_scene(false)
+				for i in 30:
+					await process_frame
 		if mode == "calendar":
 			for i in 40:
 				await process_frame

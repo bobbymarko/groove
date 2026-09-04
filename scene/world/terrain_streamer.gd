@@ -28,6 +28,8 @@ var density_scale := 1.0                 # tree density multiplier (new chunks o
 var _pines: Array[Mesh] = []      # variants; MeshLib procedural pine as fallback
 var _rocks: Array[Mesh] = []
 var _dead_trees: Array[Mesh] = []
+var _cover: Array[Mesh] = []       # grass, flowers, mushrooms near the trail
+var _dead_share := 0.04
 var _shrub_mesh: ArrayMesh
 var _material: Material
 const PINE_SCALE := Vector2(0.45, 0.8)   # Quaternius pines are ~7 m tall at scale 1
@@ -58,18 +60,25 @@ func _init(t: Trail) -> void:
 		_coarse_columns_r.append(x)
 		x += RES
 	_coarse_columns_r.append(HALF_WIDTH)
-	for i in range(1, 6):
-		var m := MeshLib.load_prop("res://assets/quaternius/Pine_%d.gltf" % i)
+	var preset := ScenePreset.get_preset(Palette.preset_id)
+	var snow: bool = preset.prop_snow
+	_dead_share = float(preset.dead_share)
+	for n in preset.trees:
+		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, snow)
 		if m:
 			_pines.append(m)
-	for i in range(1, 4):
-		var m := MeshLib.load_prop("res://assets/quaternius/Rock_Medium_%d.gltf" % i)
+	for n in preset.rocks:
+		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, snow)
 		if m:
 			_rocks.append(m)
-	for i in range(1, 6):
-		var m := MeshLib.load_prop("res://assets/quaternius/DeadTree_%d.gltf" % i, false)
+	for n in preset.dead:
+		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, false)
 		if m:
 			_dead_trees.append(m)
+	for n in preset.cover:
+		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, false)
+		if m:
+			_cover.append(m)
 	if _pines.is_empty():
 		_pines.append(MeshLib.pine())
 	if _rocks.is_empty():
@@ -261,6 +270,9 @@ func _scatter_transforms(z0: float, t: Trail) -> Dictionary:
 	var pines: Array = []
 	var rocks: Array = []
 	var dead: Array = []
+	var cover: Array = []
+	for i in _cover.size():
+		cover.append([] as Array[Transform3D])
 	for i in _pines.size():
 		pines.append([] as Array[Transform3D])
 	for i in _rocks.size():
@@ -280,6 +292,10 @@ func _scatter_transforms(z0: float, t: Trail) -> Dictionary:
 		var dzz := height(x, z + 0.5, t) - height(x, z - 0.5, t)
 		var slope := sqrt(dzx * dzx + dzz * dzz)
 		var basis := Basis(Vector3.UP, rng.randf() * TAU)
+		# Ground cover hugs the trail edges where the rider sees it.
+		if not _cover.is_empty() and ad < 6.0 and slope < 0.9 and rng.randf() < 0.45 * minf(density_scale, 1.0):
+			cover[rng.randi() % cover.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.7, 1.2)), Vector3(x, y - 0.02, z)))
+			continue
 		if slope > 0.9:
 			if rng.randf() < 0.3:
 				rocks[rng.randi() % rocks.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.6, 1.4)), Vector3(x, y - 0.1, z)))
@@ -288,9 +304,9 @@ func _scatter_transforms(z0: float, t: Trail) -> Dictionary:
 			var r := rng.randf()
 			if r < density:
 				pines[rng.randi() % pines.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(PINE_SCALE.x, PINE_SCALE.y)), Vector3(x, y - 0.05, z)))
-			elif r < density + 0.04 and not dead.is_empty():
+			elif r < density + _dead_share and not dead.is_empty():
 				dead[rng.randi() % dead.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.5, 0.8)), Vector3(x, y - 0.05, z)))
-	return {"pines": pines, "rocks": rocks, "dead": dead}
+	return {"pines": pines, "rocks": rocks, "dead": dead, "cover": cover}
 
 
 ## Main thread: turn worker output into nodes.
@@ -322,6 +338,8 @@ func _finish_chunk(r: Dictionary) -> void:
 		_add_multimesh(root, _rocks[i], sc.rocks[i])
 	for i in _dead_trees.size():
 		_add_multimesh(root, _dead_trees[i], sc.dead[i])
+	for i in _cover.size():
+		_add_multimesh(root, _cover[i], sc.cover[i])
 	add_child(root)
 	_chunks[index] = root
 	if OS.is_debug_build() and r.usec > 60000:

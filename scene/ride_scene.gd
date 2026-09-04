@@ -16,6 +16,9 @@ var rider: Rider
 var camera: HandheldCamera
 var physics := RidePhysics.new()
 var snow: Snow
+var preset_id := "winter"        ## ScenePreset in use (from App unless overridden)
+var preset_override := ""        ## tooling: force a preset regardless of settings
+var _preset: Dictionary = {}
 var backdrop: Backdrop
 
 var distance := 20.0          ## metres along the trail
@@ -44,6 +47,15 @@ var _post: ShaderMaterial
 
 
 func _ready() -> void:
+	# The look: a preset recolours the palette before anything reads it.
+	if preset_override != "":
+		preset_id = preset_override
+	else:
+		var app0 := get_node_or_null("/root/App")
+		if app0:
+			preset_id = str(app0.scene_preset)
+	Palette.apply(preset_id)
+	_preset = ScenePreset.get_preset(preset_id)
 	_viewport = SubViewport.new()
 	_viewport.size = Vector2i(426, INTERNAL_HEIGHT)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -85,6 +97,7 @@ func _ready() -> void:
 	_world.add_child(camera)
 	camera.current = true
 	snow = Snow.new()
+	snow.emitting = bool(_preset.get("snow", true))
 	_world.add_child(snow)
 
 	_screen = TextureRect.new()
@@ -92,7 +105,6 @@ func _ready() -> void:
 	_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_screen.stretch_mode = TextureRect.STRETCH_SCALE
 	_screen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE   # the render target must not dictate our minimum size
-	_screen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_post = ShaderMaterial.new()
 	_post.shader = load("res://scene/post/pixel_post.gdshader")
@@ -166,7 +178,7 @@ func apply_tuning(t: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("cel_shadow_band", 1.0 - float(t.get("shadow_strength", 0.55)))
 	RenderingServer.global_shader_parameter_set("cel_shade_band", float(t.get("shade_band", 0.66)))
 	RenderingServer.global_shader_parameter_set("cel_dark_band", float(t.get("shade_band", 0.66)) * 0.76)
-	_sun.rotation_degrees = Vector3(-float(t.get("sun_elevation", 32.0)), float(t.get("sun_azimuth", 40.0)), 0.0)
+	_sun.rotation_degrees = Vector3(-(float(t.get("sun_elevation", 32.0)) + float(_preset.get("sun_lift", 0.0))), float(t.get("sun_azimuth", 40.0)), 0.0)
 	_sun.light_energy = float(t.get("sun_energy", 0.8))
 	_env.ambient_light_energy = float(t.get("ambient_energy", 0.4))
 	_env.fog_density = float(t.get("fog_density", 0.0028))
@@ -175,7 +187,7 @@ func apply_tuning(t: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("cel_speckle", float(t.get("speckle", 0.12)))
 	RenderingServer.global_shader_parameter_set("cel_highlight", float(t.get("highlight", 0.15)))
 	# 0 -> threshold 1.05 (bare), 1 -> 0.5 (buried).
-	RenderingServer.global_shader_parameter_set("cel_prop_snow", 1.05 - 0.55 * float(t.get("tree_snow", 0.5)))
+	RenderingServer.global_shader_parameter_set("cel_prop_snow", (1.05 - 0.55 * float(t.get("tree_snow", 0.5))) if bool(_preset.get("prop_snow", true)) else 2.0)
 	_post.set_shader_parameter("outline_darken", float(t.get("outline", 0.0)))
 	camera.follow_distance = float(t.get("camera_distance", 7.8))
 	camera.follow_height = float(t.get("camera_height", 2.7))

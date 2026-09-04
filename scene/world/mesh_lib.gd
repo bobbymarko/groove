@@ -21,7 +21,9 @@ static func palette_for_material(mat_name: String) -> Color:
 ## Dark and light palette shades a textured surface blends between.
 static func shades_for_material(mat_name: String) -> Array[Color]:
 	var n := mat_name.to_lower()
-	if "leaves" in n or "leaf" in n or "bush" in n or "grass" in n:
+	if "flower" in n or "petal" in n:
+		return [Palette.FLOWER_DARK, Palette.FLOWER]
+	if "leaves" in n or "leaf" in n or "bush" in n or "grass" in n or "clover" in n or "fern" in n or "plant" in n:
 		return [Palette.PINE_DARK, Palette.PINE_LIGHT]
 	if "bark" in n or "trunk" in n or "wood" in n:
 		return [Palette.TRUNK, Palette.BRANCH]

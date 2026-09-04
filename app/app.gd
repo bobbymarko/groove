@@ -11,6 +11,7 @@ var ftp: int = 200
 var camera_shake := "low"   # off | low | high
 var look_mode := "16bit"    # "8bit" (palette, low-res) | "16bit" (posterized, higher-res) | "off" (native)
 var show_fps := true
+var scene_preset := "winter"   # ScenePreset id chosen before a ride
 var last_ride_journal := ""
 var prompt_upload := false   # the summary screen asks about sharing the ride just finished
 var dry_run := false         # tooling: ride without recording, screenshots or uploads
@@ -51,6 +52,7 @@ func _ready() -> void:
 		camera_shake = str(_cfg.get_value("scene", "camera_shake", camera_shake))
 		look_mode = str(_cfg.get_value("scene", "look_mode", "8bit" if bool(_cfg.get_value("scene", "pixel_filter", true)) else "off"))
 		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
+		scene_preset = str(_cfg.get_value("scene", "preset", scene_preset))
 		for key in scene_tuning:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
@@ -107,6 +109,7 @@ func save_settings() -> void:
 	_cfg.set_value("scene", "camera_shake", camera_shake)
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
+	_cfg.set_value("scene", "preset", scene_preset)
 	for key in scene_tuning:
 		_cfg.set_value("scene_tuning", key, scene_tuning[key])
 	_cfg.save(SETTINGS_PATH)

@@ -42,10 +42,68 @@ func _refresh_devices() -> void:
 
 
 func _start(simulator: bool) -> void:
-	App.workout = workout
-	if simulator:
-		Devices.use_simulated_devices()
-	App.go_to("res://ui/screens/ride_screen.tscn")
+	choose_scene(simulator)
+
+
+## Step two: pick the world to ride in, then go.
+func choose_scene(simulator: bool) -> void:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	header(v, "Choose a scene", func() -> void: open(workout))
+	HudStyle.label(v, workout.name, 14, 500, HudStyle.TEXT_DIM)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	v.add_child(grid)
+	var cards: Dictionary = {}
+	for id in ScenePreset.ORDER:
+		var p := ScenePreset.get_preset(id)
+		var card := HudStyle.panel(grid, HudStyle.CARD, 10, 10)
+		card.mouse_filter = Control.MOUSE_FILTER_STOP
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cv := VBoxContainer.new()
+		cv.add_theme_constant_override("separation", 6)
+		card.add_child(cv)
+		var thumb_path := ScenePreset.thumbnail_path(id)
+		if ResourceLoader.exists(thumb_path):
+			var tr := TextureRect.new()
+			tr.texture = load(thumb_path)
+			tr.custom_minimum_size = Vector2(0, 120)
+			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			tr.clip_contents = true
+			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cv.add_child(tr)
+		HudStyle.label(cv, str(p.name), 16, 700).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var d := HudStyle.label(cv, str(p.description), 12, 500, HudStyle.TEXT_DIM)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cards[id] = card
+		card.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+				App.scene_preset = id
+				App.save_settings()
+				_mark_scene_cards(cards))
+	_mark_scene_cards(cards)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(spacer)
+	var go := HudStyle.button(v, "Ride", 18, func() -> void:
+		App.workout = workout
+		if simulator:
+			Devices.use_simulated_devices()
+		App.go_to("res://ui/screens/ride_screen.tscn"))
+	go.custom_minimum_size.y = 44
+	replace_content(v)
+
+
+func _mark_scene_cards(cards: Dictionary) -> void:
+	for id in cards:
+		var card: PanelContainer = cards[id]
+		var chosen: bool = id == App.scene_preset
+		card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD if not chosen else Color(0.22, 0.26, 0.36, 0.95), 10, 10, 8,
+			Color(0.75, 0.8, 0.95, 0.9) if chosen else Color(0, 0, 0, 0)))
 
 
 func _build_content(v: VBoxContainer) -> void:

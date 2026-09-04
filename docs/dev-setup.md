@@ -139,3 +139,9 @@ Home-screen render with fake intervals.icu planned workouts (no network):
 ```bash
 tools/shot.sh res://ui/screens/home_screen.tscn build/home_calendar.png calendar
 ```
+
+Scene preset renders and thumbnails (thumbnails live in `assets/images/scenes/`):
+
+```bash
+for p in winter summer autumn spring; do tools/shot.sh res://ui/screens/home_screen.tscn build/scene_$p.png scene look=16bit preset=$p; sips -Z 640 build/scene_$p.png --out assets/images/scenes/$p.png; done
+```

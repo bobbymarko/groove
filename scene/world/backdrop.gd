@@ -6,20 +6,25 @@ extends Node3D
 ## the colours stay poster-flat; they follow the rider so they never get nearer.
 
 const LAYERS := [
-	# distance, width, base height, amplitude, seed, lit colour, shade colour, snow
-	[420.0, 1400.0, 28.0, 70.0, 21, Color("7d8ec2"), Color("5d6fa8"), Color("d6dde9")],
-	[640.0, 2000.0, 55.0, 105.0, 26, Color("9195c6"), Color("7379ad"), Color("e2e3ee")],
-	[900.0, 2800.0, 85.0, 140.0, 31, Color("ad9dc9"), Color("8f80b0"), Color("ece7f2")],
-	[1250.0, 3800.0, 120.0, 175.0, 36, Color("c8b3d3"), Color("ad98bd"), Color("f4eff6")],
-	[1700.0, 5200.0, 150.0, 210.0, 41, Color("dcc6d8"), Color("c7b0c6"), Color("faf6fa")],
+	# distance, width, base height, amplitude, seed
+	[420.0, 1400.0, 28.0, 70.0, 21],
+	[640.0, 2000.0, 55.0, 105.0, 26],
+	[900.0, 2800.0, 85.0, 140.0, 31],
+	[1250.0, 3800.0, 120.0, 175.0, 36],
+	[1700.0, 5200.0, 150.0, 210.0, 41],
 ]
 
 var _layers: Array[Node3D] = []
 
 
 func _ready() -> void:
-	for l in LAYERS:
-		_layers.append(_ridge(l[0], l[1], l[2], l[3], l[4], l[5], l[6], l[7]))
+	# Near to far: the palette's mountain tones, shaded facets a step darker,
+	# and a snow line that whitens with distance.
+	var lit := [Palette.MOUNTAIN_NEAR, Palette.MOUNTAIN_MID2, Palette.MOUNTAIN_MID, Palette.MOUNTAIN_FAR2, Palette.MOUNTAIN_FAR]
+	for i in LAYERS.size():
+		var l: Array = LAYERS[i]
+		var c: Color = lit[i]
+		_layers.append(_ridge(l[0], l[1], l[2], l[3], l[4], c, c.darkened(0.2), Palette.MOUNTAIN_SNOW.lerp(c, 0.25 - 0.06 * i)))
 
 
 func follow(pos: Vector3) -> void:
