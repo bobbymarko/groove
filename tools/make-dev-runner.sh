@@ -29,6 +29,14 @@ plutil -replace NSBluetoothAlwaysUsageDescription -string "$DESC" "$PLIST"
 plutil -replace NSBluetoothPeripheralUsageDescription -string "$DESC" "$PLIST"
 plutil -replace CFBundleIdentifier -string "dev.ride.godot-dev" "$PLIST"
 plutil -replace CFBundleName -string "GrooveDev" "$PLIST"
+plutil -replace CFBundleDisplayName -string "Groove" "$PLIST"
+
+# App icon: the coach's face, converted from the avatar PNG.
+ICON_PNG="$ROOT/build/groove-icon-1024.png"
+sips -z 1024 1024 "$ROOT/assets/images/coach-avatar.png" --out "$ICON_PNG" >/dev/null
+sips -s format icns "$ICON_PNG" --out "$OUT/Contents/Resources/Groove.icns" >/dev/null
+plutil -replace CFBundleIconFile -string "Groove.icns" "$PLIST"
+plutil -remove CFBundleIconName "$PLIST" 2>/dev/null || true
 
 # Keep Godot's own entitlements (notably disable-library-validation, which
 # lets the editor load third-party GDExtension dylibs), but re-sign ad hoc.
