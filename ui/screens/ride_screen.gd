@@ -49,6 +49,7 @@ var _dist_l: Label
 var _elev_l: Label
 var _kj_l: Label
 var _reps_l: Label
+var _reps_icon: Control
 var _block_name_l: Label
 var _block_dur_l: Label
 var _rows: Array[PanelContainer] = []
@@ -305,7 +306,8 @@ func _update_reps(current_index: int) -> void:
 			total += 1
 			if i < current_index:
 				done += 1
-	_reps_l.text = "★ %d/%d" % [done, total] if total > 0 else ""
+	_reps_l.text = "%d/%d" % [done, total] if total > 0 else ""
+	_reps_icon.visible = total > 0
 
 
 func _on_target(w: int) -> void:
@@ -567,7 +569,8 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(sp)
-	_reps_l = HudStyle.label(foot, "", 20, 700, Color(1.0, 0.85, 0.3))
+	_reps_icon = _hud_icon_ref(foot, "star", 18, HudStyle.YELLOW)
+	_reps_l = HudStyle.label(foot, "", 20, 700, HudStyle.YELLOW)
 	_update_reps(-1)
 	return panel
 
@@ -641,13 +644,33 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	return panel
 
 
+## Metric icon: centred on the digits, which sit a little above the label box's
+## centre because of the font's descent; `lift` nudges it up to meet them.
+func _hud_icon(row: Control, icon_name: String, size: int, color: Color, lift: int) -> void:
+	var m := MarginContainer.new()
+	m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	m.add_theme_constant_override("margin_bottom", lift)
+	m.add_theme_constant_override("margin_right", 2)
+	row.add_child(m)
+	HudStyle.icon(m, icon_name, size, color)
+
+
+func _hud_icon_ref(row: Control, icon_name: String, size: int, color: Color) -> Control:
+	var m := MarginContainer.new()
+	m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	m.add_theme_constant_override("margin_bottom", 2)
+	m.add_theme_constant_override("margin_right", 2)
+	row.add_child(m)
+	HudStyle.icon(m, icon_name, size, color)
+	return m
+
+
 func _metric(parent: Control, value: String, unit: String, icon_name := "", icon_color := HudStyle.TEXT) -> Label:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
 	parent.add_child(h)
 	if icon_name != "":
-		var ic := HudStyle.icon(h, icon_name, 18, icon_color)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_END
+		_hud_icon(h, icon_name, 20, icon_color, 4)
 	var val := HudStyle.label(h, value, 40, 900)
 	var u := HudStyle.label(h, unit, 17, 700, HudStyle.TEXT_DIM)
 	HudStyle.share_baseline(h, val, u)
@@ -660,10 +683,10 @@ func _side_metric(parent: Control, value: String, unit: String, icon_name := "",
 	h.add_theme_constant_override("separation", 6)
 	parent.add_child(h)
 	if icon_name != "":
-		HudStyle.icon(h, icon_name, 16, icon_color).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		_hud_icon(h, icon_name, 16, icon_color, 3)
 	var val := HudStyle.label(h, value, 26, 700)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	val.custom_minimum_size.x = 70
+	val.custom_minimum_size.x = 58
 	var u := HudStyle.label(h, unit, 16, 700, HudStyle.TEXT_DIM)
 	u.custom_minimum_size.x = 56
 	HudStyle.share_baseline(h, val, u)
