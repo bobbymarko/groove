@@ -66,6 +66,17 @@ func _ready() -> void:
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
 	Sync.configure_intervals.call_deferred(get_secret("intervals_api_key"))
 	Sync.configure_strava.call_deferred(get_secret("strava_client_id"), get_secret("strava_client_secret"))
+	# Dev launch option: `-- summary=latest` (or a journal path) opens that ride's summary.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("summary="):
+			var which := arg.trim_prefix("summary=")
+			var rides := list_rides()
+			if which == "latest" and not rides.is_empty():
+				last_ride_journal = str(rides[0].journal)
+			elif which != "latest":
+				last_ride_journal = which
+			if last_ride_journal != "":
+				go_to("res://ui/screens/summary_screen.tscn")
 
 
 ## Secrets (API keys) are stored encrypted with a random per-install key kept

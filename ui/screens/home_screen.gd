@@ -58,8 +58,12 @@ func _cascade_in() -> void:
 	for c in _cards:
 		c.modulate.a = 0.0
 	await get_tree().process_frame   # sizes are known now, so scaling can pivot on the centre
+	if not is_inside_tree():
+		return                      # the screen was replaced while we waited (dev launch options do this)
 	# The window and background take a moment to appear; hold so the cascade is seen.
 	await get_tree().create_timer(0.35).timeout
+	if not is_inside_tree():
+		return
 	var delay := 0.0
 	for c in _cards:
 		if not is_instance_valid(c):

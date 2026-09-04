@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Restart the dev runner, unless a ride is in progress (an unfinished journal
-# touched in the last three minutes). Pass --force to restart anyway.
+# touched in the last three minutes). Pass --force to restart anyway; further
+# arguments go to the app (e.g. -- summary=latest).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RIDES="$HOME/Library/Application Support/Godot/app_userdata/Groove/rides"
@@ -13,6 +14,6 @@ if [ "${1:-}" != "--force" ] && [ -d "$RIDES" ]; then
 fi
 pkill -f "GrooveDev.app/Contents/MacOS/Godot" || true
 sleep 1
-"$ROOT/tools/run-dev.sh" >/dev/null 2>&1 &
+"$ROOT/tools/run-dev.sh" "${@:2}" >/dev/null 2>&1 &
 sleep 3
 pgrep -f GrooveDev >/dev/null && echo relaunched
