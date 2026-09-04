@@ -1,30 +1,85 @@
 extends Control
-## Home: pick a workout, set FTP, ride on the simulator.
+## Home: a grid of workout cards with plan thumbnails. Click a card for the
+## detail view; device status, recent rides and settings live around it.
 
 var _files: Array[String] = []
-var _list: ItemList
-var _title: Label
-var _meta: Label
-var _desc: RichTextLabel
-var _ftp: SpinBox
-var _ride: Button
-var _error: Label
-var _dialog: FileDialog
+var _grid: GridContainer
 var _devices_l: Label
-var _sim_btn: Button
 var _rides: ItemList
 var _ride_entries: Array[Dictionary] = []
+var _error: Label
+var _dialog: FileDialog
 
 
 func _ready() -> void:
 	_build_ui()
-	_refresh_list()
+	_refresh_cards()
 	Devices.trainer_changed.connect(func(_t: Trainer) -> void: _refresh_devices())
 	Devices.heart_rate_sensor_changed.connect(func(_h: HeartRateSensor) -> void: _refresh_devices())
 	Devices.status.connect(func(_s: String) -> void: _refresh_devices())
 	_refresh_devices()
 	_refresh_rides()
 	_recover_unfinished()
+
+
+func _refresh_cards() -> void:
+	for c in _grid.get_children():
+		c.queue_free()
+	_files = App.list_workout_files()
+	for f in _files:
+		var w := ZwoParser.parse_file(f)
+		if w == null:
+			continue
+		_add_card(w, f)
+	_add_open_card()
+
+
+func _add_card(w: Workout, path: String) -> void:
+	var card := HudStyle.panel(_grid, HudStyle.PANEL_ROW, 10, 12)
+	card.custom_minimum_size = Vector2(300, 0)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	card.add_child(v)
+	var graph := WorkoutGraph.new()
+	graph.custom_minimum_size = Vector2(276, 96)
+	graph.set_workout(w)
+	graph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(graph)
+	var name_l := HudStyle.label(v, w.name, 18, 700)
+	name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var est := WorkoutSummary.estimates(w, App.ftp)
+	HudStyle.label(v, "%s  ·  %s  ·  %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			App.workout = ZwoParser.parse_file(path)
+			App.go_to("res://ui/screens/workout_detail_screen.tscn"))
+	card.mouse_entered.connect(func() -> void: card.modulate = Color(1.15, 1.15, 1.2))
+	card.mouse_exited.connect(func() -> void: card.modulate = Color.WHITE)
+
+
+func _add_open_card() -> void:
+	var card := HudStyle.panel(_grid, Color(0.10, 0.12, 0.17, 0.35), 10, 12)
+	card.custom_minimum_size = Vector2(300, 150)
+	var c := CenterContainer.new()
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	card.add_child(c)
+	HudStyle.button(c, "+  Open .zwo file…", 16, _on_open_pressed)
+
+
+func _refresh_devices() -> void:
+	var parts: Array[String] = []
+	var t := Devices.trainer
+	if t != null and not (t is SimulatedTrainer):
+		parts.append("%s %s" % [t.display_name(), "connected" if t.is_device_connected() else "reconnecting…"])
+	elif Devices.remembered.has("trainer"):
+		parts.append("Looking for %s…" % Devices.remembered.trainer.name)
+	else:
+		parts.append("No trainer paired")
+	var h := Devices.heart_rate
+	if h != null and not (h is SimulatedHeartRate):
+		parts.append("%s %s" % [h.display_name(), "connected" if h.is_device_connected() else "reconnecting…"])
+	_devices_l.text = "  ·  ".join(parts)
 
 
 func _refresh_rides() -> void:
@@ -41,7 +96,7 @@ func _on_ride_selected(i: int) -> void:
 
 
 ## A journal without an end line means the app died mid-ride. Finalize it so
-## the FIT file exists and the ride can be uploaded.
+## the FIT file exists and the ride can be shared.
 func _recover_unfinished() -> void:
 	for path in RideRecorder.unfinished_journals():
 		var j := RideRecorder.load_journal(path)
@@ -60,72 +115,8 @@ func _recover_unfinished() -> void:
 			jf.store_line(JSON.stringify({"end": {"ended_at": int(samples[-1].t), "completed": false, "recovered": true}}))
 			jf.close()
 		_error.text = "Recovered an unfinished ride: %s" % str(meta.get("workout", path.get_file()))
-	if not RideRecorder.unfinished_journals().is_empty():
-		return
-	_refresh_rides()
-
-
-func _refresh_devices() -> void:
-	var parts: Array[String] = []
-	var t := Devices.trainer
-	if t != null and not (t is SimulatedTrainer):
-		parts.append("%s %s" % [t.display_name(), "connected" if t.is_device_connected() else "reconnecting…"])
-	elif Devices.remembered.has("trainer"):
-		parts.append("Looking for %s…" % Devices.remembered.trainer.name)
-	else:
-		parts.append("No trainer paired")
-	var h := Devices.heart_rate
-	if h != null and not (h is SimulatedHeartRate):
-		parts.append("%s %s" % [h.display_name(), "connected" if h.is_device_connected() else "reconnecting…"])
-	_devices_l.text = "  ·  ".join(parts)
-	if Devices.real_trainer_ready():
-		_ride.text = "Ride"
-		_ride.disabled = App.workout == null
-	elif Devices.remembered.has("trainer"):
-		_ride.text = "Waiting for %s…" % Devices.remembered.trainer.name
-		_ride.disabled = true
-	else:
-		_ride.text = "Pair a trainer to ride"
-		_ride.disabled = true
-
-
-func _refresh_list() -> void:
-	_files = App.list_workout_files()
-	_list.clear()
-	for f in _files:
-		var w := ZwoParser.parse_file(f)
-		_list.add_item(w.name if w else f.get_file())
-	if _files.size() > 0:
-		_list.select(0)
-		_on_selected(0)
-
-
-func _on_selected(i: int) -> void:
-	var w := ZwoParser.parse_file(_files[i])
-	if w == null:
-		_title.text = _files[i].get_file()
-		_meta.text = ""
-		_desc.text = ""
-		_error.text = ZwoParser.last_error
-		_ride.disabled = true
-		_sim_btn.disabled = true
-		return
-	App.workout = w
-	_error.text = ""
-	_title.text = w.name
-	var mins := int(w.total_duration() / 60.0)
-	_meta.text = "%s  ·  %d min  ·  %d segments  ·  ~%d kJ at %d W FTP" % [
-		w.author, mins, w.segments.size(), int(w.estimated_kj(App.ftp)), App.ftp]
-	_desc.text = w.description
-	_sim_btn.disabled = false
-	_refresh_devices()
-
-
-func _on_ftp_changed(v: float) -> void:
-	App.ftp = int(v)
-	App.save_settings()
-	if _list.get_selected_items().size() > 0:
-		_on_selected(_list.get_selected_items()[0])
+	if RideRecorder.unfinished_journals().is_empty():
+		_refresh_rides()
 
 
 func _on_open_pressed() -> void:
@@ -137,121 +128,54 @@ func _on_file_chosen(path: String) -> void:
 	if w == null:
 		_error.text = "Could not load %s: %s" % [path.get_file(), ZwoParser.last_error]
 		return
-	# Copy into the user library so it shows up next time.
 	var dest := App.USER_WORKOUTS_DIR.path_join(path.get_file())
 	DirAccess.copy_absolute(path, ProjectSettings.globalize_path(dest))
-	_refresh_list()
-	for i in _files.size():
-		if _files[i] == dest:
-			_list.select(i)
-			_on_selected(i)
-
-
-func _on_ride_pressed(simulator: bool) -> void:
-	if App.workout == null:
-		return
-	if simulator:
-		Devices.use_simulated_devices()
-	App.go_to("res://ui/screens/ride_screen.tscn")
+	_refresh_cards()
 
 
 func _build_ui() -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0.09, 0.1, 0.14)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 24)
+		margin.add_theme_constant_override("margin_" + side, 28)
 	add_child(margin)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	margin.add_child(v)
 
-	var root := HBoxContainer.new()
-	root.add_theme_constant_override("separation", 24)
-	margin.add_child(root)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	v.add_child(head)
+	var title := HudStyle.label(head, "Ride", 34, 900)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_devices_l = HudStyle.label(head, "", 14, 500, HudStyle.TEXT_DIM)
+	HudStyle.button(head, "Devices…", 15, func() -> void: App.go_to("res://ui/screens/devices_screen.tscn"))
+	HudStyle.button(head, "Settings…", 15, func() -> void: App.go_to("res://ui/screens/settings_screen.tscn"))
 
-	var left := VBoxContainer.new()
-	left.custom_minimum_size.x = 300
-	left.add_theme_constant_override("separation", 8)
-	root.add_child(left)
+	HudStyle.label(v, "Workouts", 18, 700, HudStyle.TEXT_DIM)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(scroll)
+	_grid = GridContainer.new()
+	_grid.columns = 4
+	_grid.add_theme_constant_override("h_separation", 16)
+	_grid.add_theme_constant_override("v_separation", 16)
+	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_grid)
+	resized.connect(func() -> void: _grid.columns = maxi(1, int((size.x - 56) / 316.0)))
 
-	var h := Label.new()
-	h.text = "Workouts"
-	h.add_theme_font_size_override("font_size", 22)
-	left.add_child(h)
+	_error = HudStyle.label(v, "", 14, 500, Color(1, 0.6, 0.6))
 
-	_list = ItemList.new()
-	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_list.item_selected.connect(_on_selected)
-	left.add_child(_list)
-
-	var open := Button.new()
-	open.text = "Open .zwo file…"
-	open.pressed.connect(_on_open_pressed)
-	left.add_child(open)
-
-	var ftp_row := HBoxContainer.new()
-	left.add_child(ftp_row)
-	var ftp_label := Label.new()
-	ftp_label.text = "FTP (W)"
-	ftp_row.add_child(ftp_label)
-	_ftp = SpinBox.new()
-	_ftp.min_value = 50
-	_ftp.max_value = 600
-	_ftp.value = App.ftp
-	_ftp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_ftp.value_changed.connect(_on_ftp_changed)
-	ftp_row.add_child(_ftp)
-
-	var right := VBoxContainer.new()
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right.add_theme_constant_override("separation", 8)
-	root.add_child(right)
-
-	_title = Label.new()
-	_title.add_theme_font_size_override("font_size", 30)
-	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	right.add_child(_title)
-	_meta = Label.new()
-	_meta.modulate = Color(1, 1, 1, 0.7)
-	right.add_child(_meta)
-	_desc = RichTextLabel.new()
-	_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_desc.fit_content = false
-	right.add_child(_desc)
-	var rides_h := Label.new()
-	rides_h.text = "Recent rides"
-	rides_h.add_theme_font_size_override("font_size", 16)
-	right.add_child(rides_h)
+	HudStyle.label(v, "Recent rides", 16, 700, HudStyle.TEXT_DIM)
 	_rides = ItemList.new()
-	_rides.custom_minimum_size.y = 120
+	_rides.custom_minimum_size.y = 110
 	_rides.item_activated.connect(_on_ride_selected)
-	right.add_child(_rides)
-	_error = Label.new()
-	_error.modulate = Color(1, 0.5, 0.5)
-	right.add_child(_error)
-
-	var dev_row := HBoxContainer.new()
-	dev_row.add_theme_constant_override("separation", 12)
-	right.add_child(dev_row)
-	_devices_l = Label.new()
-	_devices_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_devices_l.modulate = Color(1, 1, 1, 0.7)
-	dev_row.add_child(_devices_l)
-	var dev_btn := Button.new()
-	dev_btn.text = "Devices…"
-	dev_btn.pressed.connect(func() -> void: App.go_to("res://ui/screens/devices_screen.tscn"))
-	dev_row.add_child(dev_btn)
-	var settings_btn := Button.new()
-	settings_btn.text = "Settings…"
-	settings_btn.pressed.connect(func() -> void: App.go_to("res://ui/screens/settings_screen.tscn"))
-	dev_row.add_child(settings_btn)
-
-	_ride = Button.new()
-	_ride.text = "Ride"
-	_ride.custom_minimum_size.y = 44
-	_ride.pressed.connect(_on_ride_pressed.bind(false))
-	right.add_child(_ride)
-	_sim_btn = Button.new()
-	_sim_btn.text = "Ride on simulator"
-	_sim_btn.pressed.connect(_on_ride_pressed.bind(true))
-	right.add_child(_sim_btn)
+	v.add_child(_rides)
 
 	_dialog = FileDialog.new()
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM

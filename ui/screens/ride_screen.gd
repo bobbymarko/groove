@@ -487,7 +487,7 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	_finish_l = HudStyle.label(fin, _fmt(App.workout.total_duration()), 26, 900)
 	HudStyle.share_baseline(fin, _finish_l, fin_l)
 
-	_groups = _group_segments(App.workout)
+	_groups = WorkoutSummary.rows(App.workout, App.ftp)
 	_rows.clear()
 	for g in _groups:
 		var row := HudStyle.panel(v, HudStyle.PANEL_ROW, 6, 10)
@@ -534,41 +534,6 @@ func _style_row(row: PanelContainer, active: bool) -> void:
 	sb.content_margin_top = 4
 	sb.content_margin_bottom = 4
 	row.add_theme_stylebox_override("panel", sb)
-
-
-## Collapse the segment list into display rows: repeats become one "N x" row.
-func _group_segments(w: Workout) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var i := 0
-	var ftp := App.ftp
-	while i < w.segments.size():
-		var s := w.segments[i]
-		if s.kind == WorkoutSegment.Kind.INTERVAL_ON and s.rep == 1:
-			var last := i
-			var off: WorkoutSegment = null
-			while last + 1 < w.segments.size() and w.segments[last + 1].kind in [WorkoutSegment.Kind.INTERVAL_ON, WorkoutSegment.Kind.INTERVAL_OFF] and w.segments[last + 1].rep_count == s.rep_count:
-				last += 1
-				if off == null and w.segments[last].kind == WorkoutSegment.Kind.INTERVAL_OFF:
-					off = w.segments[last]
-			out.append({"kind": "intervals", "first": i, "last": last, "count": s.rep_count,
-				"on_dur": s.duration, "on_w": round(s.power_low * ftp),
-				"off_dur": off.duration if off else 0.0, "off_w": round(off.power_low * ftp) if off else 0.0})
-			i = last + 1
-			continue
-		var text := ""
-		match s.kind:
-			WorkoutSegment.Kind.WARMUP: text = "%s warmup" % HudStyle.duration(s.duration)
-			WorkoutSegment.Kind.COOLDOWN: text = "%s cool down" % HudStyle.duration(s.duration)
-			WorkoutSegment.Kind.FREE_RIDE: text = "%s free ride" % HudStyle.duration(s.duration)
-			WorkoutSegment.Kind.MAX_EFFORT: text = "%s max effort" % HudStyle.duration(s.duration)
-			_:
-				if s.is_ramp():
-					text = "%s %d→%dw" % [HudStyle.duration(s.duration), int(round(s.power_low * ftp)), int(round(s.power_high * ftp))]
-				else:
-					text = "%s @ %dw" % [HudStyle.duration(s.duration), int(round(s.power_low * ftp))]
-		out.append({"kind": "single", "first": i, "last": i, "text": text})
-		i += 1
-	return out
 
 
 ## Top-centre: trip numbers, progress, current block, power, live metrics.
