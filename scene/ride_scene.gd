@@ -116,7 +116,10 @@ func _ready() -> void:
 		horde.rider = rider
 		horde.trail = trail
 		horde.height_fn = terrain.height
-		horde.hit.connect(func(_k: int) -> void: rider.attack())
+		horde.hit.connect(func(_k: int) -> void:
+			rider.attack()
+			# Swing the camera to the side of the swing (rig-Right hand is -X): a closer look at the hit.
+			camera.punch(-1.0 if rider.weapon_tier > 0 else 1.0))
 		horde.picked_up.connect(func(t: int) -> void: rider.set_weapon(t))
 		_world.add_child(horde)
 	camera = HandheldCamera.new()

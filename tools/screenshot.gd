@@ -89,6 +89,10 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 					rs.horde.weapon_tier = int(a.trim_prefix("weapon="))
 		for i in 240:
 			await process_frame
+			if i == 228:
+				for a in OS.get_cmdline_user_args():
+					if a.begins_with("punch="):
+						rs.camera.punch(float(a.trim_prefix("punch=")))   # ~0.6 s before capture: mid-swing
 		var rp: Vector3 = rs.rider.global_position
 		print("[dbg] rider %s heading %s grade %.1f speed %.1f" % [rp, rs.trail.heading_at(rs.distance), rs.trail.grade_at(rs.distance), rs.physics.speed])
 		print("[dbg] camera %s fov %.1f dist %.1f height %.1f" % [rs.camera.global_position, rs.camera.fov, rs.camera.follow_distance, rs.camera.follow_height])

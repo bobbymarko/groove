@@ -11,6 +11,10 @@ var ground_height: Callable ## func(x, z) -> float; terrain height, for clearanc
 const CLEARANCE := 1.0      ## metres the lens stays above the ground
 
 var _t := 0.0
+var _punch := 0.0           ## hit camera: 1 right after a zombie hit, eases back to 0
+var _base_fov := -1.0
+var _punch_side := 1.0      ## which side the camera swings to
+const PUNCH_SECONDS := 1.4
 var _noise := FastNoiseLite.new()
 var _smooth_pos := Vector3.ZERO
 var _initialized := false
@@ -40,6 +44,19 @@ func update_follow(rider_pos: Vector3, heading: Vector3, anchor: Vector3, ground
 	var target := anchor + Vector3.UP * follow_height
 	if absf(orbit) > 0.001:
 		target = rider_pos + (Basis(Vector3.UP, orbit) * (-flat)) * follow_distance + Vector3.UP * follow_height
+	# Hit camera: swing to the side, drop and close in on the rider, then ease back.
+	if _punch > 0.0:
+		_punch = maxf(_punch - delta / PUNCH_SECONDS, 0.0)
+		var k := sin(PI * _punch)                       # 0 -> 1 -> 0 over the punch
+		var right := flat.cross(Vector3.UP).normalized() * _punch_side
+		var toward := (rider_pos - target)
+		toward.y = 0.0
+		target += toward * 0.5 * k + right * 2.6 * k + Vector3.DOWN * 0.7 * k
+	# Lens zoom rides along with the punch (and restores the user's fov after).
+	if _base_fov < 0.0:
+		_base_fov = fov
+	var k_zoom := sin(PI * _punch) if _punch > 0.0 else 0.0
+	fov = _base_fov * (1.0 - 0.22 * k_zoom)
 	target.y = maxf(target.y, _ground(target, ground_y) + CLEARANCE)
 	if not _initialized:
 		_smooth_pos = target
@@ -50,5 +67,12 @@ func update_follow(rider_pos: Vector3, heading: Vector3, anchor: Vector3, ground
 	var pos := _smooth_pos
 	pos.y = maxf(pos.y, _ground(pos, ground_y) + CLEARANCE * 0.8)
 	global_position = pos
-	var look := rider_pos + Vector3.UP * 0.9 + (flat * look_ahead if absf(orbit) <= 0.001 else Vector3.ZERO)
+	var k_look := sin(PI * _punch) if _punch > 0.0 else 0.0
+	var look := rider_pos + Vector3.UP * 0.9 + (flat * look_ahead * (1.0 - 0.8 * k_look) if absf(orbit) <= 0.001 else Vector3.ZERO)
 	look_at(look, Vector3.UP)
+
+
+## Start the hit camera; `side` is +1 or -1 for which way to swing.
+func punch(side: float = 1.0) -> void:
+	_punch = 1.0
+	_punch_side = 1.0 if side >= 0.0 else -1.0
