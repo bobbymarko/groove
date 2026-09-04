@@ -9,7 +9,7 @@ var _devices_l: Label
 
 
 func _ready() -> void:
-	width = 500.0
+	width = 940.0
 	super._ready()
 	Devices.trainer_changed.connect(func(_t: Trainer) -> void: _refresh_devices())
 	Devices.status.connect(func(_s: String) -> void: _refresh_devices())
@@ -52,7 +52,7 @@ func choose_scene(simulator: bool) -> void:
 	header(v, "Choose a scene", func() -> void: open(workout))
 	HudStyle.label(v, workout.name, 14, 500, HudStyle.TEXT_DIM)
 	var grid := GridContainer.new()
-	grid.columns = 2
+	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	v.add_child(grid)
@@ -69,7 +69,7 @@ func choose_scene(simulator: bool) -> void:
 		if ResourceLoader.exists(thumb_path):
 			var tr := TextureRect.new()
 			tr.texture = load(thumb_path)
-			tr.custom_minimum_size = Vector2(0, 120 if ScenePreset.ORDER.size() <= 4 else 88)
+			tr.custom_minimum_size = Vector2(0, 150)
 			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 			tr.clip_contents = true
@@ -120,8 +120,8 @@ func _build_content(v: VBoxContainer) -> void:
 
 	var est := WorkoutSummary.estimates(w, ftp)
 	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 28)
 	grid.add_theme_constant_override("v_separation", 4)
 	v.add_child(grid)
 	_stat(grid, WorkoutSummary.duration(w.total_duration()), "duration")
@@ -132,25 +132,36 @@ func _build_content(v: VBoxContainer) -> void:
 	_stat(grid, "%d" % int(round(kcal)), "kcal")
 	_stat(grid, "%.1f" % RideMetrics.pizza_slices(kcal), "slices of pizza")
 
+	# Two columns: the coach's description (two thirds) beside the block list (one third).
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
-	var body := VBoxContainer.new()
+	var body := HBoxContainer.new()
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 8)
+	body.add_theme_constant_override("separation", 20)
 	scroll.add_child(body)
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.size_flags_stretch_ratio = 2.0
+	left.add_theme_constant_override("separation", 8)
+	body.add_child(left)
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.size_flags_stretch_ratio = 1.0
+	right.add_theme_constant_override("separation", 8)
+	body.add_child(right)
 	if w.description != "":
-		_coach_note(body, w.description)
-	HudStyle.label(body, "Blocks", 14, 700, HudStyle.TEXT_DIM)
-	var blocks := HudStyle.panel(body, HudStyle.PANEL, 8, 8)
+		_coach_note(left, w.description)
+	if w.author != "":
+		HudStyle.label(left, "by %s" % w.author, 13, 500, HudStyle.TEXT_DIM)
+	HudStyle.section_label(right, "Blocks", 12)
+	var blocks := HudStyle.panel(right, HudStyle.PANEL, 8, 8)
 	var bl := VBoxContainer.new()
 	bl.add_theme_constant_override("separation", 4)
 	blocks.add_child(bl)
 	for r in WorkoutSummary.rows(w, ftp):
 		HudStyle.block_row(bl, r, 24, 16, Color(0.20, 0.23, 0.31, 0.9))
-	if w.author != "":
-		HudStyle.label(body, "by %s" % w.author, 13, 500, HudStyle.TEXT_DIM)
 
 	_devices_l = HudStyle.label(v, "", 13, 500, HudStyle.TEXT_DIM)
 	var bar := HBoxContainer.new()

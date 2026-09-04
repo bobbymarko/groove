@@ -50,6 +50,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			if a.begins_with("rain="):
 				rs.rain_override = float(a.trim_prefix("rain="))
 				rs._rain = rs.rain_override
+			if a.begins_with("effort="):
+				rs.effort = float(a.trim_prefix("effort="))
 		for opt in ["nocull", "plain"]:
 			if OS.get_cmdline_user_args().has(opt):
 				rs.debug_material = opt
@@ -71,6 +73,10 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				var mb0 := rs.rider.find_child("MixamoBody", true, false)
 				if mb0:
 					mb0.lean_sign = float(a.trim_prefix("sign="))
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("horde=") and rs.horde:
+				for i in int(a.trim_prefix("horde=")):
+					rs.horde.spawn(rs.distance, 4.0 + 2.5 * i)
 		for i in 240:
 			await process_frame
 		var rp: Vector3 = rs.rider.global_position

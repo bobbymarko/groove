@@ -5,7 +5,7 @@ extends RefCounted
 ## Winter is the reference look; the others reuse the same trail, terrain and
 ## mountains with different colours, trees and ground cover.
 
-const ORDER := ["winter", "summer", "autumn", "spring", "desert", "birchwood"]
+const ORDER := ["winter", "summer", "autumn", "spring", "desert", "birchwood", "apocalypse"]
 const DEFAULT_TREE_SCALE := Vector2(0.45, 0.8)   # MegaKit pines are ~7 m tall at 1.0
 
 const PRESETS := {
@@ -107,6 +107,25 @@ const PRESETS := {
 		"rocks": ["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"],
 		"cover": ["un/Flowers.obj", "un/Plant_1.obj", "un/BushBerries_1.obj", "Grass_Common_Tall"],
 		"snow": false, "prop_snow": false, "sun_lift": 24.0, "dead_share": 0.05, "rain_chance": 0.3,
+	},
+	"apocalypse": {
+		"name": "Apocalypse", "description": "Ash, dead wood and a horde that grows with your effort",
+		"colors": {
+			"SKY_TOP": "2a1e22", "SKY_MID": "5a3532", "SKY_LOW": "8a4e3a", "SKY_HORIZON": "b46a44", "FOG": "7a4e42",
+			"SNOW": "6f6a66", "SNOW_MID": "5e5955", "SNOW_SHADE": "4c4844", "SNOW_SHADOW": "3a3436", "SNOW_BRIGHT": "807b76",
+			"TRAIL": "574f4a", "TRAIL_DARK": "3f3936", "ROCK": "6a5e58", "ROCK_DARK": "463c38",
+			"MOUNTAIN_FAR": "9c7a70", "MOUNTAIN_FAR2": "846258", "MOUNTAIN_MID": "6c4c48", "MOUNTAIN_MID2": "573e3c", "MOUNTAIN_NEAR": "463236",
+			"MOUNTAIN_SNOW": "8d7d78",
+			"PINE": "5a5148", "PINE_LIGHT": "78706a", "PINE_DARK": "3a332e", "TRUNK": "2e2624", "BRANCH": "3e3430", "BERRY": "a03030",
+			"FLOWER": "b04040", "FLOWER_DARK": "601818",
+		},
+		"trees": ["DeadTree_1", "DeadTree_2", "DeadTree_3", "DeadTree_4", "DeadTree_5", "un/TreeStump.obj", "un/WoodLog.obj"],
+		"tree_scale": [0.7, 1.1],
+		"dead": [],
+		"rocks": ["un/Rock_1.obj", "un/Rock_2.obj", "un/Rock_3.obj", "un/Rock_4.obj", "un/Rock_5.obj", "un/Rock_6.obj", "un/Rock_7.obj"],
+		"cover": ["un/Grass.obj"],
+		"snow": false, "prop_snow": false, "sun_lift": 6.0, "dead_share": 0.0, "rain_chance": 0.15, "tree_density": 0.6,
+		"zombies": true,
 	},
 }
 

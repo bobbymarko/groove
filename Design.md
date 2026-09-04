@@ -62,6 +62,9 @@ Two pixel faces (2026-09-04): **Pixel Operator** (CC0) for display sizes, 20 px 
 ## Icons
 Primary set: Bob's pixel sprite sheet `assets/images/groove-icon-sprite-sheet-8x4-transparent.png`, 8×4 cells of 256 px, each region trimmed to the glyph's bounds, full colour (never tinted): bluetooth, heart, signal, gear, pause, camera, sound, lock / check, warning, play, trash, bolt, rider, gauge, stopwatch / home, bike, history (bars), flag (route), mountain (badge), user, trophy, star / pizza, bottle, snowflake, thermometer, wrench, music, refresh, chevron-right. Fallback: single-colour SVGs in `assets/icons/` for glyphs the sheet lacks (chevron-left, close, share), tinted at runtime. `HudStyle.icon_texture(name)` picks.
 
+## Sheets
+The workout sheet is 940 px wide: graph, a three-column stat grid, then two columns with the coach's description at two thirds and the block list at one third, so nothing needs scrolling on a TV.
+
 ## Backgrounds
 Home uses `assets/images/menu-bg.png` (pixel night mountains) under a 45 % ink wash so cards stay legible. The ride HUD floats over the live world; panels stay translucent.
 

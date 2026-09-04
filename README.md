@@ -8,7 +8,7 @@ Working title. Product owner: Bobby Marko. The code is written by Claude followi
 - Opens `.zwo`, `.mrc`, `.erg` and FIT workout files, and shows your planned workouts from the intervals.icu calendar by day.
 - Controls a Bluetooth FTMS trainer (tested on a Wahoo KICKR CORE) and reads a heart-rate strap, reconnecting after dropouts.
 - Ride HUD with the plan drawn as a single coloured "groove", live metrics, a coach who reads the workout's text cues, and keyboard shortcuts.
-- A procedural world with six scenes (Winter, Summer, Autumn, Spring, Desert, Birchwood), a day/night cycle that runs at four times real time, weather, tyre marks and dust.
+- A procedural world with seven scenes (Winter, Summer, Autumn, Spring, Desert, Birchwood, and an Apocalypse where zombies come for you on the hard reps), a day/night cycle that runs at four times real time, weather, tyre marks and dust.
 - Records rides to FIT with power, cadence, heart rate and speed; summary with NP, IF, TSS, kcal and pizza slices; sharing to intervals.icu and Strava with a confirmation step; screenshots saved for manual posting.
 
 ## Running it
@@ -39,6 +39,7 @@ Manual hardware test procedures are in `tests/manual.md`.
 
 ## Assets and licences
 - Quaternius Stylized Nature MegaKit and Ultimate Nature Pack: CC0.
+- "Animated Zombie" by Quaternius (via Poly Pizza): CC BY 3.0, attribution required and given here.
 - Fonts: Departure Mono (SIL Open Font License) and Pixel Operator (CC0). Lato (OFL) remains in the repo but is unused.
 - Icon sprite sheet, wordmark, coach portrait and menu background are Bob's.
 - Rider model from Mixamo (Adobe), used under the Mixamo terms; not redistributed here as an asset kit.

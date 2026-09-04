@@ -18,6 +18,8 @@ var physics := RidePhysics.new()
 var snow: Snow
 var marks: TreadMarks
 var dust: WheelDust
+var horde: Horde                 ## only in presets with "zombies": true
+var effort := 0.5                ## current target as a fraction of FTP (drives the horde)
 var rain: Rain
 var rain_override := -1.0        ## tooling: fixed rain intensity
 var _rain := 0.0                 ## current rain intensity 0..1, eased toward the schedule
@@ -109,6 +111,13 @@ func _ready() -> void:
 	dust.position = Vector3(0.0, 0.04, -0.62)   # just behind the rear contact patch
 	dust.set_ground(bool(_preset.get("snow", true)))
 	rider.add_child(dust)
+	if bool(_preset.get("zombies", false)):
+		horde = Horde.new()
+		horde.rider = rider
+		horde.trail = trail
+		horde.height_fn = terrain.height
+		horde.hit.connect(func(_k: int) -> void: rider.kick())
+		_world.add_child(horde)
 	camera = HandheldCamera.new()
 	camera.ground_height = func(x: float, z: float) -> float: return terrain.height(x, z)
 	_world.add_child(camera)
@@ -314,6 +323,9 @@ func _process(raw_delta: float) -> void:
 	if riding and speed > 0.05:
 		marks.add(rider.to_global(Vector3(0.0, 0.0, -0.55)), rider.global_transform.basis.x, terrain.height)
 	dust.update(speed if riding else 0.0, _rain)
+	if horde:
+		horde.effort = effort
+		horde.update(raw_delta, rider.global_position, speed, power, distance)
 	terrain.update_around(distance)
 	var anchor := trail.position_at(maxf(distance - camera.follow_distance, 0.0))
 	var ground := terrain.height(anchor.x, anchor.z)

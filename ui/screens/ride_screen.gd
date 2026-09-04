@@ -50,6 +50,8 @@ var _elev_l: Label
 var _kj_l: Label
 var _reps_l: Label
 var _reps_icon: Control
+var _kills_icon: Control
+var _kills_l: Label
 var _block_name_l: Label
 var _block_dur_l: Label
 var _rows: Array[PanelContainer] = []
@@ -106,6 +108,10 @@ func _ready() -> void:
 			_hardest_index = i
 	_title.text = App.workout.name
 	_graph.set_workout(App.workout)
+	if _scene.horde:
+		_kills_icon.visible = true
+		_kills_l.visible = true
+		_scene.horde.hit.connect(func(k: int) -> void: _kills_l.text = str(k))
 	_intro()
 	_on_tick(_runner.snapshot())
 
@@ -311,6 +317,7 @@ func _update_reps(current_index: int) -> void:
 
 
 func _on_target(w: int) -> void:
+	_scene.effort = float(w) / maxf(float(App.ftp), 1.0)
 	_target.text = ("%dw" % w) if w > 0 else "free"
 	if _trainer and _runner.erg_enabled and w > 0:
 		_trainer.set_target_power(w)
@@ -571,6 +578,11 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	foot.add_child(sp)
 	_reps_icon = _hud_icon_ref(foot, "star", 24, HudStyle.YELLOW)
 	_reps_l = HudStyle.label(foot, "", 20, 700, HudStyle.YELLOW)
+	# Apocalypse only: zombies booted.
+	_kills_icon = _hud_icon_ref(foot, "trophy", 24, HudStyle.YELLOW)
+	_kills_l = HudStyle.label(foot, "0", 20, 700, HudStyle.ORANGE)
+	_kills_icon.visible = false
+	_kills_l.visible = false
 	_update_reps(-1)
 	return panel
 
