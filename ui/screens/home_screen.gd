@@ -5,11 +5,10 @@ extends Control
 var _files: Array[String] = []
 var _grid: GridContainer
 var _devices_l: Label
-var _rides: ItemList
-var _ride_entries: Array[Dictionary] = []
 var _error: Label
 var _dialog: FileDialog
 var _sheet: WorkoutSheet
+var _side: SideSheet          # settings / devices / rides
 
 
 func _ready() -> void:
@@ -19,7 +18,6 @@ func _ready() -> void:
 	Devices.heart_rate_sensor_changed.connect(func(_h: HeartRateSensor) -> void: _refresh_devices())
 	Devices.status.connect(func(_s: String) -> void: _refresh_devices())
 	_refresh_devices()
-	_refresh_rides()
 	_recover_unfinished()
 
 
@@ -61,10 +59,18 @@ func _add_card(w: Workout, path: String) -> void:
 func _add_open_card() -> void:
 	var card := HudStyle.panel(_grid, Color(0.10, 0.12, 0.17, 0.35), 10, 12)
 	card.custom_minimum_size = Vector2(300, 150)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var c := CenterContainer.new()
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(c)
-	HudStyle.button(c, "+  Open .zwo file…", 16, _on_open_pressed)
+	var l := HudStyle.label(c, "+  Open .zwo file…", 16, 700, HudStyle.TEXT_DIM)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_on_open_pressed())
+	card.mouse_entered.connect(func() -> void: card.modulate = Color(1.2, 1.2, 1.25))
+	card.mouse_exited.connect(func() -> void: card.modulate = Color.WHITE)
 
 
 func _refresh_devices() -> void:
@@ -80,19 +86,6 @@ func _refresh_devices() -> void:
 	if h != null and not (h is SimulatedHeartRate):
 		parts.append("%s %s" % [h.display_name(), "connected" if h.is_device_connected() else "reconnecting…"])
 	_devices_l.text = "  ·  ".join(parts)
-
-
-func _refresh_rides() -> void:
-	_ride_entries = App.list_rides()
-	_rides.clear()
-	for r in _ride_entries:
-		var when := Time.get_datetime_string_from_unix_time(int(r.meta.get("started_at", 0)), true).replace("T", " ")
-		_rides.add_item("%s   %s   %d min%s" % [when.left(16), str(r.meta.get("workout", "Ride")), int(r.samples) / 60, "" if r.finished else "   (unfinished)"])
-
-
-func _on_ride_selected(i: int) -> void:
-	App.last_ride_journal = _ride_entries[i].journal
-	App.go_to("res://ui/screens/summary_screen.tscn")
 
 
 ## A journal without an end line means the app died mid-ride. Finalize it so
@@ -115,8 +108,6 @@ func _recover_unfinished() -> void:
 			jf.store_line(JSON.stringify({"end": {"ended_at": int(samples[-1].t), "completed": false, "recovered": true}}))
 			jf.close()
 		_error.text = "Recovered an unfinished ride: %s" % str(meta.get("workout", path.get_file()))
-	if RideRecorder.unfinished_journals().is_empty():
-		_refresh_rides()
 
 
 func _on_open_pressed() -> void:
@@ -153,8 +144,9 @@ func _build_ui() -> void:
 	var title := HudStyle.label(head, "Ride", 34, 900)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_devices_l = HudStyle.label(head, "", 14, 500, HudStyle.TEXT_DIM)
-	HudStyle.button(head, "Devices…", 15, func() -> void: App.go_to("res://ui/screens/devices_screen.tscn"))
-	HudStyle.button(head, "Settings…", 15, func() -> void: App.go_to("res://ui/screens/settings_screen.tscn"))
+	HudStyle.button(head, "Rides", 15, open_rides)
+	HudStyle.button(head, "Devices", 15, open_devices)
+	HudStyle.button(head, "Settings", 15, open_settings)
 
 	HudStyle.label(v, "Workouts", 18, 700, HudStyle.TEXT_DIM)
 	var scroll := ScrollContainer.new()
@@ -171,12 +163,6 @@ func _build_ui() -> void:
 
 	_error = HudStyle.label(v, "", 14, 500, Color(1, 0.6, 0.6))
 
-	HudStyle.label(v, "Recent rides", 16, 700, HudStyle.TEXT_DIM)
-	_rides = ItemList.new()
-	_rides.custom_minimum_size.y = 110
-	_rides.item_activated.connect(_on_ride_selected)
-	v.add_child(_rides)
-
 	_dialog = FileDialog.new()
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -188,3 +174,40 @@ func _build_ui() -> void:
 	_sheet = WorkoutSheet.new()
 	_sheet.name = "WorkoutSheet"
 	add_child(_sheet)
+	_side = SideSheet.new()
+	_side.name = "SideSheet"
+	_side.width = 560.0
+	add_child(_side)
+
+
+func open_settings() -> void:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	_side.header(v, "Settings")
+	var p := SettingsPanel.new()
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(p)
+	_side.show_content(v)
+	# FTP changes the card estimates.
+	if not _side.closed.is_connected(_refresh_cards):
+		_side.closed.connect(_refresh_cards)
+
+
+func open_devices() -> void:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	_side.header(v, "Devices")
+	var p := DevicesPanel.new()
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(p)
+	_side.show_content(v)
+
+
+func open_rides() -> void:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	_side.header(v, "Recent rides")
+	var p := RidesPanel.new()
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(p)
+	_side.show_content(v)

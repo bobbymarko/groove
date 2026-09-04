@@ -101,6 +101,11 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			scene.get_node("WorkoutSheet").open(ZwoParser.parse_file("res://workouts/cadence_today.zwo"))
 			for i in 30:
 				await process_frame
+		if mode in ["settings", "devices", "rides"]:
+			await process_frame
+			scene.call("open_" + mode)
+			for i in 40:
+				await process_frame
 	if ride:
 		await process_frame
 		var runner: WorkoutRunner = scene.get_node("WorkoutRunner")

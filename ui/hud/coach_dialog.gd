@@ -2,9 +2,9 @@ class_name CoachDialog
 extends PanelContainer
 ## Coach notes as a centred dialog box with a portrait on the left, the way
 ## characters talk in Star Fox: text types in, holds, then fades. Uses
-## res://assets/coach.png as the portrait when present, else a drawn placeholder.
+## assets/images/coach-avatar.png as the portrait when present, else a drawn placeholder.
 
-const PORTRAIT_PATH := "res://assets/coach.png"
+const PORTRAIT_PATH := "res://assets/images/coach-avatar.png"
 const CHARS_PER_SECOND := 45.0
 const HOLD_SECONDS := 6.0
 const FADE_SECONDS := 0.6

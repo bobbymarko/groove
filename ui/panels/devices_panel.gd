@@ -1,7 +1,7 @@
-extends Control
-## Pairing screen: shows the active trainer and heart-rate sensor, scans for
-## Bluetooth devices, and connects the one you pick. Roles are assigned from
-## the services a device exposes, so there is nothing to choose.
+class_name DevicesPanel
+extends VBoxContainer
+## Pairing controls for a side sheet: active trainer and heart-rate sensor,
+## scan, connect the selected device, simulator fallback.
 
 var _adapter_l: Label
 var _status_l: Label
@@ -14,13 +14,12 @@ var _hr_live: Label
 var _scan_btn: Button
 var _list: ItemList
 var _addresses: Array[String] = []
-var _connect_btn: Button
-
 var _live_power := -1
 var _live_bpm := -1
 
 
 func _ready() -> void:
+	add_theme_constant_override("separation", 10)
 	_build_ui()
 	Devices.adapter_state_changed.connect(func(_ok: bool, _e: String) -> void: _refresh())
 	Devices.scan_state_changed.connect(func(_s: bool) -> void: _refresh())
@@ -66,14 +65,12 @@ func _refresh() -> void:
 		_adapter_l.text = "Bluetooth: " + (Devices.adapter_error() if Devices.adapter_error() != "" else "starting…")
 	_scan_btn.text = "Stop scan" if Devices.is_scanning() else "Scan"
 	_scan_btn.disabled = not Devices.adapter_ready()
-
 	var t := Devices.trainer
 	var remembered_t: Dictionary = Devices.remembered.get("trainer", {})
 	_trainer_name.text = t.display_name() if t else str(remembered_t.get("name", "No trainer"))
 	_trainer_state.text = _state_text(t, remembered_t)
 	if _live_power < 0:
 		_trainer_live.text = ""
-
 	var h := Devices.heart_rate
 	var remembered_h: Dictionary = Devices.remembered.get("heart_rate", {})
 	_hr_name.text = h.display_name() if h else str(remembered_h.get("name", "No heart-rate sensor"))
@@ -92,9 +89,9 @@ func _state_text(dev: Node, remembered: Dictionary) -> String:
 
 func _on_device_found(info: Dictionary) -> void:
 	var addr: String = info.address
-	var label := "%s   %d dBm%s" % [
-		info.name if info.name != "" else "(unnamed)", info.rssi,
-		("   · remembered " + Devices.role_of(addr).replace("_", " ")) if Devices.role_of(addr) != "" else ""]
+	var role := Devices.role_of(addr)
+	var label := "%s   %d dBm%s" % [info.name if info.name != "" else "(unnamed)", info.rssi,
+		("   · remembered " + role.replace("_", " ")) if role != "" else ""]
 	var i := _addresses.find(addr)
 	if i >= 0:
 		_list.set_item_text(i, label)
@@ -105,9 +102,8 @@ func _on_device_found(info: Dictionary) -> void:
 
 func _on_connect_pressed() -> void:
 	var sel := _list.get_selected_items()
-	if sel.is_empty():
-		return
-	Devices.pair(_addresses[sel[0]])
+	if not sel.is_empty():
+		Devices.pair(_addresses[sel[0]])
 
 
 func _on_scan_pressed() -> void:
@@ -121,93 +117,41 @@ func _on_scan_pressed() -> void:
 
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.09, 0.1, 0.14)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 24)
-	add_child(margin)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	margin.add_child(v)
-
-	var top := HBoxContainer.new()
-	v.add_child(top)
-	var title := _label(top, "Devices", 28)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_adapter_l = _label(top, "", 16)
-
-	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 16)
-	v.add_child(cards)
-	var tcard := _card(cards, "Trainer")
-	_trainer_name = _label(tcard, "", 20)
-	_trainer_state = _label(tcard, "", 14)
-	_trainer_live = _label(tcard, "", 32)
-	var tf := _button(tcard, "Forget", func() -> void: Devices.forget("trainer"); _refresh())
-	tf.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var hcard := _card(cards, "Heart rate")
-	_hr_name = _label(hcard, "", 20)
-	_hr_state = _label(hcard, "", 14)
-	_hr_live = _label(hcard, "", 32)
-	var hf := _button(hcard, "Forget", func() -> void: Devices.forget("heart_rate"); _refresh())
-	hf.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_adapter_l = HudStyle.label(self, "", 13, 500, HudStyle.TEXT_DIM)
+	var tcard := _card("Trainer")
+	_trainer_name = HudStyle.label(tcard, "", 18, 700)
+	_trainer_state = HudStyle.label(tcard, "", 13, 500, HudStyle.TEXT_DIM)
+	_trainer_live = HudStyle.label(tcard, "", 26, 900)
+	HudStyle.button(tcard, "Forget", 13, func() -> void: Devices.forget("trainer"); _refresh()).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var hcard := _card("Heart rate")
+	_hr_name = HudStyle.label(hcard, "", 18, 700)
+	_hr_state = HudStyle.label(hcard, "", 13, 500, HudStyle.TEXT_DIM)
+	_hr_live = HudStyle.label(hcard, "", 26, 900)
+	HudStyle.button(hcard, "Forget", 13, func() -> void: Devices.forget("heart_rate"); _refresh()).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 
 	var scan_row := HBoxContainer.new()
 	scan_row.add_theme_constant_override("separation", 8)
-	v.add_child(scan_row)
-	_label(scan_row, "Nearby devices", 18).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scan_btn = _button(scan_row, "Scan", _on_scan_pressed)
-
+	add_child(scan_row)
+	HudStyle.label(scan_row, "Nearby devices", 16, 700).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scan_btn = HudStyle.button(scan_row, "Scan", 14, _on_scan_pressed)
 	_list = ItemList.new()
+	_list.custom_minimum_size.y = 160
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.item_activated.connect(func(_i: int) -> void: _on_connect_pressed())
-	v.add_child(_list)
-
-	_status_l = _label(v, "", 14)
-	_status_l.modulate = Color(1, 1, 1, 0.7)
+	add_child(_list)
+	_status_l = HudStyle.label(self, "", 13, 500, HudStyle.TEXT_DIM)
 	_status_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
-	v.add_child(bar)
-	_connect_btn = _button(bar, "Connect selected", _on_connect_pressed)
-	_button(bar, "Use simulator", func() -> void: Devices.use_simulated_devices())
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.add_child(spacer)
-	_button(bar, "Home", func() -> void: App.go_to("res://ui/screens/home_screen.tscn"))
+	add_child(bar)
+	HudStyle.button(bar, "Connect selected", 14, _on_connect_pressed)
+	HudStyle.button(bar, "Use simulator", 14, func() -> void: Devices.use_simulated_devices())
 
 
-func _card(parent: Control, heading: String) -> VBoxContainer:
-	var panel := PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(panel)
-	var m := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
-		m.add_theme_constant_override("margin_" + side, 12)
-	panel.add_child(m)
+func _card(heading: String) -> VBoxContainer:
+	var panel := HudStyle.panel(self, HudStyle.PANEL_ROW, 8, 12)
 	var box := VBoxContainer.new()
-	m.add_child(box)
-	var h := _label(box, heading, 14)
-	h.modulate = Color(1, 1, 1, 0.6)
+	box.add_theme_constant_override("separation", 2)
+	panel.add_child(box)
+	HudStyle.label(box, heading, 12, 700, HudStyle.TEXT_DIM)
 	return box
-
-
-func _label(parent: Control, text: String, font_size: int) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
-	parent.add_child(l)
-	return l
-
-
-func _button(parent: Control, text: String, on_pressed: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.pressed.connect(on_pressed)
-	parent.add_child(b)
-	return b
