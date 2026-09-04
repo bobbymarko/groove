@@ -29,6 +29,7 @@ var _pines: Array[Mesh] = []      # variants; MeshLib procedural pine as fallbac
 var _rocks: Array[Mesh] = []
 var _dead_trees: Array[Mesh] = []
 var _cover: Array[Mesh] = []       # grass, flowers, mushrooms near the trail
+var _cover_scale: Array[Vector2] = []   # min/max scale per cover mesh (the kit's flowers are huge at 1.0)
 var _dead_share := 0.04
 var _shrub_mesh: ArrayMesh
 var _material: Material
@@ -79,6 +80,12 @@ func _init(t: Trail) -> void:
 		var m := MeshLib.load_prop("res://assets/quaternius/%s.gltf" % n, false)
 		if m:
 			_cover.append(m)
+			if "Flower" in n or "Mushroom" in n:
+				_cover_scale.append(Vector2(0.28, 0.45))
+			elif "Grass" in n:
+				_cover_scale.append(Vector2(0.45, 0.75))
+			else:
+				_cover_scale.append(Vector2(0.7, 1.1))
 	if _pines.is_empty():
 		_pines.append(MeshLib.pine())
 	if _rocks.is_empty():
@@ -294,7 +301,9 @@ func _scatter_transforms(z0: float, t: Trail) -> Dictionary:
 		var basis := Basis(Vector3.UP, rng.randf() * TAU)
 		# Ground cover hugs the trail edges where the rider sees it.
 		if not _cover.is_empty() and ad < 6.0 and slope < 0.9 and rng.randf() < 0.45 * minf(density_scale, 1.0):
-			cover[rng.randi() % cover.size()].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(0.7, 1.2)), Vector3(x, y - 0.02, z)))
+			var ci := rng.randi() % cover.size()
+			var sc: Vector2 = _cover_scale[ci]
+			cover[ci].append(Transform3D(basis.scaled(Vector3.ONE * rng.randf_range(sc.x, sc.y)), Vector3(x, y - 0.02, z)))
 			continue
 		if slope > 0.9:
 			if rng.randf() < 0.3:

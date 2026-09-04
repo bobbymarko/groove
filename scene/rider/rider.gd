@@ -5,6 +5,8 @@ extends Node3D
 ## turns. Forward is +Z in local space.
 
 const WHEEL_R := 0.36
+const SPOKES := 8                       # each spoke crosses the hub, so 16 visible
+const SPOKE := Color("2c2c36")
 const CRANK_R := 0.17
 const BB := Vector3(0.0, 0.34, 0.0)          # bottom bracket
 const HIP := Vector3(0.0, 1.06, -0.18)
@@ -183,14 +185,25 @@ func _wheel(pos: Vector3) -> MeshInstance3D:
 	mi.material_override = MeshLib.cel_material(false, Palette.TIRE)
 	mi.position = pos
 	mi.rotation = Vector3(0.0, 0.0, PI * 0.5)   # torus axis (Y) becomes the axle (X)
-	# Spokes: a hub disc so rotation is visible
+	# Hub and spokes so rotation reads. Always dark, whatever the scene palette.
+	var dark := MeshLib.cel_material(false, SPOKE)
 	var hub := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(0.05, 0.62, 0.08)
-	hub.mesh = box
-	hub.material_override = MeshLib.cel_material(false, Palette.SNOW_SHADE)
-	hub.rotation = Vector3(0.0, 0.0, PI * 0.5)
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.045
+	cyl.bottom_radius = 0.045
+	cyl.height = 0.1
+	cyl.radial_segments = 8
+	hub.mesh = cyl
+	hub.material_override = dark
 	mi.add_child(hub)
+	var spoke := BoxMesh.new()
+	spoke.size = Vector3((WHEEL_R - 0.09) * 2.0, 0.012, 0.012)
+	for i in SPOKES:
+		var s := MeshInstance3D.new()
+		s.mesh = spoke
+		s.material_override = dark
+		s.rotation = Vector3(0.0, PI * float(i) / SPOKES, 0.0)   # spokes lie in the wheel plane (local XZ)
+		mi.add_child(s)
 	add_child(mi)
 	return mi
 
