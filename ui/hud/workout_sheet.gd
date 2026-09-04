@@ -179,7 +179,7 @@ func _coach_note(parent: Control, text: String) -> void:
 	h.add_child(face)
 	var bubble := HudStyle.panel(h, HudStyle.CARD, 10, 14)
 	bubble.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var desc := HudStyle.label(bubble, text, 15, 500)
+	var desc := HudStyle.label(bubble, text, 26, 500)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 

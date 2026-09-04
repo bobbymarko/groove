@@ -696,10 +696,10 @@ func _side_metric(parent: Control, value: String, unit: String, icon_name := "",
 	parent.add_child(h)
 	if icon_name != "":
 		_hud_icon(h, icon_name, 22, icon_color, 2)
-	# No fixed value width: the row is right-aligned and the unit column is fixed,
-	# so digits still line up while the icon hugs its number.
+	# Fixed value width so the icons stack in one vertical line while digits stay right-aligned.
 	var val := HudStyle.label(h, value, 26, 700)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	val.custom_minimum_size.x = 82
 	var u := HudStyle.label(h, unit, 16, 700, HudStyle.TEXT_DIM)
 	u.custom_minimum_size.x = 56
 	HudStyle.share_baseline(h, val, u)
