@@ -9,6 +9,7 @@ var workout: Workout
 var elapsed := 0.0
 var bias := 100
 var show_marker := true        ## false for cards and sheets (no ride in progress)
+var show_background := true    ## the ride HUD draws it over its own gradient instead
 
 var _hr_times: PackedFloat32Array = []
 var _hr_values: PackedFloat32Array = []
@@ -44,7 +45,8 @@ func add_power(t: float, fraction: float) -> void:
 
 func _draw() -> void:
 	var r := Rect2(Vector2.ZERO, size)
-	draw_rect(r, Color(HudStyle.INK, 0.45))
+	if show_background:
+		draw_rect(r, Color(HudStyle.INK, 0.45))
 	if workout == null or workout.total_duration() <= 0.0:
 		return
 	var total := workout.total_duration()

@@ -59,6 +59,7 @@ var _last_h := NAN
 var _controls: HBoxContainer
 var _coach: CoachDialog
 var _hud_root: MarginContainer
+const GROOVE_HEIGHT := 84.0          # the plan strip along the bottom edge
 var _fade: ColorRect                 # covers the world at start, fades away
 var _intro_panels: Array[Control] = []   # top panels that slide in after the world
 var _effort_shot_done := false
@@ -436,6 +437,27 @@ func _build_ui() -> void:
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 18)
+	margin.add_theme_constant_override("margin_bottom", 18 + int(GROOVE_HEIGHT))
+	# Gradient under the HUD: the world fades to ink along the bottom edge.
+	var fade := TextureRect.new()
+	var grad := Gradient.new()
+	grad.set_color(0, Color(HudStyle.INK, 0.0))
+	grad.set_color(1, Color(HudStyle.INK, 0.96))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0.0, 0.0)
+	gt.fill_to = Vector2(0.0, 1.0)
+	gt.width = 4
+	gt.height = 64
+	fade.texture = gt
+	fade.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	fade.offset_top = -(GROOVE_HEIGHT + 130.0)
+	fade.offset_bottom = 0.0
+	fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fade.stretch_mode = TextureRect.STRETCH_SCALE
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fade)
+	move_child(fade, margin.get_index())
 	add_child(margin)
 	_hud_root = margin
 	var v := VBoxContainer.new()
@@ -502,9 +524,14 @@ func _build_ui() -> void:
 	HudStyle.button(bar, "End", 16, func(): _runner.end_early())
 	HudStyle.button(bar, "Home", 16, func(): App.go_to("res://ui/screens/home_screen.tscn"))
 
+	# The groove runs edge to edge along the bottom, over a fade to black.
 	_graph = WorkoutGraph.new()
-	_graph.custom_minimum_size.y = 70
-	v.add_child(_graph)
+	_graph.show_background = false
+	_graph.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_graph.offset_top = -GROOVE_HEIGHT
+	_graph.offset_bottom = 0.0
+	_graph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_graph)
 
 
 ## Top-left: workout name, overall progress, finish time, block list, bias, reps.

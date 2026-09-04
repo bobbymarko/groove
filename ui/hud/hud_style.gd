@@ -119,6 +119,7 @@ static func bar(parent: Control, height := 12, radius := 6, fg := BAR_FG) -> Pro
 static func button(parent: Control, text: String, size: int, on_pressed: Callable, kind := "ghost") -> Button:
 	var b := Button.new()
 	b.text = text.to_upper()
+	b.focus_mode = Control.FOCUS_NONE   # keys go to the screen's shortcuts, never to a lingering focused button
 	b.add_theme_font_override("font", font(700))
 	b.add_theme_font_size_override("font_size", size)
 	style_button(b, kind)
@@ -159,6 +160,7 @@ static func style_button(b: Button, kind := "ghost", pad_x := 14, pad_y := 7) ->
 ## Icon-only button (24-unit SVG from assets/icons), tinted ice.
 static func icon_button(parent: Control, icon_name: String, on_pressed: Callable, size := 16, kind := "ghost") -> Button:
 	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
 	b.icon = load("res://assets/icons/%s.svg" % icon_name)
 	b.expand_icon = true
 	b.custom_minimum_size = Vector2(size + 14, size + 10)
