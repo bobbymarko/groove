@@ -204,14 +204,26 @@ func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> 
 	hs.resize((nz + 3) * (ncols + 2))
 	var xs := PackedFloat64Array()
 	xs.resize((nz + 3) * (ncols + 2))
+	var fine := row < RES - 0.001
 	for iz in nz + 3:
 		var zz := z0 + (iz - 1) * row
 		var cx := t.x_at(zz)
 		for ic in ncols + 2:
 			var col_off := cols[clampi(ic - 1, 0, ncols - 1)] + (-(RES) if ic == 0 else (RES if ic == ncols + 1 else 0.0))
 			var xx := cx + col_off
+			var hh := height(xx, zz, t)
+			if fine and (ic == 1 or ic == ncols):
+				# Seam with the coarse field: this edge must be the coarse mesh's
+				# straight edge, so interpolate between the coarse rows bracketing zz
+				# instead of sampling here (otherwise T-junction cracks show the sky).
+				var zc0 := z0 + floorf((zz - z0) / RES) * RES
+				var f := (zz - zc0) / RES
+				var xa := t.x_at(zc0) + col_off
+				var xb := t.x_at(zc0 + RES) + col_off
+				xx = lerpf(xa, xb, f)
+				hh = lerpf(height(xa, zc0, t), height(xb, zc0 + RES, t), f)
 			xs[iz * (ncols + 2) + ic] = xx
-			hs[iz * (ncols + 2) + ic] = height(xx, zz, t)
+			hs[iz * (ncols + 2) + ic] = hh
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
 	var colors := PackedColorArray()
