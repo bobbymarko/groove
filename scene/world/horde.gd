@@ -42,6 +42,7 @@ func update(delta: float, rider_pos: Vector3, rider_speed: float, rider_power: f
 		z.run(fast)
 		if not z.flung and Vector2(z.global_position.x - rider_pos.x, z.global_position.z - rider_pos.z).length() < CONTACT:
 			z.fling(rider_pos, 3.0 + rider_speed * 1.2 + rider_power / 80.0 + Weapon.oomph_for(weapon_tier))
+			Gore.burst(self, z.global_position + Vector3(0.0, 1.1, 0.0), weapon_tier, z.global_position - rider_pos)
 			kills += 1
 			hit.emit(kills)
 		# Left behind: it will never reach the rider, so free the slot for a fresh one.
