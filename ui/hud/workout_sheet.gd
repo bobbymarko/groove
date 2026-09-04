@@ -51,11 +51,17 @@ func choose_scene(simulator: bool) -> void:
 	v.add_theme_constant_override("separation", 12)
 	header(v, "Choose a scene", func() -> void: open(workout))
 	HudStyle.label(v, workout.name, 14, 500, HudStyle.TEXT_DIM)
+	# The cards scroll; the Ride button stays pinned at the bottom of the sheet.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(scroll)
 	var grid := GridContainer.new()
 	grid.columns = 3
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
-	v.add_child(grid)
+	scroll.add_child(grid)
 	var cards: Dictionary = {}
 	for id in ScenePreset.ORDER:
 		var p := ScenePreset.get_preset(id)
@@ -86,9 +92,6 @@ func choose_scene(simulator: bool) -> void:
 				App.save_settings()
 				_mark_scene_cards(cards))
 	_mark_scene_cards(cards)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(spacer)
 	var go := HudStyle.button(v, "Ride", 18, func() -> void:
 		App.workout = workout
 		if simulator:
