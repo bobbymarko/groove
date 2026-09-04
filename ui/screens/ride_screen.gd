@@ -629,8 +629,9 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	prow.alignment = BoxContainer.ALIGNMENT_CENTER
 	prow.add_theme_constant_override("separation", 6)
 	mid.add_child(prow)
-	HudStyle.icon(prow, "bolt", 34, HudStyle.YELLOW)
+	var bolt := _hud_icon_ref(prow, "bolt", 34, HudStyle.YELLOW)
 	_power = HudStyle.label(prow, "—", 96, 900)
+	_sit_on_baseline(bolt, _power)
 	var wl := HudStyle.label(prow, "w", 36, 700)
 	HudStyle.share_baseline(prow, _power, wl)
 	# Right column of live metrics
@@ -655,6 +656,14 @@ func _hud_icon(row: Control, icon_name: String, size: int, color: Color, lift: i
 	HudStyle.icon(m, icon_name, size, color)
 
 
+## Put an icon slot's bottom edge on the text baseline of `text` (its box ends
+## one font descent below the baseline).
+func _sit_on_baseline(slot: Control, text: Label) -> void:
+	slot.size_flags_vertical = Control.SIZE_SHRINK_END
+	var descent := text.get_theme_font("font").get_descent(text.get_theme_font_size("font_size"))
+	slot.add_theme_constant_override("margin_bottom", int(round(descent)))
+
+
 func _hud_icon_ref(row: Control, icon_name: String, size: int, color: Color) -> Control:
 	var m := MarginContainer.new()
 	m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -669,9 +678,12 @@ func _metric(parent: Control, value: String, unit: String, icon_name := "", icon
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
 	parent.add_child(h)
+	var slot: Control = null
 	if icon_name != "":
-		_hud_icon(h, icon_name, 20, icon_color, 4)
+		slot = _hud_icon_ref(h, icon_name, 20, icon_color)
 	var val := HudStyle.label(h, value, 40, 900)
+	if slot:
+		_sit_on_baseline(slot, val)
 	var u := HudStyle.label(h, unit, 17, 700, HudStyle.TEXT_DIM)
 	HudStyle.share_baseline(h, val, u)
 	return val
@@ -684,9 +696,10 @@ func _side_metric(parent: Control, value: String, unit: String, icon_name := "",
 	parent.add_child(h)
 	if icon_name != "":
 		_hud_icon(h, icon_name, 16, icon_color, 3)
+	# No fixed value width: the row is right-aligned and the unit column is fixed,
+	# so digits still line up while the icon hugs its number.
 	var val := HudStyle.label(h, value, 26, 700)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	val.custom_minimum_size.x = 58
 	var u := HudStyle.label(h, unit, 16, 700, HudStyle.TEXT_DIM)
 	u.custom_minimum_size.x = 56
 	HudStyle.share_baseline(h, val, u)
