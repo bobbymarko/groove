@@ -20,6 +20,7 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 	var ride := mode == "ride"
 	if ride:
 		app.workout = ZwoParser.parse_file("res://workouts/cadence_today.zwo")
+		app.dry_run = true   # never record preview rides into the real library
 		devices.use_simulated_devices()
 	if mode == "summary":
 		# Synthesize a finished 20-minute ride so the summary has data.

@@ -90,7 +90,7 @@ func _ready() -> void:
 	add_child(_recorder)
 	_recorder.attach_runner(_runner)
 	_runner.state_changed.connect(func(st: WorkoutRunner.State) -> void:
-		if st == WorkoutRunner.State.RUNNING and _recorder.ride_id == "":
+		if st == WorkoutRunner.State.RUNNING and _recorder.ride_id == "" and not App.dry_run:
 			_recorder.begin(App.workout.name, App.ftp))
 	_runner.load_workout(App.workout, App.ftp)
 	# The segment with the highest target gets a screenshot at its midpoint.

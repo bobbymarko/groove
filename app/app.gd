@@ -13,6 +13,7 @@ var look_mode := "16bit"    # "8bit" (palette, low-res) | "16bit" (posterized, h
 var show_fps := true
 var last_ride_journal := ""
 var prompt_upload := false   # the summary screen asks about sharing the ride just finished
+var dry_run := false         # tooling: ride without recording, screenshots or uploads
 
 ## Scene look, adjustable in Settings and on the ride screen (T). Applied by RideScene.apply_tuning().
 const TUNING_SPEC := [
