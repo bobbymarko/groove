@@ -50,6 +50,9 @@ Two pixel faces (2026-09-04): **Pixel Operator** (CC0) for display sizes, 20 px 
 | Label / unit | 12–13 | 700 | lowercase units, uppercase for HUD units |
 | Buttons | 13–18 | 700 | UPPERCASE |
 
+## Spacing
+The pixel faces carry generous built-in line height, so labels pull wrapped lines together (line spacing −3 UI, −4 display) and stacks use small gaps: 2 px between a card's graph, title and meta line, 6 px inside settings cards, 8 px between sheet sections.
+
 ## Shapes
 - Corner radius 4 everywhere (6 on big buttons). Hairline border on panels, cards, inputs.
 - Panel states: default (border), focus (cyan border), active (orange text or outline, no side bars), disabled (40 %).

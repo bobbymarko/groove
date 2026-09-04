@@ -166,7 +166,7 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	_cards.append(card)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
+	v.add_theme_constant_override("separation", 2)
 	card.add_child(v)
 	var graph := WorkoutGraph.new()
 	graph.custom_minimum_size = Vector2(0.0 if flexible else 268.0, 96)

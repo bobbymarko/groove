@@ -125,7 +125,7 @@ const PRESETS := {
 		"rocks": ["un/Rock_1.obj", "un/Rock_2.obj", "un/Rock_3.obj", "un/Rock_4.obj", "un/Rock_5.obj", "un/Rock_6.obj", "un/Rock_7.obj"],
 		"cover": ["un/Grass.obj"],
 		"snow": false, "prop_snow": false, "sun_lift": 6.0, "dead_share": 0.0, "rain_chance": 0.15, "tree_density": 0.6,
-		"zombies": true,
+		"zombies": true, "dust_dark": true,
 	},
 }
 

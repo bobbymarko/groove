@@ -18,7 +18,7 @@ func _ready() -> void:
 func open(w: Workout) -> void:
 	workout = w
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 8)
 	_build_content(v)
 	show_content(v)
 	_refresh_devices()
@@ -69,7 +69,7 @@ func choose_scene(simulator: bool) -> void:
 		card.mouse_filter = Control.MOUSE_FILTER_STOP
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var cv := VBoxContainer.new()
-		cv.add_theme_constant_override("separation", 6)
+		cv.add_theme_constant_override("separation", 2)
 		card.add_child(cv)
 		var thumb_path := ScenePreset.thumbnail_path(id)
 		if ResourceLoader.exists(thumb_path):
@@ -125,7 +125,7 @@ func _build_content(v: VBoxContainer) -> void:
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 28)
-	grid.add_theme_constant_override("v_separation", 4)
+	grid.add_theme_constant_override("v_separation", 0)
 	v.add_child(grid)
 	_stat(grid, WorkoutSummary.duration(w.total_duration()), "duration")
 	_stat(grid, "%d" % int(round(est.kj)), "kJ at %d W FTP" % ftp)

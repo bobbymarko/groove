@@ -126,6 +126,8 @@ static func label(parent: Control, text: String, size: int, weight: int = 500, c
 	size = snap_size(size)
 	l.add_theme_font_override("font", font(weight, size))
 	l.add_theme_font_size_override("font_size", size)
+	# Pixel faces carry generous line height; pull wrapped lines together a little.
+	l.add_theme_constant_override("line_spacing", -4 if size >= DISPLAY_FROM else -3)
 	l.add_theme_color_override("font_color", color)
 	parent.add_child(l)
 	return l
@@ -430,7 +432,7 @@ static func style_block_row(row: PanelContainer, bg: Color) -> void:
 static func section(parent: Control, title: String, help := "", action_text := "", action := Callable()) -> VBoxContainer:
 	var card := panel(parent, CARD, RADIUS, 16)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 8)
+	v.add_theme_constant_override("separation", 6)
 	card.add_child(v)
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)

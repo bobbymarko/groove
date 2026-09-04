@@ -43,8 +43,9 @@ func _init() -> void:
 
 ## Ground type: dirt hangs as a drifting dust cloud; snow is thrown up as small
 ## clumps that arc back and fall straight down.
-func set_ground(snow: bool) -> void:
-	var c := Palette.SNOW_BRIGHT if snow else Palette.TRAIL.lightened(0.18)
+## `dark`: ash and soot hang darker than the ground (Apocalypse) instead of lighter.
+func set_ground(snow: bool, dark := false) -> void:
+	var c := Palette.SNOW_BRIGHT if snow else (Palette.TRAIL_DARK.darkened(0.35) if dark else Palette.TRAIL.lightened(0.18))
 	var g := Gradient.new()
 	g.set_color(0, Color(c.r, c.g, c.b, 0.9 if snow else 0.65))
 	g.set_color(1, Color(c.r, c.g, c.b, 0.0 if not snow else 0.6))

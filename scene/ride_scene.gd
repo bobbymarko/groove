@@ -109,7 +109,7 @@ func _ready() -> void:
 	_world.add_child(rider)
 	dust = WheelDust.new()
 	dust.position = Vector3(0.0, 0.04, -0.62)   # just behind the rear contact patch
-	dust.set_ground(bool(_preset.get("snow", true)))
+	dust.set_ground(bool(_preset.get("snow", true)), bool(_preset.get("dust_dark", false)))
 	rider.add_child(dust)
 	if bool(_preset.get("zombies", false)):
 		horde = Horde.new()
