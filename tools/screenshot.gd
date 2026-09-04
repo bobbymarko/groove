@@ -24,7 +24,12 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		app.dry_run = true   # never record preview rides into the real library
 		devices.use_simulated_devices()
 	var fake: RideRecorder = null
-	if mode == "summary" or OS.get_cmdline_user_args().has("fake"):
+	if mode == "summary" and OS.get_cmdline_user_args().has("latest"):
+		# The real latest ride (it has screenshots); nothing synthetic.
+		var rides: Array = app.list_rides()
+		if not rides.is_empty():
+			app.last_ride_journal = str(rides[0].journal)
+	elif mode == "summary" or OS.get_cmdline_user_args().has("fake"):
 		fake = _fake_ride()
 		if mode == "summary":
 			app.last_ride_journal = fake.journal_path()
@@ -130,6 +135,14 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 					await process_frame
 		if mode == "calendar":
 			for i in 40:
+				await process_frame
+		if mode == "summary" and OS.get_cmdline_user_args().has("lightbox"):
+			await process_frame
+			var fit: String = app.last_ride_journal.get_basename() + ".fit"
+			var shots: Array[String] = load("res://ui/panels/rides_panel.gd")._screenshots(fit)
+			if not shots.is_empty():
+				Lightbox.open(shots, 0)
+			for i in 20:
 				await process_frame
 		if mode == "live":
 			# Wait for the real intervals.icu calendar fetch (needs a saved API key).

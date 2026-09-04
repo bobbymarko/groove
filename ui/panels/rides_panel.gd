@@ -112,16 +112,8 @@ static func open_ride(sheet: SideSheet, r: Dictionary) -> void:
 		var strip := HBoxContainer.new()
 		strip.add_theme_constant_override("separation", 8)
 		v.add_child(strip)
-		for path in shots.slice(0, 3):
-			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
-			if img == null:
-				continue
-			var tr := TextureRect.new()
-			tr.texture = ImageTexture.create_from_image(img)
-			tr.custom_minimum_size = Vector2(160, 90)
-			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			strip.add_child(tr)
+		for i in mini(shots.size(), 3):
+			load("res://ui/screens/summary_screen.gd")._thumb(strip, shots, i, Vector2(160, 90))
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL

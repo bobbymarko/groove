@@ -123,16 +123,28 @@ func _build_ui() -> void:
 		var strip := HBoxContainer.new()
 		strip.add_theme_constant_override("separation", 10)
 		shots_box.add_child(strip)
-		for path in shots.slice(0, 4):
-			var img := Image.load_from_file(ProjectSettings.globalize_path(path))
-			if img == null:
-				continue
-			var tr := TextureRect.new()
-			tr.texture = ImageTexture.create_from_image(img)
-			tr.custom_minimum_size = Vector2(288, 162)
-			tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			strip.add_child(tr)
+		for i in mini(shots.size(), 4):
+			_thumb(strip, shots, i, Vector2(288, 162))
+
+
+## Clickable thumbnail: opens the Lightbox on that shot.
+static func _thumb(strip: Control, shots: Array[String], i: int, size: Vector2) -> void:
+	var img := Image.load_from_file(ProjectSettings.globalize_path(shots[i]))
+	if img == null:
+		return
+	var tr := TextureRect.new()
+	tr.texture = ImageTexture.create_from_image(img)
+	tr.custom_minimum_size = size
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.mouse_filter = Control.MOUSE_FILTER_STOP
+	tr.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	tr.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			Lightbox.open(shots, i))
+	tr.mouse_entered.connect(func() -> void: tr.modulate = Color(1.15, 1.15, 1.2))
+	tr.mouse_exited.connect(func() -> void: tr.modulate = Color.WHITE)
+	strip.add_child(tr)
 
 
 func _stat(parent: Control, value: String, unit: String) -> void:
