@@ -10,6 +10,7 @@ const QUEUE_PATH := "user://uploads.cfg"
 const MAX_ATTEMPTS := 20
 
 var connectors: Dictionary = {}     ## id -> Connector
+var calendar: IntervalsCalendar     ## planned workouts from intervals.icu
 var jobs: Array[Dictionary] = []    ## {id, connector, fit_path, name, description, status, attempts, last_error, remote_id}
 
 var _active: Dictionary = {}
@@ -27,6 +28,10 @@ func _ready() -> void:
 	strava.upload_finished.connect(_on_upload_finished)
 	strava.auth_state_changed.connect(func(_c: bool, _m: String) -> void: _save_strava_tokens(); process_next())
 	connectors[strava.id()] = strava
+	calendar = IntervalsCalendar.new()
+	calendar.name = "IntervalsCalendar"
+	calendar.connector = icu
+	add_child(calendar)
 	_load()
 	call_deferred("process_next")
 
@@ -37,6 +42,7 @@ func intervals() -> IntervalsConnector:
 
 func configure_intervals(api_key: String) -> void:
 	intervals().api_key = api_key
+	calendar.refresh()
 	process_next()
 
 

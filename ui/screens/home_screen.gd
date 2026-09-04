@@ -3,7 +3,9 @@ extends Control
 ## detail view; device status, recent rides and settings live around it.
 
 var _files: Array[String] = []
-var _grid: GridContainer
+var _list: VBoxContainer            # sections: planned days, then the library
+var _grids: Array[GridContainer] = []
+var _cal_status: Label
 var _devices_l: Label
 var _error: Label
 var _dialog: FileDialog
@@ -19,22 +21,66 @@ func _ready() -> void:
 	Devices.status.connect(func(_s: String) -> void: _refresh_devices())
 	_refresh_devices()
 	_recover_unfinished()
+	Sync.calendar.updated.connect(_refresh_cards)
+	Sync.calendar.refresh_if_stale()
 
 
+## Planned workouts from intervals.icu by day (today first, highlighted), then
+## the local library. Without a linked account only the library shows.
 func _refresh_cards() -> void:
-	for c in _grid.get_children():
+	for c in _list.get_children():
 		c.queue_free()
+	_grids.clear()
 	_files = App.list_workout_files()
+	var linked := Sync.intervals().is_configured()
+	if linked:
+		var today := IntervalsCalendar.today()
+		var days := Sync.calendar.by_day()
+		if days.is_empty() or str(days[0].date) != today:
+			var g := _section("Today", true)
+			HudStyle.label(g, "Nothing planned on intervals.icu today", 14, 500, HudStyle.TEXT_DIM)
+		for day in days:
+			var is_today: bool = str(day.date) == today
+			var g := _section(str(day.label), is_today)
+			for e in day.entries:
+				var w := ZwoParser.parse_file(str(e.path))
+				if w != null:
+					_add_card(g, w, str(e.path), is_today)
+	var lib := _section("Library" if linked else "Workouts", false)
 	for f in _files:
 		var w := ZwoParser.parse_file(f)
 		if w == null:
 			continue
-		_add_card(w, f)
-	_add_open_card()
+		_add_card(lib, w, f, false)
+	_add_open_card(lib)
+	_cal_status.text = Sync.calendar.status if linked else ""
+	_cal_status.visible = _cal_status.text != ""
+	_relayout()
 
 
-func _add_card(w: Workout, path: String) -> void:
-	var card := HudStyle.panel(_grid, HudStyle.PANEL_ROW, 10, 12)
+func _section(title: String, highlight: bool) -> GridContainer:
+	if not _list.get_children().is_empty():
+		var gap := Control.new()
+		gap.custom_minimum_size.y = 6
+		_list.add_child(gap)
+	HudStyle.label(_list, title, 18, 900 if highlight else 700, HudStyle.TEXT if highlight else HudStyle.TEXT_DIM)
+	var grid := GridContainer.new()
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 16)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_list.add_child(grid)
+	_grids.append(grid)
+	return grid
+
+
+func _relayout() -> void:
+	var cols := maxi(1, int((size.x - 56) / 316.0))
+	for g in _grids:
+		g.columns = cols
+
+
+func _add_card(grid: GridContainer, w: Workout, path: String, highlight: bool) -> void:
+	var card := HudStyle.panel(grid, Color(0.16, 0.19, 0.27, 0.8) if highlight else HudStyle.PANEL_ROW, 10, 12)
 	card.custom_minimum_size = Vector2(300, 0)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := VBoxContainer.new()
@@ -56,8 +102,8 @@ func _add_card(w: Workout, path: String) -> void:
 	card.mouse_exited.connect(func() -> void: card.modulate = Color.WHITE)
 
 
-func _add_open_card() -> void:
-	var card := HudStyle.panel(_grid, Color(0.10, 0.12, 0.17, 0.35), 10, 12)
+func _add_open_card(grid: GridContainer) -> void:
+	var card := HudStyle.panel(grid, Color(0.10, 0.12, 0.17, 0.35), 10, 12)
 	card.custom_minimum_size = Vector2(300, 150)
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var c := CenterContainer.new()
@@ -148,18 +194,17 @@ func _build_ui() -> void:
 	HudStyle.button(head, "Devices", 15, open_devices)
 	HudStyle.button(head, "Settings", 15, open_settings)
 
-	HudStyle.label(v, "Workouts", 18, 700, HudStyle.TEXT_DIM)
+	_cal_status = HudStyle.label(v, "", 13, 500, HudStyle.TEXT_DIM)
+	_cal_status.visible = false
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
-	_grid = GridContainer.new()
-	_grid.columns = 4
-	_grid.add_theme_constant_override("h_separation", 16)
-	_grid.add_theme_constant_override("v_separation", 16)
-	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_grid)
-	resized.connect(func() -> void: _grid.columns = maxi(1, int((size.x - 56) / 316.0)))
+	_list = VBoxContainer.new()
+	_list.add_theme_constant_override("separation", 10)
+	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_list)
+	resized.connect(_relayout)
 
 	_error = HudStyle.label(v, "", 14, 500, Color(1, 0.6, 0.6))
 

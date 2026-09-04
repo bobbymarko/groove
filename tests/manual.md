@@ -42,3 +42,10 @@ Status 2026-09-02: step 1 imported into COROS fine; Strava forwarding still bein
    recovered ride; it is in Recent rides with a FIT file.
 5. **Offline upload.** Turn Wi-Fi off, finish a ride: summary shows "waiting to upload". Turn Wi-Fi on,
    press "Upload to intervals.icu" (or relaunch): upload completes.
+
+## Planned workouts from intervals.icu
+
+1. Settings → intervals.icu key set and green. Add a bike workout to today's date on the intervals.icu calendar and one a few days out.
+2. Reopen the home screen (or wait five minutes and revisit). Expect a highlighted **Today** section with the workout card, a day-named section for the later one, then **Library**.
+3. Click a planned card: the side sheet shows the plan and **Ride** starts it like a library workout.
+4. Disconnect the network and revisit home: cached cards stay, a status line reports the failed refresh.

@@ -76,6 +76,7 @@ A rider can do this end to end with no other software:
 
 **Settings**
 - R21. FTP, weight, units, Strava connection, paired devices, camera shake (off, low, high), scene options.
+- R22. Planned workouts: with an intervals.icu key set, the home screen fetches the next 14 days of Ride workouts from the athlete's calendar (one request, .zwo files come base64-encoded in the event list), caches them under `user://intervals/`, and shows them by day: Today first and highlighted, then Tomorrow and named days, then the local library. Runs, notes and races are skipped. The list refreshes on the home screen when older than five minutes; a fetch failure keeps the cached list and says so. (Bob, 2026-09-03.)
 
 ### 2.2 Non-functional
 

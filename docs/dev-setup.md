@@ -133,3 +133,9 @@ like a hill and power follows cadence and gear.
 |---|---|---|
 | Wahoo KICKR CORE ("KICKR CORE 3AA5") | FTMS control, power range 0–2000 W, ERG hold verified at 100/150/200 W, live power and cadence. Indoor Bike Data flags 0x0044 (speed, cadence, power). Cadence is the trainer's own estimate and reads ~0 when the cassette is turned by hand rather than pedalled. Remote disconnect + rescan reconnect verified. | 2026-09-02 |
 | Wahoo TICKR ("TICKR 4D4A") | Heart Rate service, pairs and auto-connects | 2026-09-02 |
+
+Home-screen render with fake intervals.icu planned workouts (no network):
+
+```bash
+tools/shot.sh res://ui/screens/home_screen.tscn build/home_calendar.png calendar
+```

@@ -30,7 +30,7 @@ func _ready() -> void:
 		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(left)
 		HudStyle.label(left, str(r.meta.get("workout", "Ride")), 16, 700)
-		HudStyle.label(left, when.left(18) + ("" if r.finished else "   ·   unfinished"), 12, 500, HudStyle.TEXT_DIM)
+		HudStyle.label(left, when.left(17) + ("" if r.finished else "   ·   unfinished"), 12, 500, HudStyle.TEXT_DIM)
 		HudStyle.label(h, "%d min" % (int(r.samples) / 60), 18, 900).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var journal: String = r.journal
 		row.gui_input.connect(func(e: InputEvent) -> void:

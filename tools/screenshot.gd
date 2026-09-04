@@ -94,12 +94,41 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			print("[dbg] z=%.1f trail x=%.2f h=%.2f | terrain h(trail)=%.2f h(-6)=%.2f h(+6)=%.2f h(-30)=%.2f h(+30)=%.2f" % [
 				z, tx, rs.trail.h_at(z), rs.terrain.height(tx, z), rs.terrain.height(tx - 6.0, z), rs.terrain.height(tx + 6.0, z), rs.terrain.height(tx - 30.0, z), rs.terrain.height(tx + 30.0, z)])
 	else:
+		if mode == "calendar":
+			# Fake intervals.icu planned workouts so the home screen shows its day sections.
+			var sync: Node = root.get_node("Sync")
+			if not sync.intervals().is_configured():
+				sync.intervals().api_key = "preview"
+			var t: String = IntervalsCalendar.today()
+			var z := "res://workouts/cadence_today.zwo"
+			var rows: Array[Dictionary] = [
+				{"id": "1", "date": t, "name": "Today", "type": "Ride", "path": z},
+				{"id": "2", "date": IntervalsCalendar.date_offset(t, 1), "name": "Tomorrow", "type": "Ride", "path": z},
+				{"id": "3", "date": IntervalsCalendar.date_offset(t, 3), "name": "Later", "type": "Ride", "path": z},
+				{"id": "4", "date": IntervalsCalendar.date_offset(t, 3), "name": "Later 2", "type": "Ride", "path": z},
+			]
+			sync.calendar.set_preview(rows)
 		scene = load(scene_path).instantiate()
 		root.add_child(scene)
 		if mode == "sheet":
 			await process_frame
 			scene.get_node("WorkoutSheet").open(ZwoParser.parse_file("res://workouts/cadence_today.zwo"))
 			for i in 30:
+				await process_frame
+		if mode == "calendar":
+			for i in 40:
+				await process_frame
+		if mode == "live":
+			# Wait for the real intervals.icu calendar fetch (needs a saved API key).
+			var cal: Node = root.get_node("Sync").calendar
+			for i in 600:
+				await process_frame
+				if not cal.busy and cal.last_refresh > 0:
+					break
+			print("[dbg] calendar status '%s' entries %d\n[dbg] %s" % [cal.status, cal.entries.size(), cal.last_summary])
+			for e in cal.entries:
+				print("[dbg]   %s %s" % [e.date, e.name])
+			for i in 10:
 				await process_frame
 		if mode in ["settings", "devices", "rides"]:
 			await process_frame
