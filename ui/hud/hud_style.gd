@@ -1,11 +1,27 @@
 class_name HudStyle
 extends RefCounted
-## Shared look for the ride HUD: Lato, translucent rounded panels, and chunky
+## Shared look for the ride HUD: pixel type, translucent bordered panels, and chunky
 ## progress bars, in the spirit of the reference layout.
 
-const FONT_REGULAR := "res://assets/fonts/Lato-Regular.ttf"
-const FONT_BOLD := "res://assets/fonts/Lato-Bold.ttf"
-const FONT_BLACK := "res://assets/fonts/Lato-Black.ttf"
+# Type (Design.md): Pixel Operator for display sizes, Departure Mono for UI text.
+const FONT_UI := "res://assets/fonts/DepartureMono-Regular.otf"
+const FONT_DISPLAY := "res://assets/fonts/PixelOperator.ttf"
+const FONT_DISPLAY_BOLD := "res://assets/fonts/PixelOperator-Bold.ttf"
+const DISPLAY_FROM := 20        # labels this size and up use the display face
+const SPRITE_SHEET := "res://assets/images/groove-icon-sprite-sheet-8x4-transparent.png"
+const SPRITE_CELL := 256
+## Icon name -> (column, row) in the sprite sheet. Names not here fall back to assets/icons/*.svg.
+const SPRITES := {
+	"bluetooth": Vector2i(0, 0), "heart": Vector2i(1, 0), "signal": Vector2i(2, 0), "gear": Vector2i(3, 0),
+	"pause": Vector2i(4, 0), "camera": Vector2i(5, 0), "sound": Vector2i(6, 0), "lock": Vector2i(7, 0),
+	"check": Vector2i(0, 1), "warning": Vector2i(1, 1), "play": Vector2i(2, 1), "trash": Vector2i(3, 1),
+	"bolt": Vector2i(4, 1), "rider": Vector2i(5, 1), "gauge": Vector2i(6, 1), "stopwatch": Vector2i(7, 1),
+	"home": Vector2i(0, 2), "bike": Vector2i(1, 2), "history": Vector2i(2, 2), "flag": Vector2i(3, 2),
+	"mountain": Vector2i(4, 2), "user": Vector2i(5, 2), "trophy": Vector2i(6, 2), "star": Vector2i(7, 2),
+	"pizza": Vector2i(0, 3), "bottle": Vector2i(1, 3), "snowflake": Vector2i(2, 3), "thermometer": Vector2i(3, 3),
+	"wrench": Vector2i(4, 3), "music": Vector2i(5, 3), "refresh": Vector2i(6, 3), "chevron-right": Vector2i(7, 3),
+}
+static var _sheet: Texture2D
 # Groove tokens (Design.md). Change colours here, never per screen.
 const INK := Color("000c18")
 const NAVY := Color("012041")
@@ -38,18 +54,50 @@ const RADIUS := 4
 static var _fonts: Dictionary = {}
 
 
-## Lato ships as separate weights: regular below 600, bold to 800, black above.
-static func font(weight: int = 500) -> Font:
-	var path := FONT_REGULAR if weight < 600 else (FONT_BOLD if weight < 800 else FONT_BLACK)
+## UI face for everything small; display face (bold at 700+) from DISPLAY_FROM up.
+static func font(weight: int = 500, size: int = 0) -> Font:
+	var path := FONT_UI
+	if size >= DISPLAY_FROM:
+		path = FONT_DISPLAY_BOLD if weight >= 700 else FONT_DISPLAY
 	if not _fonts.has(path):
-		_fonts[path] = load(path)
+		var f: FontFile = load(path)
+		# Pixel faces: no smoothing, whole-pixel positioning.
+		f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+		f.hinting = TextServer.HINTING_NONE
+		f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+		_fonts[path] = f
 	return _fonts[path]
+
+
+## Display sizes snap to the face's 8 px grid so the pixels stay square.
+static func snap_size(size: int) -> int:
+	if size < DISPLAY_FROM:
+		return size
+	return maxi(16, int(round(size / 8.0)) * 8)
+
+
+## Icon texture: a cell of the sprite sheet, or the SVG of that name.
+static func icon_texture(icon_name: String) -> Texture2D:
+	if SPRITES.has(icon_name):
+		if _sheet == null:
+			_sheet = load(SPRITE_SHEET)
+		var at := AtlasTexture.new()
+		at.atlas = _sheet
+		var c: Vector2i = SPRITES[icon_name]
+		at.region = Rect2(c.x * SPRITE_CELL, c.y * SPRITE_CELL, SPRITE_CELL, SPRITE_CELL)
+		return at
+	return load("res://assets/icons/%s.svg" % icon_name)
+
+
+static func is_sprite(icon_name: String) -> bool:
+	return SPRITES.has(icon_name)
 
 
 static func label(parent: Control, text: String, size: int, weight: int = 500, color := TEXT) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_override("font", font(weight))
+	size = snap_size(size)
+	l.add_theme_font_override("font", font(weight, size))
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	parent.add_child(l)
@@ -120,8 +168,8 @@ static func button(parent: Control, text: String, size: int, on_pressed: Callabl
 	var b := Button.new()
 	b.text = text.to_upper()
 	b.focus_mode = Control.FOCUS_NONE   # keys go to the screen's shortcuts, never to a lingering focused button
-	b.add_theme_font_override("font", font(700))
-	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_font_override("font", font(700, size))
+	b.add_theme_font_size_override("font_size", snap_size(size))
 	style_button(b, kind)
 	b.pressed.connect(on_pressed)
 	parent.add_child(b)
@@ -161,12 +209,14 @@ static func style_button(b: Button, kind := "ghost", pad_x := 14, pad_y := 7) ->
 static func icon_button(parent: Control, icon_name: String, on_pressed: Callable, size := 16, kind := "ghost") -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
-	b.icon = load("res://assets/icons/%s.svg" % icon_name)
+	b.icon = icon_texture(icon_name)
 	b.expand_icon = true
 	b.custom_minimum_size = Vector2(size + 14, size + 10)
 	b.add_theme_constant_override("icon_max_width", size)
 	style_button(b, kind, 5, 3)   # slim padding so the icon has room to draw
 	var tint := INK_TEXT if kind == "primary" else (CYAN if kind == "secondary" else TEXT)
+	if is_sprite(icon_name):
+		tint = Color.WHITE
 	for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
 		b.add_theme_color_override(st, tint)
 	b.pressed.connect(on_pressed)
@@ -177,12 +227,13 @@ static func icon_button(parent: Control, icon_name: String, on_pressed: Callable
 ## Tinted vector icon.
 static func icon(parent: Control, icon_name: String, size := 16, color := TEXT) -> TextureRect:
 	var t := TextureRect.new()
-	t.texture = load("res://assets/icons/%s.svg" % icon_name)
+	t.texture = icon_texture(icon_name)
 	t.custom_minimum_size = Vector2(size, size)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	t.modulate = color
+	# Sprites carry their own colours and stay crisp; SVGs are tinted.
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if is_sprite(icon_name) else CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	t.modulate = Color.WHITE if is_sprite(icon_name) else color
 	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	parent.add_child(t)
 	return t

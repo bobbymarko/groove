@@ -569,7 +569,7 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(sp)
-	_reps_icon = _hud_icon_ref(foot, "star", 18, HudStyle.YELLOW)
+	_reps_icon = _hud_icon_ref(foot, "star", 24, HudStyle.YELLOW)
 	_reps_l = HudStyle.label(foot, "", 20, 700, HudStyle.YELLOW)
 	_update_reps(-1)
 	return panel
@@ -629,7 +629,7 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	prow.alignment = BoxContainer.ALIGNMENT_CENTER
 	prow.add_theme_constant_override("separation", 6)
 	mid.add_child(prow)
-	var bolt := _hud_icon_ref(prow, "bolt", 34, HudStyle.YELLOW)
+	var bolt := _hud_icon_ref(prow, "bolt", 44, HudStyle.YELLOW)
 	_power = HudStyle.label(prow, "—", 96, 900)
 	_sit_on_baseline(bolt, _power)
 	var wl := HudStyle.label(prow, "w", 36, 700)
@@ -680,7 +680,7 @@ func _metric(parent: Control, value: String, unit: String, icon_name := "", icon
 	parent.add_child(h)
 	var slot: Control = null
 	if icon_name != "":
-		slot = _hud_icon_ref(h, icon_name, 20, icon_color)
+		slot = _hud_icon_ref(h, icon_name, 26, icon_color)
 	var val := HudStyle.label(h, value, 40, 900)
 	if slot:
 		_sit_on_baseline(slot, val)
@@ -695,7 +695,7 @@ func _side_metric(parent: Control, value: String, unit: String, icon_name := "",
 	h.add_theme_constant_override("separation", 6)
 	parent.add_child(h)
 	if icon_name != "":
-		_hud_icon(h, icon_name, 16, icon_color, 3)
+		_hud_icon(h, icon_name, 22, icon_color, 2)
 	# No fixed value width: the row is right-aligned and the unit column is fixed,
 	# so digits still line up while the icon hugs its number.
 	var val := HudStyle.label(h, value, 26, 700)

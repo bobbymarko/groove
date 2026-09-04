@@ -124,12 +124,13 @@ func _add_empty_card(parent: Control) -> void:
 ## Header button with an icon and an uppercase word.
 func _nav_button(parent: Control, icon_name: String, text: String, on_pressed: Callable) -> Button:
 	var b := HudStyle.button(parent, text, 13, on_pressed)
-	b.icon = load("res://assets/icons/%s.svg" % icon_name)
+	b.icon = HudStyle.icon_texture(icon_name)
 	b.expand_icon = true
-	b.add_theme_constant_override("icon_max_width", 16)
+	b.add_theme_constant_override("icon_max_width", 22)
 	b.add_theme_constant_override("h_separation", 8)
-	for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
-		b.add_theme_color_override(st, HudStyle.CYAN)
+	if not HudStyle.is_sprite(icon_name):
+		for st in ["icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+			b.add_theme_color_override(st, HudStyle.CYAN)
 	return b
 
 

@@ -38,7 +38,8 @@ Used by the plan graph, the ride trace, the block rows in the HUD and sheets, an
 ## The groove (timeline views)
 The workout is not a row of blocks but one continuous path: height is target power, colour is the zone, steps between blocks are drawn as risers so the line never breaks. Under it a faint fill in the same colour. While riding, a white glowing marker (soft halo, hard centre) sits on the path at the current time; the path behind the marker brightens, the path ahead sits at 55 %. The rider's actual power runs as a 1.5 px ice line and heart rate as a 1.5 px red line, so "following the groove" is literal. Cards and sheets show the same path without the marker.
 
-## Type (Lato for now)
+## Type
+Two pixel faces (2026-09-04): **Pixel Operator** (CC0) for display sizes, 20 px and up, bold at weight 700+, sizes snapped to an 8 px grid; **Departure Mono** (OFL) for everything smaller: body, labels, units, buttons. No antialiasing, no hinting, whole-pixel positioning. Lato is retired.
 | Role | Size | Weight | Case |
 |---|---|---|---|
 | Display | 48 | 900 | as written |
@@ -59,7 +60,7 @@ The workout is not a row of blocks but one continuous path: height is target pow
 - Nav tabs: uppercase text, selected in cyan with a 3 px underline.
 
 ## Icons
-Vector, 24-unit grid, single colour (tinted at runtime), in `assets/icons/*.svg`: play, pause, gear, bluetooth, heart, signal, camera, sound, lock, check, warning, trash, bolt, bike, gauge, chevron-left/right, close, mountain, history, home, share, flag, pizza.
+Primary set: Bob's pixel sprite sheet `assets/images/groove-icon-sprite-sheet-8x4-transparent.png`, 8×4 cells of 256 px, full colour (never tinted): bluetooth, heart, signal, gear, pause, camera, sound, lock / check, warning, play, trash, bolt, rider, gauge, stopwatch / home, bike, history (bars), flag (route), mountain (badge), user, trophy, star / pizza, bottle, snowflake, thermometer, wrench, music, refresh, chevron-right. Fallback: single-colour SVGs in `assets/icons/` for glyphs the sheet lacks (chevron-left, close, share), tinted at runtime. `HudStyle.icon_texture(name)` picks.
 
 ## Backgrounds
 Home uses `assets/images/menu-bg.png` (pixel night mountains) under a 45 % ink wash so cards stay legible. The ride HUD floats over the live world; panels stay translucent.
