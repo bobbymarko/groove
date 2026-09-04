@@ -8,6 +8,9 @@ const USER_WORKOUTS_DIR := "user://workouts"
 
 var workout: Workout
 var ftp: int = 200
+var weight_kg := 80.0          # rider weight, always stored in kg
+var units := "metric"          # "metric" (kg, km/h) | "imperial" (lbs, mph)
+const BIKE_KG := 14.0          # fat bike, added to the rider for the speed model
 var look_mode := "16bit"    # "16bit" (pixel look) | "off" (native). The 8-bit palette mode was removed 2026-09-03.
 var show_fps := true
 var scene_preset := "winter"   # ScenePreset id chosen before a ride
@@ -50,6 +53,8 @@ func _ready() -> void:
 		scene_tuning[row[0]] = float(row[5])
 	if _cfg.load(SETTINGS_PATH) == OK:
 		ftp = int(_cfg.get_value("rider", "ftp", ftp))
+		weight_kg = float(_cfg.get_value("rider", "weight_kg", weight_kg))
+		units = str(_cfg.get_value("rider", "units", units))
 		look_mode = str(_cfg.get_value("scene", "look_mode", look_mode))
 		if look_mode == "8bit":
 			look_mode = "16bit"
@@ -109,6 +114,8 @@ func list_rides() -> Array[Dictionary]:
 
 func save_settings() -> void:
 	_cfg.set_value("rider", "ftp", ftp)
+	_cfg.set_value("rider", "weight_kg", weight_kg)
+	_cfg.set_value("rider", "units", units)
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)
@@ -140,3 +147,24 @@ func list_workout_files() -> Array[String]:
 
 func go_to(scene_path: String) -> void:
 	get_tree().change_scene_to_file.call_deferred(scene_path)
+
+
+func imperial() -> bool:
+	return units == "imperial"
+
+
+## Speed in the user's unit from m/s, and the unit label.
+func speed_text(mps: float) -> String:
+	return "%d" % int(round(mps * (2.23694 if imperial() else 3.6)))
+
+
+func speed_unit() -> String:
+	return "MPH" if imperial() else "KM/H"
+
+
+func distance_text(metres: float, decimals := 1) -> String:
+	return ("%.*f" % [decimals, metres / (1609.344 if imperial() else 1000.0)])
+
+
+func distance_unit() -> String:
+	return "MI" if imperial() else "KM"

@@ -6,6 +6,7 @@ extends VBoxContainer
 var _pages: Array[Control] = []
 var _tabs: HBoxContainer
 var _ftp: LineEdit
+var _weight: LineEdit
 var _key: LineEdit
 var _key_status: Label
 var _strava_id: LineEdit
@@ -27,12 +28,28 @@ func _ready() -> void:
 func save() -> void:
 	App.ftp = clampi(int(_ftp.text), 50, 600)
 	_ftp.text = str(App.ftp)
+	_save_weight()
 	App.save_settings()
 	var key := _key.text.strip_edges()
 	if key != App.get_secret("intervals_api_key"):
 		App.set_secret("intervals_api_key", key)
 		Sync.configure_intervals(key)
 	_save_strava_app()
+
+
+func _weight_text() -> String:
+	return "%d" % int(round(App.weight_kg * (2.20462 if App.imperial() else 1.0)))
+
+
+func _save_weight() -> void:
+	var v := float(_weight.text)
+	if v <= 0.0:
+		_weight.text = _weight_text()
+		return
+	var kg := v / (2.20462 if App.imperial() else 1.0)
+	App.weight_kg = clampf(kg, 30.0, 200.0)
+	App.save_settings()
+	_weight.text = _weight_text()
 
 
 func _save_strava_app() -> void:
@@ -108,6 +125,20 @@ func _build_ui() -> void:
 	_ftp.text_submitted.connect(func(_t: String) -> void: save())
 	_ftp.focus_exited.connect(save)
 	HudStyle.label(ftp_row, "watts", 13, 500, HudStyle.TEXT_DIM).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# Weight with its unit beside it; the unit choice also switches the HUD to mph and miles.
+	var w_row := HudStyle.row(r, "Weight")
+	_weight = HudStyle.input(w_row, _weight_text())
+	_weight.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_weight.custom_minimum_size.x = 84
+	_weight.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_weight.text_submitted.connect(func(_t: String) -> void: _save_weight())
+	_weight.focus_exited.connect(_save_weight)
+	HudStyle.segmented(w_row, ["kg", "lbs"], 1 if App.imperial() else 0, func(i: int) -> void:
+		_save_weight()
+		App.units = "imperial" if i == 1 else "metric"
+		App.save_settings()
+		_weight.text = _weight_text())
+	HudStyle.label(r, "Weight and FTP set how fast the rider moves for a given power (W/kg).", 12, 500, Color(1, 1, 1, 0.5)).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var icu := HudStyle.section(rider, "intervals.icu",
 		"Personal API key from intervals.icu → Settings → Developer Settings. Planned workouts appear on the home screen and finished rides can be shared.")

@@ -65,6 +65,7 @@ func _ready() -> void:
 		if app0:
 			preset_id = str(app0.scene_preset)
 			time_mode = str(app0.time_of_day)
+			physics.mass = float(app0.weight_kg) + float(app0.BIKE_KG)
 	Palette.apply(preset_id)
 	_preset = ScenePreset.get_preset(preset_id)
 	_viewport = SubViewport.new()

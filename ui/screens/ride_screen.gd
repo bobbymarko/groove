@@ -252,10 +252,10 @@ func _on_tick(snap: Dictionary) -> void:
 		_effort_shot_done = true
 		_capture_screenshot("effort")
 	# Trip numbers from the scene: speed, distance ridden, climbing.
-	_speed_l.text = "%d" % int(round(_scene.physics.speed * 3.6))
+	_speed_l.text = App.speed_text(_scene.physics.speed)
 	if _start_distance < 0.0:
 		_start_distance = _scene.distance
-	_dist_l.text = "%.1f" % ((_scene.distance - _start_distance) / 1000.0)
+	_dist_l.text = App.distance_text(_scene.distance - _start_distance)
 	var h := _scene.trail.h_at(_scene.distance)
 	if not is_nan(_last_h) and snap.state == WorkoutRunner.State.RUNNING and h > _last_h:
 		_elev_gain += h - _last_h
@@ -484,12 +484,9 @@ func _build_ui() -> void:
 	_controls = bar
 	_controls.modulate.a = 0.0
 	_start_btn = HudStyle.button(bar, "Start", 16, func(): _runner.toggle_pause())
-	_hint(bar, "space")
 	HudStyle.button(bar, "Skip ›", 16, func(): _runner.skip_segment())
-	_hint(bar, "S")
 	_erg_l = HudStyle.label(bar, "ERG on", 14, 500, HudStyle.TEXT_DIM)
 	HudStyle.button(bar, "Toggle ERG", 16, func(): _runner.set_erg(not _runner.erg_enabled))
-	_hint(bar, "E")
 	_state_l = HudStyle.label(bar, "", 14, 600, HudStyle.TEXT_DIM)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -497,20 +494,11 @@ func _build_ui() -> void:
 	_fps_l = HudStyle.label(bar, "— fps", 16, 500, Color(0.75, 1.0, 0.75))
 	_fps_l.visible = App.show_fps
 	HudStyle.button(bar, "End", 16, func(): _runner.end_early())
-	_hint(bar, "esc")
 	HudStyle.button(bar, "Home", 16, func(): App.go_to("res://ui/screens/home_screen.tscn"))
-	_hint(bar, "H")
 
 	_graph = WorkoutGraph.new()
 	_graph.custom_minimum_size.y = 70
 	v.add_child(_graph)
-
-
-## Small key hint next to a control.
-func _hint(bar: Control, key: String) -> Label:
-	var l := HudStyle.label(bar, key, 11, 700, Color(1, 1, 1, 0.4))
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	return l
 
 
 ## Top-left: workout name, overall progress, finish time, block list, bias, reps.
@@ -543,7 +531,6 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	HudStyle.button(foot, "−", 20, func(): _runner.adjust_bias(-1))
 	_bias_l = HudStyle.label(foot, "100%", 20, 700)
 	HudStyle.button(foot, "+", 20, func(): _runner.adjust_bias(1))
-	_hint(foot, "↑↓")
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(sp)
@@ -566,8 +553,8 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	var trip := HBoxContainer.new()
 	trip.add_theme_constant_override("separation", 30)
 	v.add_child(trip)
-	_speed_l = _metric(trip, "0", "KM/H")
-	_dist_l = _metric(trip, "0.0", "KM")
+	_speed_l = _metric(trip, "0", App.speed_unit())
+	_dist_l = _metric(trip, "0.0", App.distance_unit())
 	_elev_l = _metric(trip, "0", "M")
 	_clock = _metric(trip, "0:00", "ET")
 	_overall_bar2 = HudStyle.bar(v, 8, 4)

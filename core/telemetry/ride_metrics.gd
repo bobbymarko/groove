@@ -74,3 +74,16 @@ static func normalized_power(samples: Array) -> float:
 			acc += pow(avg, 4)
 			count += 1
 	return pow(acc / count, 0.25)
+
+
+## Food energy from mechanical work: a cyclist is about 24 % efficient, so
+## 1 kJ at the pedals costs about 1 kcal (1 / 4.184 / 0.24 = 0.996).
+static func kcal_from_kj(kj: float) -> float:
+	return kj * 0.996
+
+
+const PIZZA_SLICE_KCAL := 285.0   # one slice of a 14-inch cheese pizza
+
+
+static func pizza_slices(kcal: float) -> float:
+	return kcal / PIZZA_SLICE_KCAL

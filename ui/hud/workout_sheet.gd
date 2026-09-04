@@ -126,6 +126,9 @@ func _build_content(v: VBoxContainer) -> void:
 	_stat(grid, "%d" % int(round(est.kj)), "kJ at %d W FTP" % ftp)
 	_stat(grid, "%d" % int(round(est.tss)), "TSS")
 	_stat(grid, "%.2f" % float(est.intensity_factor), "intensity")
+	var kcal := RideMetrics.kcal_from_kj(float(est.kj))
+	_stat(grid, "%d" % int(round(kcal)), "kcal")
+	_stat(grid, "%.1f" % RideMetrics.pizza_slices(kcal), "slices of pizza")
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -135,6 +138,8 @@ func _build_content(v: VBoxContainer) -> void:
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 8)
 	scroll.add_child(body)
+	if w.description != "":
+		_coach_note(body, w.description)
 	HudStyle.label(body, "Blocks", 14, 700, HudStyle.TEXT_DIM)
 	var blocks := HudStyle.panel(body, HudStyle.PANEL, 8, 8)
 	var bl := VBoxContainer.new()
@@ -142,8 +147,6 @@ func _build_content(v: VBoxContainer) -> void:
 	blocks.add_child(bl)
 	for r in WorkoutSummary.rows(w, ftp):
 		HudStyle.block_row(bl, r, 24, 16, Color(0.20, 0.23, 0.31, 0.9))
-	if w.description != "":
-		_coach_note(body, w.description)
 	if w.author != "":
 		HudStyle.label(body, "by %s" % w.author, 13, 500, HudStyle.TEXT_DIM)
 
