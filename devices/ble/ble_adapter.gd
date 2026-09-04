@@ -115,7 +115,7 @@ func _on_device(info: Dictionary) -> void:
 	var address := str(info.get("address", ""))
 	device_found.emit({
 		"address": address,
-		"name": str(info.get("name", "")),
+		"name": str(info.get("name", "")) if info.get("name") != null else "",
 		"rssi": int(rssi) if (rssi is int or rssi is float) else 0,
 	})
 	if _waiting.has(address):

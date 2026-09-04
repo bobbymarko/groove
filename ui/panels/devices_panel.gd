@@ -90,7 +90,12 @@ func _state_text(dev: Node, remembered: Dictionary) -> String:
 func _on_device_found(info: Dictionary) -> void:
 	var addr: String = info.address
 	var role := Devices.role_of(addr)
-	var label := "%s   %d dBm%s" % [info.name if info.name != "" else "(unnamed)", info.rssi,
+	var name := str(info.get("name", ""))
+	# Nameless advertisers (phones, beacons, "<null>" from the BLE layer) are noise
+	# in a list of trainers and straps; only a remembered device earns a row without a name.
+	if (name == "" or name == "<null>") and role == "":
+		return
+	var label := "%s   %d dBm%s" % [name if name != "" and name != "<null>" else "(unnamed)", info.rssi,
 		("   · remembered " + role.replace("_", " ")) if role != "" else ""]
 	var i := _addresses.find(addr)
 	if i >= 0:
