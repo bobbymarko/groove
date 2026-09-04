@@ -32,6 +32,7 @@ func _ready() -> void:
 	if aabb.size.y > 0.001:
 		_model.scale = Vector3.ONE * (HEIGHT / aabb.size.y)
 		_model.position.y = -aabb.position.y * _model.scale.y
+	_model.rotation.y = PI   # the rig faces +Z; look_at points -Z at the rider
 	if OS.is_debug_build() and _packed.get_meta("logged", false) == false:
 		_packed.set_meta("logged", true)
 		print("[zombie] model bounds %s -> scale %.2f" % [aabb, _model.scale.x])

@@ -116,7 +116,8 @@ func _ready() -> void:
 		horde.rider = rider
 		horde.trail = trail
 		horde.height_fn = terrain.height
-		horde.hit.connect(func(_k: int) -> void: rider.kick())
+		horde.hit.connect(func(_k: int) -> void: rider.attack())
+		horde.picked_up.connect(func(t: int) -> void: rider.set_weapon(t))
 		_world.add_child(horde)
 	camera = HandheldCamera.new()
 	camera.ground_height = func(x: float, z: float) -> float: return terrain.height(x, z)

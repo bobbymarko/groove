@@ -77,6 +77,11 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			if a.begins_with("horde=") and rs.horde:
 				for i in int(a.trim_prefix("horde=")):
 					rs.horde.spawn(rs.distance, 4.0 + 2.5 * i)
+			if a.begins_with("weapon="):
+				await process_frame   # the rig poses on its first frame; attach after
+				rs.rider.set_weapon(int(a.trim_prefix("weapon=")))
+				if rs.horde:
+					rs.horde.weapon_tier = int(a.trim_prefix("weapon="))
 		for i in 240:
 			await process_frame
 		var rp: Vector3 = rs.rider.global_position

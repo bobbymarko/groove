@@ -52,6 +52,7 @@ var _reps_l: Label
 var _reps_icon: Control
 var _kills_icon: Control
 var _kills_l: Label
+var _prev_segment_kind := WorkoutSegment.Kind.STEADY
 var _block_name_l: Label
 var _block_dur_l: Label
 var _rows: Array[PanelContainer] = []
@@ -112,6 +113,8 @@ func _ready() -> void:
 		_kills_icon.visible = true
 		_kills_l.visible = true
 		_scene.horde.hit.connect(func(k: int) -> void: _kills_l.text = str(k))
+		_scene.horde.picked_up.connect(func(t: int) -> void:
+			_coach.say("You found a %s. Zombies, meet the %s." % [Weapon.name_for(t), Weapon.name_for(t)]))
 	_intro()
 	_on_tick(_runner.snapshot())
 
@@ -280,6 +283,10 @@ func _on_tick(snap: Dictionary) -> void:
 
 
 func _on_segment(i: int, s: WorkoutSegment) -> void:
+	# Apocalypse: finishing a hard rep earns the next weapon, dropped on the trail ahead.
+	if _scene.horde and _prev_segment_kind == WorkoutSegment.Kind.INTERVAL_ON and s.kind != WorkoutSegment.Kind.INTERVAL_ON:
+		_scene.horde.drop_pickup(_scene.distance)
+	_prev_segment_kind = s.kind
 	_block_name_l.text = _block_title(s)
 	_block_dur_l.text = "FOR %s" % HudStyle.duration(s.duration)
 	_segment.text = s.label() + ("  ·  %d rpm" % s.cadence if s.cadence > 0 else "")
@@ -594,6 +601,7 @@ func _style_row(row: PanelContainer, active: bool) -> void:
 ## Top-centre: trip numbers, progress, current block, power, live metrics.
 func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	var panel := HudStyle.panel(parent, HudStyle.PANEL, 10, 16)
+	panel.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.PANEL, HudStyle.RADIUS, 14, 14, HudStyle.BORDER))   # even padding all round
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	panel.add_child(v)
@@ -711,7 +719,7 @@ func _side_metric(parent: Control, value: String, unit: String, icon_name := "",
 	# Fixed value width so the icons stack in one vertical line while digits stay right-aligned.
 	var val := HudStyle.label(h, value, 26, 700)
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	val.custom_minimum_size.x = 82
+	val.custom_minimum_size.x = 64
 	var u := HudStyle.label(h, unit, 16, 700, HudStyle.TEXT_DIM)
 	u.custom_minimum_size.x = 56
 	HudStyle.share_baseline(h, val, u)

@@ -33,6 +33,11 @@ var _mixamo: MixamoBody
 var _stopped := 0.0          # 0 = feet on the pedals, 1 = one foot down on the ground
 var _kick := 0.0             # 1 right after a zombie hits; the rig-Left leg lashes out and returns
 const KICK_POS := Vector3(0.62, 0.55, 0.5)
+var _swing := 0.0            # 1 right after a hit with a weapon; the rig-Right arm winds up and strikes
+const SWING_HIGH := Vector3(-0.45, 1.65, 0.25)
+const SWING_STRIKE := Vector3(-0.8, 0.95, 0.95)
+var weapon_tier := 0
+var _weapon: Node3D
 var _headlight: SpotLight3D
 const FOOT_DOWN := Vector3(0.36, 0.0, -0.02)   # rig-Left (+X) foot planted beside the bike
 var _helmet: Node3D
@@ -117,7 +122,13 @@ func _pose_mixamo() -> void:
 		pedal_px = pedal_px.lerp(KICK_POS, sin(PI * _kick))   # out and back
 	# Palms rest on top of and slightly behind the bar so the fingers curl over the front.
 	var grip_off := Vector3(0.0, 0.045, -0.035)
-	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0) + grip_off, BAR + Vector3(-0.27, 0.0, 0.0) + grip_off)
+	var grip_nx := BAR + Vector3(-0.27, 0.0, 0.0) + grip_off
+	if _swing > 0.0:
+		# First half winds up high, second half sweeps down and forward, then back to the bar.
+		var wind := sin(PI * clampf((_swing - 0.5) * 2.0, 0.0, 1.0))
+		var strike := sin(PI * clampf(_swing * 2.0, 0.0, 1.0)) * (1.0 if _swing < 0.5 else 0.0)
+		grip_nx = grip_nx.lerp(SWING_HIGH, wind).lerp(SWING_STRIKE, strike)
+	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0) + grip_off, grip_nx)
 	if _helmet:
 		var head_idx: int = _mixamo._bones.get("Head", -1)
 		if head_idx >= 0:
@@ -129,6 +140,7 @@ func _pose_mixamo() -> void:
 func animate(cadence_rpm: float, speed_mps: float, delta: float) -> void:
 	crank_angle = fmod(crank_angle + cadence_rpm / 60.0 * TAU * delta, TAU)
 	_kick = move_toward(_kick, 0.0, delta * 2.4)
+	_swing = move_toward(_swing, 0.0, delta * 2.0)
 	var standing := cadence_rpm < 5.0 and speed_mps < 0.3
 	_stopped = move_toward(_stopped, 1.0 if standing else 0.0, delta * 2.5)
 	var wheel_delta := speed_mps / WHEEL_R * delta
@@ -279,6 +291,34 @@ func set_headlight(k: float) -> void:
 	_headlight.visible = k > 0.01
 
 
-## A zombie just made contact: boot it.
+## A zombie just made contact: boot it, or swing whatever is in hand.
+func attack() -> void:
+	if weapon_tier > 0:
+		_swing = 1.0
+	else:
+		_kick = 1.0
+
+
 func kick() -> void:
 	_kick = 1.0
+
+
+## Put a weapon in the rig-Right hand (the -X grip). Tier 0 clears it.
+func set_weapon(tier: int) -> void:
+	weapon_tier = tier
+	if _weapon:
+		_weapon.queue_free()
+		_weapon = null
+	if tier <= 0 or _mixamo == null or not _mixamo.is_ready():
+		return
+	var hand: int = _mixamo._bones.get("RightHand", -1)
+	if hand < 0:
+		return
+	var att := BoneAttachment3D.new()
+	att.bone_name = _mixamo.skeleton.get_bone_name(hand)
+	_mixamo.skeleton.add_child(att)
+	var w := Weapon.build(tier)
+	w.position = Vector3(0.0, 0.05, 0.0)      # handle in the palm; the business end runs out past the fingers
+	w.rotation_degrees = Vector3(0.0, 0.0, 0.0)  # bone +Y is the finger direction
+	att.add_child(w)
+	_weapon = att
