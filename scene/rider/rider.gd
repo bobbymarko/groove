@@ -30,6 +30,8 @@ var _shin_l: MeshInstance3D
 var _shin_r: MeshInstance3D
 var _body: Node3D
 var _mixamo: MixamoBody
+var _stopped := 0.0          # 0 = feet on the pedals, 1 = one foot down on the ground
+const FOOT_DOWN := Vector3(0.36, 0.0, -0.02)   # rig-Left (+X) foot planted beside the bike
 var _helmet: Node3D
 var lean_amount := 0.75   # torso lean in radians (debug-tunable)
 
@@ -90,9 +92,12 @@ func _build_mixamo_body() -> void:
 func _pose_mixamo() -> void:
 	if _mixamo == null or not _mixamo.is_ready():
 		return
-	# Rig "Left" is +X, so it takes the +X pedal and grip.
+	# Rig "Left" is +X, so it takes the +X pedal and grip. When stopped that
+	# foot comes off the pedal and rests on the ground.
 	var pedal_px := BB + _pedal_offset(crank_angle + PI, 0.16)
 	var pedal_nx := BB + _pedal_offset(crank_angle, -0.16)
+	if _stopped > 0.0:
+		pedal_px = pedal_px.lerp(FOOT_DOWN, smoothstep(0.0, 1.0, _stopped))
 	# Palms rest on top of and slightly behind the bar so the fingers curl over the front.
 	var grip_off := Vector3(0.0, 0.045, -0.035)
 	_mixamo.pose(Vector3(0.0, 1.0, -0.14), lean_amount, pedal_px, pedal_nx, BAR + Vector3(0.27, 0.0, 0.0) + grip_off, BAR + Vector3(-0.27, 0.0, 0.0) + grip_off)
@@ -106,6 +111,8 @@ func _pose_mixamo() -> void:
 ## Advance the animation: cadence in rpm, forward speed in m/s.
 func animate(cadence_rpm: float, speed_mps: float, delta: float) -> void:
 	crank_angle = fmod(crank_angle + cadence_rpm / 60.0 * TAU * delta, TAU)
+	var standing := cadence_rpm < 5.0 and speed_mps < 0.3
+	_stopped = move_toward(_stopped, 1.0 if standing else 0.0, delta * 2.5)
 	var wheel_delta := speed_mps / WHEEL_R * delta
 	_front_wheel.rotate_x(-wheel_delta)
 	_rear_wheel.rotate_x(-wheel_delta)

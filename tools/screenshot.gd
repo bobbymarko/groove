@@ -36,6 +36,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		rs.riding = true
 		rs.power = 210.0
 		rs.cadence = 88.0
+		if OS.get_cmdline_user_args().has("stopped"):
+			rs.power = 0.0
+			rs.cadence = 0.0
 		rs.debug_top_down = OS.get_cmdline_user_args().has("top")
 		rs.debug_closeup = OS.get_cmdline_user_args().has("closeup") or OS.get_cmdline_user_args().has("hands")
 		rs.debug_hands = OS.get_cmdline_user_args().has("hands")

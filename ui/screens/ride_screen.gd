@@ -59,6 +59,8 @@ var _last_h := NAN
 var _controls: HBoxContainer
 var _coach: CoachDialog
 var _hud_root: MarginContainer
+var _fade: ColorRect                 # covers the world at start, fades away
+var _intro_panels: Array[Control] = []   # top panels that slide in after the world
 var _effort_shot_done := false
 var _hardest_index := -1
 var _controls_idle := 0.0
@@ -102,7 +104,27 @@ func _ready() -> void:
 			_hardest_index = i
 	_title.text = App.workout.name
 	_graph.set_workout(App.workout)
+	_intro()
 	_on_tick(_runner.snapshot())
+
+
+## Start of a ride: the world fades in from black, then the HUD arrives, the
+## top panels sliding down as they appear. Skipped for tooling renders.
+func _intro() -> void:
+	if App.dry_run:
+		_fade.visible = false
+		return
+	_hud_root.modulate.a = 0.0
+	for p in _intro_panels:
+		p.position.y -= 28.0
+	var tw := create_tween()
+	tw.tween_property(_fade, "color:a", 0.0, 1.4).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func() -> void: _fade.visible = false)
+	tw.tween_property(_hud_root, "modulate:a", 1.0, 0.45).set_ease(Tween.EASE_OUT)
+	var slide := create_tween().set_parallel(true)
+	for i in _intro_panels.size():
+		slide.tween_property(_intro_panels[i], "position:y", _intro_panels[i].position.y + 28.0, 0.5) \
+			.set_delay(1.4 + 0.12 * i).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 func _input(event: InputEvent) -> void:
@@ -393,6 +415,11 @@ func _build_ui() -> void:
 	_scene.name = "RideScene"
 	_scene.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_scene)
+	_fade = ColorRect.new()
+	_fade.color = Color(0.02, 0.02, 0.04, 1.0)
+	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fade)
 	_scene.set_shake(App.camera_shake)
 	_scene.target_fraction_ahead = _target_fraction_ahead
 	_tuning = TuningPanel.new()
@@ -422,6 +449,7 @@ func _build_ui() -> void:
 	var left := _build_workout_panel(top)
 	left.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	var tele := _build_telemetry_panel(top)
+	_intro_panels = [left, tele]
 	tele.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	tele.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	tele.grow_vertical = Control.GROW_DIRECTION_END
@@ -525,7 +553,7 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 
 
 func _style_row(row: PanelContainer, active: bool) -> void:
-	HudStyle.style_block_row(row, HudStyle.ACCENT if active else HudStyle.PANEL_ROW)
+	HudStyle.style_block_row(row, HudStyle.ACCENT if active else row.get_meta("bg", HudStyle.PANEL_ROW))
 
 
 ## Top-centre: trip numbers, progress, current block, power, live metrics.

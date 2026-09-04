@@ -3,10 +3,7 @@ extends Control
 ## A recorded ride at a glance: power per second as bars coloured by effort
 ## relative to FTP, an FTP line, and optionally the heart-rate trace on top.
 
-const COLOR_EASY := Color(0.35, 0.55, 0.85)
-const COLOR_TEMPO := Color(0.62, 0.55, 0.72)
-const COLOR_HARD := Color(0.95, 0.45, 0.35)
-const HR_COLOR := Color(1.0, 0.42, 0.5)
+const HR_COLOR := WorkoutColors.HR
 const HR_MIN := 60.0
 const HR_MAX := 190.0
 
@@ -44,7 +41,7 @@ func _draw() -> void:
 			sum += _power[i]
 		var frac := (sum / (i1 - i0)) / ftp
 		var h := clampf(frac / peak, 0.0, 1.0) * r.size.y
-		var col := COLOR_EASY if frac < 0.76 else (COLOR_TEMPO if frac < 0.95 else COLOR_HARD)
+		var col := WorkoutColors.for_fraction(frac)
 		draw_rect(Rect2(b * bw, r.size.y - h, maxf(bw - (1.0 if bw > 2.0 else 0.0), 1.0), h), col)
 	var ftp_y := r.size.y - (1.0 / peak) * r.size.y
 	draw_line(Vector2(0, ftp_y), Vector2(r.size.x, ftp_y), Color(1, 1, 1, 0.3), 1.0)

@@ -16,6 +16,7 @@ var rider: Rider
 var camera: HandheldCamera
 var physics := RidePhysics.new()
 var snow: Snow
+var marks: TreadMarks
 var preset_id := "winter"        ## ScenePreset in use (from App unless overridden)
 var preset_override := ""        ## tooling: force a preset regardless of settings
 var _preset: Dictionary = {}
@@ -89,6 +90,8 @@ func _ready() -> void:
 	_world.add_child(terrain)
 	backdrop = Backdrop.new()
 	_world.add_child(backdrop)
+	marks = TreadMarks.new()
+	_world.add_child(marks)
 	rider = Rider.new()
 	_world.add_child(rider)
 	camera = HandheldCamera.new()
@@ -234,6 +237,8 @@ func _process(raw_delta: float) -> void:
 		anim_cadence = clampf(60.0 + power * 0.12, 60.0, 95.0)
 	rider.animate(anim_cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
 	_place_rider()
+	if riding and speed > 0.05:
+		marks.add(rider.to_global(Vector3(0.0, 0.0, -0.55)), rider.global_transform.basis.x, terrain.height)
 	terrain.update_around(distance)
 	var anchor := trail.position_at(maxf(distance - camera.follow_distance, 0.0))
 	var ground := terrain.height(anchor.x, anchor.z)

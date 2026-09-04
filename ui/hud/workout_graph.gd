@@ -11,12 +11,7 @@ var _hr_times: PackedFloat32Array = []
 var _hr_values: PackedFloat32Array = []
 const HR_MIN := 60.0
 const HR_MAX := 190.0
-const HR_COLOR := Color(1.0, 0.42, 0.5)
-
-const COLOR_BASE := Color(0.35, 0.55, 0.85)
-const COLOR_HARD := Color(0.95, 0.45, 0.35)
-const COLOR_FREE := Color(0.5, 0.5, 0.5)
-const COLOR_DONE_ALPHA := 0.45
+const HR_COLOR := WorkoutColors.HR
 
 
 func set_workout(w: Workout) -> void:
@@ -52,11 +47,9 @@ func _draw() -> void:
 		var x0 := workout.segment_start(i) / total * r.size.x
 		var x1 := workout.segment_end(i) / total * r.size.x
 		var w := maxf(x1 - x0 - 1.0, 1.0)
-		var col := COLOR_FREE
-		if s.has_target():
-			col = COLOR_BASE.lerp(COLOR_HARD, clampf((s.peak() - 0.55) / 0.6, 0.0, 1.0))
+		var col := WorkoutColors.for_segment(s)
 		if workout.segment_end(i) <= elapsed:
-			col.a = COLOR_DONE_ALPHA
+			col.a = WorkoutColors.DONE_ALPHA
 		var lo := s.power_low if s.has_target() else 0.3
 		var hi := s.power_high if s.has_target() else 0.3
 		var y_lo := r.size.y - (lo / peak) * r.size.y

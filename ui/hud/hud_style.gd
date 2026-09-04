@@ -230,7 +230,10 @@ static func _grabber(color: Color) -> Texture2D:
 ## lines, other blocks a single right-aligned line. `g` is a WorkoutSummary row.
 static func block_row(parent: Control, g: Dictionary, big := 26, small := 16, bg := PANEL_ROW) -> PanelContainer:
 	var row := PanelContainer.new()
-	style_block_row(row, bg)
+	var effort := WorkoutColors.for_fraction(float(g.get("peak", 0.0)), bool(g.get("has_target", true)))
+	var tinted := WorkoutColors.row_background(bg, effort)
+	row.set_meta("bg", tinted)   # the ride HUD restores this after the active highlight moves on
+	style_block_row(row, tinted)
 	parent.add_child(row)
 	if g.kind == "intervals":
 		var h := HBoxContainer.new()
