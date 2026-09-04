@@ -58,6 +58,8 @@ func _cascade_in() -> void:
 	for c in _cards:
 		c.modulate.a = 0.0
 	await get_tree().process_frame   # sizes are known now, so scaling can pivot on the centre
+	# The window and background take a moment to appear; hold so the cascade is seen.
+	await get_tree().create_timer(0.35).timeout
 	var delay := 0.0
 	for c in _cards:
 		if not is_instance_valid(c):
@@ -65,9 +67,9 @@ func _cascade_in() -> void:
 		c.pivot_offset = c.size * 0.5
 		c.scale = Vector2(0.94, 0.94)
 		var tw := create_tween().set_parallel(true).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-		tw.tween_property(c, "modulate:a", 1.0, 0.22).set_delay(delay)
-		tw.tween_property(c, "scale", Vector2.ONE, 0.26).set_delay(delay)
-		delay += 0.045
+		tw.tween_property(c, "modulate:a", 1.0, 0.28).set_delay(delay)
+		tw.tween_property(c, "scale", Vector2.ONE, 0.32).set_delay(delay)
+		delay += 0.07
 
 
 const PLAN_DAYS := 5
