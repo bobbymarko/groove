@@ -1,32 +1,31 @@
 class_name SettingsPanel
 extends VBoxContainer
-## Settings for a side sheet: rider, connectors, look (with live preview and
-## the scene tuning sliders). Saves as values change.
+## Settings for the side sheet: two pages (Rider & sync, Look) picked with a
+## segmented control, each a scroll of cards. Values save as they change.
 
-var _ftp: SpinBox
+var _pages: Array[Control] = []
+var _ftp: LineEdit
 var _key: LineEdit
 var _key_status: Label
 var _strava_id: LineEdit
 var _strava_secret: LineEdit
 var _strava_status: Label
 var _strava_connect: Button
-var _shake: OptionButton
 
 
 func _ready() -> void:
-	add_theme_constant_override("separation", 10)
+	add_theme_constant_override("separation", 14)
 	_build_ui()
 	Sync.intervals().test_finished.connect(func(ok: bool, msg: String) -> void:
-		_key_status.text = msg
-		_key_status.modulate = Color(0.6, 1, 0.6) if ok else Color(1, 0.6, 0.6))
+		_set_status(_key_status, msg, ok))
 	Sync.strava().auth_state_changed.connect(func(ok: bool, msg: String) -> void:
-		_strava_status.text = msg
-		_strava_status.modulate = Color(0.6, 1, 0.6) if ok else Color(1, 1, 1, 0.7)
+		_set_status(_strava_status, msg, ok)
 		_strava_connect.text = "Disconnect" if Sync.strava().is_configured() else "Connect")
 
 
 func save() -> void:
-	App.ftp = int(_ftp.value)
+	App.ftp = clampi(int(_ftp.text), 50, 600)
+	_ftp.text = str(App.ftp)
 	App.save_settings()
 	var key := _key.text.strip_edges()
 	if key != App.get_secret("intervals_api_key"):
@@ -58,131 +57,107 @@ func _strava_button() -> void:
 func _test_key() -> void:
 	var key := _key.text.strip_edges()
 	if key == "":
-		_key_status.text = "Enter an API key first"
+		_set_status(_key_status, "Enter an API key first", false)
 		return
 	Sync.intervals().api_key = key
 	_key_status.text = "Testing…"
-	_key_status.modulate = Color(1, 1, 1, 0.7)
+	_key_status.add_theme_color_override("font_color", HudStyle.TEXT_DIM)
 	Sync.intervals().test_connection()
 
 
+func _set_status(l: Label, msg: String, ok: bool) -> void:
+	l.text = ("●  " if msg != "" else "") + msg
+	l.add_theme_color_override("font_color", HudStyle.OK_GREEN if ok else HudStyle.WARN_RED)
+
+
+func _show_page(i: int) -> void:
+	for p in _pages.size():
+		_pages[p].visible = p == i
+
+
+func _page() -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(scroll)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 12)
+	scroll.add_child(v)
+	_pages.append(scroll)
+	return v
+
+
 func _build_ui() -> void:
-	var tabs := TabContainer.new()
-	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(tabs)
+	HudStyle.segmented(self, ["Rider & sync", "Look"], 0, _show_page, 14)
 
 	# --- Rider & sync ---
-	var rider := VBoxContainer.new()
-	rider.name = "Rider & sync"
-	rider.add_theme_constant_override("separation", 10)
-	tabs.add_child(rider)
-	_section(rider, "Rider")
-	var ftp_row := HBoxContainer.new()
-	rider.add_child(ftp_row)
-	HudStyle.label(ftp_row, "FTP (W)", 14, 500).custom_minimum_size.x = 120
-	_ftp = SpinBox.new()
-	_ftp.min_value = 50
-	_ftp.max_value = 600
-	_ftp.value = App.ftp
-	_ftp.value_changed.connect(func(_v: float) -> void: save())
-	ftp_row.add_child(_ftp)
+	var rider := _page()
+	var r := HudStyle.section(rider, "Rider")
+	var ftp_row := HudStyle.row(r, "FTP")
+	_ftp = HudStyle.input(ftp_row, str(App.ftp))
+	_ftp.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_ftp.custom_minimum_size.x = 84
+	_ftp.alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ftp.text_submitted.connect(func(_t: String) -> void: save())
+	_ftp.focus_exited.connect(save)
+	HudStyle.label(ftp_row, "watts", 13, 500, HudStyle.TEXT_DIM).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
-	_section(rider, "intervals.icu")
-	_help(rider, "Paste your personal API key from intervals.icu → Settings → Developer Settings. Planned workouts from your calendar show up on the home screen, and finished rides can be shared there.")
-	var key_row := HBoxContainer.new()
-	key_row.add_theme_constant_override("separation", 8)
-	rider.add_child(key_row)
-	_key = LineEdit.new()
-	_key.secret = true
-	_key.text = App.get_secret("intervals_api_key")
-	_key.placeholder_text = "API key"
-	_key.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var icu := HudStyle.section(rider, "intervals.icu",
+		"Personal API key from intervals.icu → Settings → Developer Settings. Planned workouts appear on the home screen and finished rides can be shared.")
+	var key_row := HudStyle.row(icu, "API key")
+	_key = HudStyle.input(key_row, App.get_secret("intervals_api_key"), "Paste key", true)
 	_key.text_submitted.connect(func(_t: String) -> void: save())
 	_key.focus_exited.connect(save)
-	key_row.add_child(_key)
 	HudStyle.button(key_row, "Test", 13, _test_key)
-	_key_status = HudStyle.label(rider, "", 12, 500, HudStyle.TEXT_DIM)
+	_key_status = _status_line(icu, "", false)
 
-	_section(rider, "Strava")
-	_help(rider, "Create an API application at strava.com/settings/api with Authorization Callback Domain \"localhost\", paste its Client ID and Client Secret, then press Connect. Strava requires a subscription for API apps and accepts no photos from third-party apps; add screenshots in the Strava app.")
-	_strava_id = LineEdit.new()
-	_strava_id.text = App.get_secret("strava_client_id")
-	_strava_id.placeholder_text = "Client ID"
+	var strava := HudStyle.section(rider, "Strava",
+		"Needs your own API app from strava.com/settings/api with callback domain \"localhost\". Strava's API takes no photos from other apps; add ride screenshots in the Strava app.")
+	_strava_id = HudStyle.input(HudStyle.row(strava, "Client ID"), App.get_secret("strava_client_id"), "Client ID")
 	_strava_id.focus_exited.connect(_save_strava_app)
-	rider.add_child(_strava_id)
-	var sec_row := HBoxContainer.new()
-	sec_row.add_theme_constant_override("separation", 8)
-	rider.add_child(sec_row)
-	_strava_secret = LineEdit.new()
-	_strava_secret.secret = true
-	_strava_secret.text = App.get_secret("strava_client_secret")
-	_strava_secret.placeholder_text = "Client Secret"
-	_strava_secret.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_strava_secret = HudStyle.input(HudStyle.row(strava, "Client secret"), App.get_secret("strava_client_secret"), "Client secret", true)
 	_strava_secret.focus_exited.connect(_save_strava_app)
-	sec_row.add_child(_strava_secret)
-	_strava_connect = HudStyle.button(sec_row, "Disconnect" if Sync.strava().is_configured() else "Connect", 13, _strava_button)
-	_strava_status = HudStyle.label(rider, ("Connected as %s" % Sync.strava().athlete_name) if Sync.strava().is_configured() else "Not connected", 12, 500,
-		Color(0.6, 1, 0.6) if Sync.strava().is_configured() else HudStyle.TEXT_DIM)
+	var connected := Sync.strava().is_configured()
+	var foot := HudStyle.row(strava, "")
+	_strava_status = _status_line(foot, ("Connected as %s" % Sync.strava().athlete_name) if connected else "Not connected", connected)
+	_strava_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_strava_connect = HudStyle.button(foot, "Disconnect" if connected else "Connect", 13, _strava_button)
 
 	# --- Look ---
-	var look := VBoxContainer.new()
-	look.name = "Look"
-	look.add_theme_constant_override("separation", 8)
-	tabs.add_child(look)
-	var opts := GridContainer.new()
-	opts.columns = 2
-	opts.add_theme_constant_override("h_separation", 12)
-	opts.add_theme_constant_override("v_separation", 6)
-	look.add_child(opts)
-	HudStyle.label(opts, "Look", 14, 500)
-	var look_ob := OptionButton.new()
-	look_ob.add_item("8-bit  (palette, chunky)")
-	look_ob.add_item("16-bit (posterized, finer)")
-	look_ob.add_item("Off    (native)")
-	look_ob.selected = ["8bit", "16bit", "off"].find(App.look_mode)
-	opts.add_child(look_ob)
-	HudStyle.label(opts, "Camera shake", 14, 500)
-	_shake = OptionButton.new()
-	for o in ["Off", "Low", "High"]:
-		_shake.add_item(o)
-	_shake.selected = ["off", "low", "high"].find(App.camera_shake)
-	opts.add_child(_shake)
-	HudStyle.label(opts, "FPS readout", 14, 500)
-	var fps_cb := CheckButton.new()
-	fps_cb.button_pressed = App.show_fps
-	fps_cb.toggled.connect(func(on: bool) -> void: App.show_fps = on; App.save_settings())
-	opts.add_child(fps_cb)
-
+	var look := _page()
+	var l := HudStyle.section(look, "Look")
 	var preview := RideScene.new()
-	preview.custom_minimum_size = Vector2(0, 250)
+	preview.custom_minimum_size = Vector2(0, 240)
 	preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	preview.riding = true
 	preview.power = 200.0
 	preview.cadence = 88.0
-	look.add_child(preview)
-	look_ob.item_selected.connect(func(i: int) -> void:
-		App.look_mode = ["8bit", "16bit", "off"][i]
-		App.save_settings()
-		preview.set_look_mode(App.look_mode))
-	_shake.item_selected.connect(func(i: int) -> void:
-		App.camera_shake = ["off", "low", "high"][i]
-		App.save_settings()
-		preview.set_shake(App.camera_shake))
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	look.add_child(scroll)
-	var panel := TuningPanel.new()
-	panel.scene = preview
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(panel)
+	HudStyle.segmented(HudStyle.row(l, "Filter"), ["8-bit", "16-bit", "Off"], ["8bit", "16bit", "off"].find(App.look_mode),
+		func(i: int) -> void:
+			App.look_mode = ["8bit", "16bit", "off"][i]
+			App.save_settings()
+			preview.set_look_mode(App.look_mode))
+	HudStyle.segmented(HudStyle.row(l, "Camera shake"), ["Off", "Low", "High"], ["off", "low", "high"].find(App.camera_shake),
+		func(i: int) -> void:
+			App.camera_shake = ["off", "low", "high"][i]
+			App.save_settings()
+			preview.set_shake(App.camera_shake))
+	HudStyle.segmented(HudStyle.row(l, "FPS readout"), ["Hide", "Show"], 1 if App.show_fps else 0,
+		func(i: int) -> void:
+			App.show_fps = i == 1
+			App.save_settings())
+	l.add_child(preview)
+
+	var tuning := TuningPanel.new()
+	tuning.embedded = true
+	tuning.scene = preview
+	var t := HudStyle.section(look, "Scene tuning", "", "Reset", tuning.reset)
+	t.add_child(tuning)
+	_show_page(0)
 
 
-func _section(parent: Control, title: String) -> void:
-	var l := HudStyle.label(parent, title, 15, 700, HudStyle.TEXT_DIM)
-	l.add_theme_constant_override("line_spacing", 0)
-
-
-func _help(parent: Control, text: String) -> void:
-	var l := HudStyle.label(parent, text, 12, 500, Color(1, 1, 1, 0.55))
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+func _status_line(parent: Control, text: String, ok: bool) -> Label:
+	var l := HudStyle.label(parent, ("●  " if text != "" else "") + text, 12, 700, HudStyle.OK_GREEN if ok else HudStyle.TEXT_DIM)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
