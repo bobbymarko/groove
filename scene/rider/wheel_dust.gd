@@ -78,10 +78,14 @@ func set_ground(snow: bool) -> void:
 	scale_amount_curve = grow
 
 
-func update(speed_mps: float) -> void:
-	var rolling := speed_mps > 1.5
+## `wet` is the rain intensity 0..1: damp ground gives less dust, a real
+## shower none. Snow spray is unaffected.
+func update(speed_mps: float, wet := 0.0) -> void:
+	var damp := 1.0 if _snow else clampf(1.0 - wet / 0.45, 0.0, 1.0)   # gone by a moderate shower
+	var rolling := speed_mps > 1.5 and damp > 0.05
 	if emitting != rolling:
 		emitting = rolling
+	color = Color(1.0, 1.0, 1.0, damp)   # fewer visible puffs as the ground gets wet
 	var k := clampf(speed_mps / 8.0, 0.3, 1.6)
 	if _snow:
 		initial_velocity_min = 1.6 * k

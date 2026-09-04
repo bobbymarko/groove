@@ -13,7 +13,7 @@ uniform float outline_darken : hint_range(0.0, 1.0) = 0.0;   // 0 = no outlines
 uniform float sharpen : hint_range(0.0, 1.5) = 0.4;          // local contrast before the palette snap
 uniform vec2 texel = vec2(0.0023474, 0.0041667);
 uniform float motion_blur : hint_range(0.0, 1.0) = 0.0;   // radial streaking at the frame edges; the scene scales it by speed
-uniform float blur_edge : hint_range(0.0, 1.0) = 0.3;     // where streaking starts (0 = centre, 1 = corners)
+uniform float blur_edge : hint_range(0.0, 1.0) = 0.22;    // where streaking starts (0 = centre, 1 = corners)
 
 const float BAYER[16] = float[16](
 	 0.0,  8.0,  2.0, 10.0,
@@ -37,7 +37,7 @@ vec3 nearest(vec3 c) {
 // Average along the line to the frame centre: speed streaks that grow toward the edges.
 vec3 radial(sampler2D tex, vec2 uv, float k) {
 	vec2 d = uv - vec2(0.5);
-	vec2 step = d * k * 0.11;
+	vec2 step = d * k * 0.22;
 	vec3 acc = vec3(0.0);
 	for (int i = 0; i < 8; i++) {
 		acc += texture(tex, uv + step * (float(i) / 7.0 - 0.5)).rgb;

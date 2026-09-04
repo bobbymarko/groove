@@ -32,7 +32,7 @@ var _hr_l: Label
 var _grade_l: Label
 var _fps_l: Label
 var _bias_l: Label
-var _erg_l: Label
+var _erg_l: Button                 # toggles ERG; reads "ERG on" / "ERG off"
 var _message: Label
 var _state_l: Label
 var _graph: WorkoutGraph
@@ -484,14 +484,19 @@ func _build_ui() -> void:
 	_controls = bar
 	_controls.modulate.a = 0.0
 	_start_btn = HudStyle.button(bar, "Start", 16, func(): _runner.toggle_pause())
-	HudStyle.button(bar, "Skip ›", 16, func(): _runner.skip_segment())
-	_erg_l = HudStyle.label(bar, "ERG on", 14, 500, HudStyle.TEXT_DIM)
-	HudStyle.button(bar, "Toggle ERG", 16, func(): _runner.set_erg(not _runner.erg_enabled))
+	HudStyle.button(bar, "Skip", 16, func(): _runner.skip_segment())
+	_erg_l = HudStyle.button(bar, "ERG on", 16, func(): _runner.set_erg(not _runner.erg_enabled))
 	_state_l = HudStyle.label(bar, "", 14, 600, HudStyle.TEXT_DIM)
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(sp)
-	_fps_l = HudStyle.label(bar, "— fps", 16, 500, Color(0.75, 1.0, 0.75))
+	# FPS readout lives in the top-right corner of the screen, outside the HUD layout.
+	_fps_l = HudStyle.label(self, "— fps", 14, 500, Color(0.75, 1.0, 0.75, 0.85))
+	_fps_l.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_fps_l.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_fps_l.offset_right = -14.0
+	_fps_l.offset_top = 8.0
+	_fps_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_fps_l.visible = App.show_fps
 	HudStyle.button(bar, "End", 16, func(): _runner.end_early())
 	HudStyle.button(bar, "Home", 16, func(): App.go_to("res://ui/screens/home_screen.tscn"))

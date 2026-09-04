@@ -138,7 +138,6 @@ func _build_ui() -> void:
 		App.units = "imperial" if i == 1 else "metric"
 		App.save_settings()
 		_weight.text = _weight_text())
-	HudStyle.label(r, "Weight and FTP set how fast the rider moves for a given power (W/kg).", 12, 500, Color(1, 1, 1, 0.5)).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var icu := HudStyle.section(rider, "intervals.icu",
 		"Personal API key from intervals.icu → Settings → Developer Settings. Planned workouts appear on the home screen and finished rides can be shared.")

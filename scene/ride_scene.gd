@@ -313,7 +313,7 @@ func _process(raw_delta: float) -> void:
 	_place_rider()
 	if riding and speed > 0.05:
 		marks.add(rider.to_global(Vector3(0.0, 0.0, -0.55)), rider.global_transform.basis.x, terrain.height)
-	dust.update(speed if riding else 0.0)
+	dust.update(speed if riding else 0.0, _rain)
 	terrain.update_around(distance)
 	var anchor := trail.position_at(maxf(distance - camera.follow_distance, 0.0))
 	var ground := terrain.height(anchor.x, anchor.z)
@@ -338,7 +338,7 @@ func _process(raw_delta: float) -> void:
 	backdrop.follow(rider.global_position)
 	_rain = move_toward(_rain, _rain_target(), raw_delta / 25.0)   # showers arrive and pass over ~25 s
 	# Edge streaking grows with speed; nothing when stopped.
-	_post.set_shader_parameter("motion_blur", float(_tuning.get("motion_blur", 0.6)) * clampf(speed / 9.0, 0.0, 1.0))
+	_post.set_shader_parameter("motion_blur", float(_tuning.get("motion_blur", 0.6)) * clampf(speed / 5.0, 0.0, 1.0))
 	_daylight_clock += raw_delta
 	if _daylight_clock >= 0.25:
 		_daylight_clock = 0.0
