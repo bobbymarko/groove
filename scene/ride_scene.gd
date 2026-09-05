@@ -193,7 +193,7 @@ func set_look_mode(mode: String) -> void:
 	_screen.material = _post if pixel_filter else null
 	_screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if pixel_filter else CanvasItem.TEXTURE_FILTER_LINEAR
 	_post.set_shader_parameter("mode", 1 if mode == "16bit" else 0)
-	RenderingServer.global_shader_parameter_set("cel_bands", 6.0)
+	RenderingServer.global_shader_parameter_set("cel_bands", float(_tuning.get("shade_bands", 6.0)))
 	RenderingServer.global_shader_parameter_set("cel_colorize_steps", 8.0)
 	RenderingServer.global_shader_parameter_set("cel_texture_mix", 0.4)
 	RenderingServer.global_shader_parameter_set("cel_smooth_terrain", 1.0)
@@ -270,6 +270,9 @@ func apply_tuning(t: Dictionary) -> void:
 	_env.fog_density = float(t.get("fog_density", 0.0028)) * (1.0 + 1.5 * _rain)
 	_post.set_shader_parameter("dither_strength", float(t.get("dither", 0.0)))
 	_post.set_shader_parameter("sharpen", float(t.get("sharpen", 0.4)))
+	# Banding: fewer colour steps and fewer light bands read more retro; more read smoother.
+	_post.set_shader_parameter("levels", float(t.get("color_levels", 32.0)))
+	RenderingServer.global_shader_parameter_set("cel_bands", float(t.get("shade_bands", 6.0)))
 	RenderingServer.global_shader_parameter_set("cel_speckle", float(t.get("speckle", 0.12)))
 	RenderingServer.global_shader_parameter_set("cel_highlight", float(t.get("highlight", 0.15)))
 	# 0 -> threshold 1.05 (bare), 1 -> 0.5 (buried).

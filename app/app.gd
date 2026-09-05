@@ -40,6 +40,8 @@ const TUNING_SPEC := [
 	["sharpen", "Sharpen", 0.0, 1.5, 0.05, 0.4],
 	["tree_snow", "Snow on trees", 0.0, 1.0, 0.02, 0.5],
 	["motion_blur", "Speed blur at edges", 0.0, 1.0, 0.02, 0.6],
+	["color_levels", "Colour steps (banding)", 6.0, 64.0, 1.0, 32.0],
+	["shade_bands", "Shading bands (light steps)", 2.0, 12.0, 1.0, 6.0],
 ]
 var scene_tuning: Dictionary = {}
 
