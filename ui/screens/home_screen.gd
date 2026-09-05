@@ -452,7 +452,7 @@ func _build_ui() -> void:
 	add_child(_sheet)
 	_side = SideSheet.new()
 	_side.name = "SideSheet"
-	_side.width = 560.0
+	_side.width = 740.0   # pixel type is wide; settings rows need the room
 	add_child(_side)
 
 

@@ -158,6 +158,7 @@ func _build_ui() -> void:
 	var foot := HudStyle.row(strava, "")
 	_strava_status = _status_line(foot, ("Connected as %s" % Sync.strava().athlete_name) if connected else "Not connected", connected)
 	_strava_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_strava_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # never widens the sheet
 	_strava_connect = HudStyle.button(foot, "Disconnect" if connected else "Connect", 13, _strava_button, "secondary")
 
 	# --- Look ---
@@ -197,4 +198,5 @@ func _build_ui() -> void:
 func _status_line(parent: Control, text: String, ok: bool) -> Label:
 	var l := HudStyle.label(parent, ("●  " if text != "" else "") + text, 12, 700, HudStyle.OK_GREEN if ok else HudStyle.TEXT_DIM)
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return l
