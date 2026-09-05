@@ -164,10 +164,7 @@ func _add_card_menu(card: PanelContainer, w: Workout, path: String) -> void:
 	menu.add_theme_font_size_override("font_size", 22)
 	card.add_child(menu)
 	var btn := HudStyle.icon_button(card, "more", func() -> void: pass, 18)
-	btn.pressed.connect(func() -> void:
-		# Hangs off the button, right-aligned to it.
-		menu.position = get_window().position + Vector2i(btn.global_position + Vector2(btn.size.x - menu.size.x, btn.size.y + 2.0))
-		menu.popup())
+	btn.pressed.connect(func() -> void: HudStyle.popup_below(menu, btn, true))
 	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	btn.offset_left = -44.0
 	btn.offset_right = -10.0
@@ -238,9 +235,7 @@ func _filter_menu(parent: Control) -> void:
 	var btn := HudStyle.icon_button(parent, "filter", func() -> void: pass, 18, "secondary" if active else "ghost")
 	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	# The menu hangs directly off the button's bottom-left corner.
-	btn.pressed.connect(func() -> void:
-		menu.position = get_window().position + Vector2i(btn.global_position + Vector2(0.0, btn.size.y + 2.0))
-		menu.popup())
+	btn.pressed.connect(func() -> void: HudStyle.popup_below(menu, btn))
 	menu.id_pressed.connect(func(id: int) -> void:
 		if id <= 3:
 			_filter_duration = id

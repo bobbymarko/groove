@@ -287,6 +287,18 @@ static func link(parent: Control, text: String, on_pressed: Callable, size := 13
 	return l
 
 
+## Open a popup menu hanging off a control's bottom edge, in screen pixels
+## (the canvas is scaled, so control positions must go through the viewport).
+static func popup_below(menu: PopupMenu, anchor: Control, align_right := false) -> void:
+	var xf := anchor.get_global_transform_with_canvas()
+	var size_px := xf.get_scale() * anchor.size
+	var pos := anchor.get_screen_position() + Vector2(0.0, size_px.y + 2.0)
+	if align_right:
+		pos.x += size_px.x - float(menu.size.x)
+	menu.position = Vector2i(pos)
+	menu.popup()
+
+
 ## Small uppercase section label in cyan.
 static func section_label(parent: Control, text: String, size := 12, color := CYAN) -> Label:
 	return label(parent, text.to_upper(), size, 700, color)
