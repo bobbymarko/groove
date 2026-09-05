@@ -29,7 +29,7 @@ var _thigh_r: MeshInstance3D
 var _shin_l: MeshInstance3D
 var _shin_r: MeshInstance3D
 var _body: Node3D
-var _mixamo: MixamoBody
+var _mixamo: RiderBody
 var _stopped := 0.0          # 0 = feet on the pedals, 1 = one foot down on the ground
 var _kick := 0.0             # 1 right after a zombie hits; the rig-Left leg lashes out and returns
 const KICK_POS := Vector3(0.62, 0.55, 0.5)
@@ -74,7 +74,7 @@ func _ready() -> void:
 	_crank_r = _box(BB, Vector3(0.03, CRANK_R, 0.05), Palette.HELMET)
 	_pedal_l = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
 	_pedal_r = _box(BB, Vector3(0.12, 0.03, 0.1), Palette.HELMET)
-	if MixamoBody.available():
+	if RiderBody.available():
 		_build_mixamo_body()
 		return
 	# Block rider fallback: torso leans forward from hips to shoulders, arms bend
@@ -100,10 +100,10 @@ func _ready() -> void:
 	_update_legs()
 
 
-## Mixamo character on the bike, posed by IK each frame (see MixamoBody).
+## Rigged character on the bike, posed by IK each frame (see RiderBody).
 func _build_mixamo_body() -> void:
-	_mixamo = MixamoBody.new()
-	_mixamo.name = "MixamoBody"
+	_mixamo = RiderBody.new()
+	_mixamo.name = "RiderBody"
 	_body.add_child(_mixamo)
 	# Helmet intentionally omitted until a proper model exists (Bob, 2026-09-03).
 	_helmet = null
@@ -140,6 +140,10 @@ func _pose_mixamo() -> void:
 func animate(cadence_rpm: float, speed_mps: float, delta: float) -> void:
 	crank_angle = fmod(crank_angle + cadence_rpm / 60.0 * TAU * delta, TAU)
 	_kick = move_toward(_kick, 0.0, delta * 2.4)
+	if _mixamo:
+		_mixamo.sway_phase = crank_angle
+		# Sway fades out as the pedalling stops rather than freezing mid-rock.
+		_mixamo.sway_amount = move_toward(_mixamo.sway_amount, 1.0 if cadence_rpm > 5.0 else 0.0, delta * 2.0)
 	_swing = move_toward(_swing, 0.0, delta * 2.0)
 	var standing := cadence_rpm < 5.0 and speed_mps < 0.3
 	_stopped = move_toward(_stopped, 1.0 if standing else 0.0, delta * 2.5)

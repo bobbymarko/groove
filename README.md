@@ -15,7 +15,7 @@ Working title. Product owner: Bobby Marko. The code is written by Claude followi
 Requirements: macOS with Godot 4.7.2, a Rust toolchain for the Bluetooth extension, and a Bluetooth smart trainer for real rides (a simulator is built in).
 
 ```bash
-tools/build-gdble.sh          # Bluetooth GDExtension, built from source once
+tools/build-gdble.sh          # Bluetooth GDExtension, built from source once (the compiled libraries are not in git)
 tools/fetch-quaternius.sh Pine_1 Pine_2 Pine_3 Pine_4 Pine_5 Rock_Medium_1 Rock_Medium_2 Rock_Medium_3 DeadTree_1 DeadTree_2 DeadTree_3 DeadTree_4 DeadTree_5 Bush_Common CommonTree_1 CommonTree_2 CommonTree_3 CommonTree_4 CommonTree_5 TwistedTree_1 TwistedTree_2 TwistedTree_3 Bush_Common_Flowers Grass_Common_Tall Grass_Wispy_Tall Flower_3_Group Flower_4_Group Mushroom_Common
 tools/fetch-quaternius-un.sh Cactus_1 Cactus_2 Cactus_3 Cactus_4 Cactus_5 CactusFlowers_2 CactusFlowers_3 CactusFlowers_4 CactusFlowers_5 PalmTree_1 PalmTree_2 PalmTree_3 PalmTree_4 Rock_1 Rock_2 Rock_3 Rock_4 Rock_5 Rock_6 Rock_7 BirchTree_1 BirchTree_2 BirchTree_3 BirchTree_4 BirchTree_5 Willow_1 Willow_2 Willow_3 Plant_1 Plant_2 Plant_3 TreeStump WoodLog Grass Flowers BushBerries_1
 tools/run-dev.sh              # launches a patched Godot copy that macOS lets use Bluetooth
@@ -42,6 +42,6 @@ Manual hardware test procedures are in `tests/manual.md`.
 - "Animated Zombie" by Quaternius (via Poly Pizza): CC BY 3.0, attribution required and given here.
 - Fonts: Departure Mono (SIL Open Font License) and Pixel Operator (CC0).
 - Icon sprite sheet, wordmark, coach portrait and menu background are Bob's.
-- Rider model from Mixamo (Adobe), used under the Mixamo terms; not redistributed here as an asset kit.
+- Rider: Quaternius Universal Base Characters (Superhero male), CC0, imported with `tools/import_character.py`.
 
 Project licence: MIT (see LICENSE). Full third-party notices in LICENSES.md, also shown from the Licence link in the app.

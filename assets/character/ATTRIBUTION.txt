@@ -1,0 +1,2 @@
+Universal Base Characters by Quaternius (https://quaternius.com), Standard tier.
+Licence: CC0 1.0. Imported with tools/import_character.py: base-colour textures only, shrunk to 1024 px.

@@ -29,6 +29,7 @@ uniform bool smooth_lighting = false;     // terrain: continuous lambert when ce
 // Zones are in model space (rider local, metres): legs below the saddle, arms
 // out from the torso, hands forward on the bars, head above the shoulders.
 uniform bool body_zones = false;
+uniform vec3 shoe_color : source_color = vec3(0.14, 0.14, 0.18);
 uniform vec3 sleeve_dark : source_color = vec3(0.56, 0.13, 0.16);
 uniform vec3 sleeve_light : source_color = vec3(0.78, 0.2, 0.23);
 uniform vec3 pants_dark : source_color = vec3(0.11, 0.2, 0.44);
@@ -67,8 +68,11 @@ void fragment() {
 			vec3 light = shade_light;
 			if (body_zones) {
 				bool hand = model_pos.z > 0.38 && model_pos.y < 1.2 && model_pos.y > 0.9;
-				bool head = model_pos.y > 1.38 && abs(model_pos.x) < 0.16;
-				if (!hand && !head) {
+				bool head = model_pos.y > 1.53 && abs(model_pos.x) < 0.1;
+				bool shoe = model_pos.y < 0.2;
+				if (shoe) {
+					dark = shoe_color * 0.6; light = shoe_color;
+				} else if (!hand && !head) {
 					if (model_pos.y < 1.0) {
 						dark = pants_dark; light = pants_light;
 					} else {

@@ -10,3 +10,9 @@ build/
 # Design references (Bob's drops; keep locally, do not commit)
 design/reference/*
 !design/reference/README.md
+
+# Not redistributable or rebuilt locally
+assets/mixamo/
+addons/gdble/*.dylib
+addons/gdble/*.so
+addons/gdble/*.dll

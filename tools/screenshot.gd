@@ -74,8 +74,14 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("lean="):
 				rs.rider.lean_amount = float(a.trim_prefix("lean="))
+			if a.begins_with("faxis="):
+				var mb1 := rs.rider.find_child("RiderBody", true, false)
+				var v := a.trim_prefix("faxis=")
+				var ax := {"x": Vector3.RIGHT, "y": Vector3.UP, "z": Vector3.BACK, "-x": Vector3.LEFT, "-y": Vector3.DOWN, "-z": Vector3.FORWARD}
+				if mb1 and ax.has(v):
+					mb1.finger_axis = ax[v]
 			if a.begins_with("sign="):
-				var mb0 := rs.rider.find_child("MixamoBody", true, false)
+				var mb0 := rs.rider.find_child("RiderBody", true, false)
 				if mb0:
 					mb0.lean_sign = float(a.trim_prefix("sign="))
 		for a in OS.get_cmdline_user_args():
@@ -97,7 +103,7 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		print("[dbg] rider %s heading %s grade %.1f speed %.1f" % [rp, rs.trail.heading_at(rs.distance), rs.trail.grade_at(rs.distance), rs.physics.speed])
 		print("[dbg] camera %s fov %.1f dist %.1f height %.1f" % [rs.camera.global_position, rs.camera.fov, rs.camera.follow_distance, rs.camera.follow_height])
 		print("[dbg] rider scale %s; rear wheel %s" % [rs.rider.global_transform.basis.get_scale(), rs.rider.get_child(1).global_position])
-		var mb := rs.rider.find_child("MixamoBody", true, false)
+		var mb := rs.rider.find_child("RiderBody", true, false)
 		if mb and mb.skeleton:
 			print("[dbg] skeleton xform %s" % mb.skeleton.global_transform)
 			for bn in ["Hips", "Spine", "Spine2", "Neck", "Head", "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftArm", "LeftForeArm", "LeftHand"]:
