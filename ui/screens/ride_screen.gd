@@ -592,8 +592,11 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	_rows.clear()
 	for g in _groups:
 		_rows.append(HudStyle.block_row(rows_box, g))
-	var visible_rows := mini(_groups.size(), MAX_VISIBLE_BLOCKS)
-	_rows_scroll.custom_minimum_size.y = visible_rows * 46.0 + (visible_rows - 1) * 6.0 + 4.0
+	# Height of the first MAX_VISIBLE_BLOCKS rows, measured, so the cap is exact.
+	var h := 0.0
+	for gi in mini(_groups.size(), MAX_VISIBLE_BLOCKS):
+		h += _rows[gi].get_combined_minimum_size().y + (6.0 if gi > 0 else 0.0)
+	_rows_scroll.custom_minimum_size.y = h + 2.0
 
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 6)
