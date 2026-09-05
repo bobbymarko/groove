@@ -438,6 +438,15 @@ func _build_ui() -> void:
 	resized.connect(_relayout)
 
 	_error = HudStyle.label(v, "", 14, 500, Color(1, 0.6, 0.6))
+	# Licence link, bottom-right corner of the page.
+	var lic := HudStyle.link(self, "License", open_licenses, 12)
+	lic.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	lic.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	lic.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	lic.offset_right = -28.0
+	lic.offset_bottom = -20.0
+	lic.offset_left = -140.0
+	lic.offset_top = -50.0
 
 	_dialog = FileDialog.new()
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM
@@ -454,6 +463,27 @@ func _build_ui() -> void:
 	_side.name = "SideSheet"
 	_side.width = 740.0   # pixel type is wide; settings rows need the room
 	add_child(_side)
+
+
+## MIT licence plus third-party notices, read from the repository files.
+func open_licenses() -> void:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	_side.header(v, "Licence")
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(scroll)
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 12)
+	scroll.add_child(body)
+	for f in ["res://LICENSE", "res://LICENSES.md"]:
+		var text := FileAccess.get_file_as_string(f) if FileAccess.file_exists(f) else "(%s missing)" % f.get_file()
+		var card := HudStyle.section(body, "Groove" if f.ends_with("LICENSE") else "Third-party")
+		var l := HudStyle.label(card, text.replace("# Licences\n\n", "").replace("## Third-party\n", "").replace("- ", "").strip_edges(), 13, 500, HudStyle.TEXT_DIM)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_side.show_content(v)
 
 
 func open_settings() -> void:

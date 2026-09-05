@@ -44,4 +44,4 @@ Manual hardware test procedures are in `tests/manual.md`.
 - Icon sprite sheet, wordmark, coach portrait and menu background are Bob's.
 - Rider model from Mixamo (Adobe), used under the Mixamo terms; not redistributed here as an asset kit.
 
-Project licence: not decided yet.
+Project licence: MIT (see LICENSE). Full third-party notices in LICENSES.md, also shown from the Licence link in the app.
