@@ -64,8 +64,8 @@ var _controls: HBoxContainer
 var _coach: CoachDialog
 var _hud_root: MarginContainer
 const GROOVE_HEIGHT := 84.0          # the plan strip along the bottom edge
-const COACH_BAND_ABOVE := 96.0       # room for the controls bar between the coach and the groove
-const COACH_BAND := 220.0            # the band the coach dialog is centred in
+const COACH_BAND_ABOVE := 72.0       # room for the controls bar between the coach and the groove
+const COACH_BAND := 200.0            # the band the coach dialog is centred in
 var _fade: ColorRect                 # covers the world at start, fades away
 var _intro_panels: Array[Control] = []   # top panels that slide in after the world
 var _effort_shot_done := false
