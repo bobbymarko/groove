@@ -1,0 +1,22 @@
+<workout_file>
+    <author>Groove</author>
+    <name>Tabata Sprints</name>
+    <description>Two sets of eight 20-second sprints with 10 seconds off. Twenty minutes total, most of it warming up and cooling down from the eight that matter.</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="480" PowerLow="0.45" PowerHigh="0.80">
+            <textevent timeoffset="15" message="Short and violent today. Get the legs spinning fast."/>
+        </Warmup>
+        <IntervalsT Repeat="8" OnDuration="20" OffDuration="10" OnPower="1.70" OffPower="0.40" Cadence="110" CadenceResting="80">
+            <textevent timeoffset="2" message="Set one. All out, every time."/>
+        </IntervalsT>
+        <SteadyState Duration="240" Power="0.45">
+            <textevent timeoffset="5" message="Four minutes easy. Shake the legs out."/>
+        </SteadyState>
+        <IntervalsT Repeat="8" OnDuration="20" OffDuration="10" OnPower="1.70" OffPower="0.40" Cadence="110" CadenceResting="80">
+            <textevent timeoffset="2" message="Set two. Same again."/>
+        </IntervalsT>
+        <Cooldown Duration="240" PowerLow="0.50" PowerHigh="0.40"/>
+    </workout>
+</workout_file>

@@ -1,0 +1,18 @@
+<workout_file>
+    <author>Groove</author>
+    <name>VO2 5x4</name>
+    <description>Five four-minute efforts above threshold with equal recovery. Short warmup, big breathing, long payoff.</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="600" PowerLow="0.45" PowerHigh="0.85">
+            <textevent timeoffset="15" message="These hurt. Warm up like you mean it."/>
+        </Warmup>
+        <IntervalsT Repeat="5" OnDuration="240" OffDuration="240" OnPower="1.15" OffPower="0.45" Cadence="95" CadenceResting="85">
+            <textevent timeoffset="10" message="Go. High cadence, chest open, count breaths not seconds."/>
+            <textevent timeoffset="250" message="Recover fully. Do not chase watts on the rest."/>
+            <textevent timeoffset="1930" message="Final rep. Empty the tank."/>
+        </IntervalsT>
+        <Cooldown Duration="600" PowerLow="0.55" PowerHigh="0.40"/>
+    </workout>
+</workout_file>

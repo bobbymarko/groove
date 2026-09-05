@@ -7,6 +7,9 @@ var _list: VBoxContainer            # sections: planned days, then the library
 var _grids: Array[GridContainer] = []
 var _cal_status: Label
 var _cards: Array[Control] = []      # tiles in build order, for the entrance cascade
+var _filter_duration := 0            # 0 any, 1 under 30 min, 2 30-60, 3 over 60
+var _filter_source := 0              # 0 all, 1 uploaded, 2 bundled
+const FILTER_LABELS := ["Any duration", "Under 30 min", "30 to 60 min", "Over 60 min", "", "All workouts", "Uploaded", "Bundled"]
 var _cascaded := false               # animate once per visit, not on every calendar refresh
 var _devices_l: Label
 var _error: Label
@@ -40,13 +43,13 @@ func _refresh_cards() -> void:
 		_add_training_plan()
 	else:
 		_add_onboarding()
-	var lib := _section("Library", false)
+	var lib := _section("Library", false, true)
+	_add_open_card(lib)
 	for f in _files:
 		var w := WorkoutLoader.load_file(f, App.ftp)
-		if w == null:
+		if w == null or not _passes_filter(w, f):
 			continue
 		_add_card(lib, w, f, false)
-	_add_open_card(lib)
 	_cal_status.text = Sync.calendar.status if linked else ""
 	_cal_status.visible = _cal_status.text != ""
 	_relayout()
@@ -84,7 +87,7 @@ const CARD_HEIGHT := 196.0
 ## "Training plan": one row of the next five days, each a column with a day
 ## subhead and that day's planned rides, or an equally sized "Nothing planned" box.
 func _add_training_plan() -> void:
-	HudStyle.section_label(_list, "Training plan", 13)
+	HudStyle.section_label(_list, "Training plan", 20)
 	var today := IntervalsCalendar.today()
 	var by_date: Dictionary = {}
 	for day in Sync.calendar.by_day():
@@ -118,7 +121,7 @@ func _add_training_plan() -> void:
 
 ## No intervals.icu yet: say what linking gets you and point at Settings.
 func _add_onboarding() -> void:
-	HudStyle.section_label(_list, "Training plan", 13)
+	HudStyle.section_label(_list, "Training plan", 20)
 	var card := HudStyle.panel(_list, HudStyle.CARD, HudStyle.RADIUS, 16)
 	card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 20, 18, HudStyle.BORDER))
 	card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -206,12 +209,57 @@ func _nav_button(parent: Control, icon_name: String, text: String, on_pressed: C
 	return b
 
 
-func _section(title: String, highlight: bool) -> GridContainer:
+func _passes_filter(w: Workout, path: String) -> bool:
+	var minutes := w.total_duration() / 60.0
+	match _filter_duration:
+		1: if minutes >= 30.0: return false
+		2: if minutes < 30.0 or minutes > 60.0: return false
+		3: if minutes <= 60.0: return false
+	match _filter_source:
+		1: if not App.is_user_workout(path): return false
+		2: if App.is_user_workout(path): return false
+	return true
+
+
+## Filter menu on the Library header: one duration choice, one source choice.
+func _filter_menu(parent: Control) -> void:
+	var menu := PopupMenu.new()
+	menu.add_theme_font_override("font", HudStyle.font(500, 22))
+	menu.add_theme_font_size_override("font_size", 22)
+	for i in FILTER_LABELS.size():
+		if FILTER_LABELS[i] == "":
+			menu.add_separator()
+		else:
+			menu.add_radio_check_item(FILTER_LABELS[i], i)
+	menu.set_item_checked(_filter_duration, true)
+	menu.set_item_checked(5 + _filter_source, true)
+	parent.add_child(menu)
+	var active := _filter_duration != 0 or _filter_source != 0
+	var btn := HudStyle.icon_button(parent, "filter", func() -> void:
+		var win_pos := get_window().position
+		menu.position = win_pos + Vector2i(int(size.x) - 300, 150)
+		menu.popup(), 18, "secondary" if active else "ghost")
+	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	menu.id_pressed.connect(func(id: int) -> void:
+		if id <= 3:
+			_filter_duration = id
+		else:
+			_filter_source = id - 5
+		_refresh_cards())
+
+
+## Section title in display type (the day labels below it stay small UI type).
+func _section(title: String, highlight: bool, with_filter := false) -> GridContainer:
 	if not _list.get_children().is_empty():
 		var gap := Control.new()
 		gap.custom_minimum_size.y = 6
 		_list.add_child(gap)
-	HudStyle.section_label(_list, title, 13, HudStyle.ORANGE if highlight else HudStyle.CYAN)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	_list.add_child(head)
+	HudStyle.section_label(head, title, 20, HudStyle.ORANGE if highlight else HudStyle.CYAN).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if with_filter:
+		_filter_menu(head)
 	var grid := GridContainer.new()
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 16)

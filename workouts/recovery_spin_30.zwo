@@ -1,0 +1,17 @@
+<workout_file>
+    <author>Groove</author>
+    <name>Recovery Spin 30</name>
+    <description>Thirty easy minutes to flush the legs. Keep it conversational; if it feels like work, back off.</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="300" PowerLow="0.40" PowerHigh="0.55">
+            <textevent timeoffset="10" message="Easy day. Spin light and let the legs come round."/>
+        </Warmup>
+        <SteadyState Duration="1200" Power="0.55" Cadence="90">
+            <textevent timeoffset="60" message="Nothing to chase today. High cadence, low pressure."/>
+            <textevent timeoffset="900" message="Halfway. Shoulders down, breathe through the nose."/>
+        </SteadyState>
+        <Cooldown Duration="300" PowerLow="0.50" PowerHigh="0.40"/>
+    </workout>
+</workout_file>

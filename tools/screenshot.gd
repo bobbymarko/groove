@@ -147,27 +147,7 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			root.get_node("Sync").intervals().api_key = ""   # render only; the saved key is untouched
 			root.get_node("Sync").calendar.preview = true
 		if mode == "calendar":
-			for i in 40:
-				await process_frame
-		if mode == "summary" and OS.get_cmdline_user_args().has("lightbox"):
-			await process_frame
-			var fit: String = app.last_ride_journal.get_basename() + ".fit"
-			var shots: Array[String] = load("res://ui/panels/rides_panel.gd")._screenshots(fit)
-			if not shots.is_empty():
-				Lightbox.open(shots, 0)
-			for i in 20:
-				await process_frame
-		if mode == "live":
-			# Wait for the real intervals.icu calendar fetch (needs a saved API key).
-			var cal: Node = root.get_node("Sync").calendar
-			for i in 600:
-				await process_frame
-				if not cal.busy and cal.last_refresh > 0:
-					break
-			print("[dbg] calendar status '%s' entries %d\n[dbg] %s" % [cal.status, cal.entries.size(), cal.last_summary])
-			for e in cal.entries:
-				print("[dbg]   %s %s" % [e.date, e.name])
-			for i in 10:
+			for i in 110:
 				await process_frame
 		if mode in ["settings", "devices", "rides"]:
 			await process_frame

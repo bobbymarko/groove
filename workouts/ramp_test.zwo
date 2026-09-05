@@ -1,0 +1,34 @@
+<workout_file>
+    <author>Groove</author>
+    <name>Ramp Test</name>
+    <description>One-minute steps that climb until you cannot hold the target. Your FTP is about 75 percent of the last full minute you complete. Stop when you have to; the cooldown is there whenever you need it.</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="300" PowerLow="0.40" PowerHigh="0.46">
+            <textevent timeoffset="10" message="Ramp test. Steps of one minute, each a little harder. Ride until you cannot."/>
+        </Warmup>
+        <SteadyState Duration="60" Power="0.52"/>
+        <SteadyState Duration="60" Power="0.58"/>
+        <SteadyState Duration="60" Power="0.64"/>
+        <SteadyState Duration="60" Power="0.70"/>
+        <SteadyState Duration="60" Power="0.76"/>
+        <SteadyState Duration="60" Power="0.82"/>
+        <SteadyState Duration="60" Power="0.88"/>
+        <SteadyState Duration="60" Power="0.94"/>
+        <SteadyState Duration="60" Power="1.00">
+            <textevent timeoffset="2" message="You are at your current FTP. Every step from here raises it."/>
+        </SteadyState>
+        <SteadyState Duration="60" Power="1.06"/>
+        <SteadyState Duration="60" Power="1.12"/>
+        <SteadyState Duration="60" Power="1.18"/>
+        <SteadyState Duration="60" Power="1.24"/>
+        <SteadyState Duration="60" Power="1.30"/>
+        <SteadyState Duration="60" Power="1.36"/>
+        <SteadyState Duration="60" Power="1.42"/>
+        <SteadyState Duration="60" Power="1.48"/>
+        <Cooldown Duration="600" PowerLow="0.50" PowerHigh="0.35">
+            <textevent timeoffset="5" message="Spin easy. Note the last full step you finished; three quarters of that is your new FTP."/>
+        </Cooldown>
+    </workout>
+</workout_file>

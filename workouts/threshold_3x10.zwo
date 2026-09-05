@@ -1,0 +1,22 @@
+<workout_file>
+    <author>Groove</author>
+    <name>Threshold 3x10</name>
+    <description>Three ten-minute efforts at FTP with five minutes between. Uncomfortable, controlled, repeatable.</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="600" PowerLow="0.45" PowerHigh="0.80">
+            <textevent timeoffset="15" message="Warm up properly; threshold punishes cold legs."/>
+        </Warmup>
+        <SteadyState Duration="60" Power="1.05"/>
+        <SteadyState Duration="240" Power="0.55">
+            <textevent timeoffset="5" message="One minute opener done. Recover, then the real work."/>
+        </SteadyState>
+        <IntervalsT Repeat="3" OnDuration="600" OffDuration="300" OnPower="1.00" OffPower="0.50" Cadence="90" CadenceResting="85">
+            <textevent timeoffset="10" message="Rep one. Sit in it; the first three minutes lie about how hard the last three will be."/>
+            <textevent timeoffset="910" message="Rep two. Same cadence, same breathing."/>
+            <textevent timeoffset="1810" message="Last one. Everything you have left is allowed here."/>
+        </IntervalsT>
+        <Cooldown Duration="600" PowerLow="0.55" PowerHigh="0.40"/>
+    </workout>
+</workout_file>

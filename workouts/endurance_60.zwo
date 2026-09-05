@@ -1,0 +1,22 @@
+<workout_file>
+    <author>Groove</author>
+    <name>Endurance 60</name>
+    <description>An hour in zone 2 with a few cadence changes to keep you honest. The bread and butter of an aerobic base.</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="600" PowerLow="0.45" PowerHigh="0.65">
+            <textevent timeoffset="15" message="Settle in. This one is about time, not fireworks."/>
+        </Warmup>
+        <SteadyState Duration="900" Power="0.68" Cadence="90"/>
+        <SteadyState Duration="300" Power="0.68" Cadence="75">
+            <textevent timeoffset="5" message="Drop the cadence to 75 for five minutes. Smooth pressure on the pedals."/>
+        </SteadyState>
+        <SteadyState Duration="900" Power="0.70" Cadence="92"/>
+        <SteadyState Duration="300" Power="0.70" Cadence="100">
+            <textevent timeoffset="5" message="Spin it up: 100 rpm, same power, no bouncing."/>
+        </SteadyState>
+        <SteadyState Duration="300" Power="0.68" Cadence="90"/>
+        <Cooldown Duration="300" PowerLow="0.60" PowerHigh="0.45"/>
+    </workout>
+</workout_file>

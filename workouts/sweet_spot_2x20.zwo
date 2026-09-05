@@ -1,0 +1,19 @@
+<workout_file>
+    <author>Groove</author>
+    <name>Sweet Spot 2x20</name>
+    <description>Two twenty-minute blocks just under threshold. Hard enough to build, easy enough to repeat all week.</description>
+    <sportType>bike</sportType>
+    <tags></tags>
+    <workout>
+        <Warmup Duration="600" PowerLow="0.45" PowerHigh="0.75">
+            <textevent timeoffset="15" message="Build gradually. The work starts at minute ten."/>
+        </Warmup>
+        <IntervalsT Repeat="2" OnDuration="1200" OffDuration="300" OnPower="0.90" OffPower="0.55" Cadence="88" CadenceResting="85">
+            <textevent timeoffset="10" message="Block one. Find a rhythm you could hold for an hour, then hold it for twenty."/>
+            <textevent timeoffset="1500" message="Block two. Same watts, steadier head."/>
+        </IntervalsT>
+        <Cooldown Duration="600" PowerLow="0.60" PowerHigh="0.40">
+            <textevent timeoffset="10" message="Done. That is forty minutes of real training in the bank."/>
+        </Cooldown>
+    </workout>
+</workout_file>

@@ -5,7 +5,7 @@ A structured-workout trainer app for indoor cycling: load a workout, let it driv
 Working title. Product owner: Bobby Marko. The code is written by Claude following the AI-native SDLC playbook: `intent.md` says why, `spec.md` says what (requirements, architecture, milestones, decisions), `Design.md` says how it looks.
 
 ## What it does
-- Opens `.zwo`, `.mrc`, `.erg` and FIT workout files, and shows your planned workouts from the intervals.icu calendar by day.
+- Ships with eight workouts (recovery, endurance, sweet spot, threshold, VO2, over-unders, Tabata, ramp test) and opens `.zwo`, `.mrc`, `.erg` and FIT workout files, and shows your planned workouts from the intervals.icu calendar by day.
 - Controls a Bluetooth FTMS trainer (tested on a Wahoo KICKR CORE) and reads a heart-rate strap, reconnecting after dropouts.
 - Ride HUD with the plan drawn as a single coloured "groove", live metrics, a coach who reads the workout's text cues, and keyboard shortcuts.
 - A procedural world with seven scenes (Winter, Summer, Autumn, Spring, Desert, Birchwood, and an Apocalypse where zombies come for you on the hard reps), a day/night cycle that runs at four times real time, weather, tyre marks and dust.
