@@ -43,12 +43,23 @@ varying vec3 vcol;
 varying vec3 world_normal;
 varying vec3 world_pos;
 varying vec3 model_pos;
+varying float shoe_w;                       // skin weight on the foot bones (rider shoes)
+uniform ivec4 shoe_bones = ivec4(-1, -1, -1, -1);
 
 void vertex() {
 	vcol = COLOR.rgb;
 	world_normal = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	model_pos = VERTEX;
+	shoe_w = 0.0;
+	if (shoe_bones.x >= 0) {
+		for (int i = 0; i < 4; i++) {
+			int b = int(BONE_INDICES[i]);
+			if (b == shoe_bones.x || b == shoe_bones.y || b == shoe_bones.z || b == shoe_bones.w) {
+				shoe_w += BONE_WEIGHTS[i];
+			}
+		}
+	}
 }
 
 float hash3(vec3 p) {
@@ -69,7 +80,7 @@ void fragment() {
 			if (body_zones) {
 				bool hand = model_pos.z > 0.38 && model_pos.y < 1.2 && model_pos.y > 0.9;
 				bool head = model_pos.y > 1.53 && abs(model_pos.x) < 0.1;
-				bool shoe = model_pos.y < 0.2;
+				bool shoe = shoe_w > 0.45;
 				if (shoe) {
 					dark = shoe_color * 0.6; light = shoe_color;
 				} else if (!hand && !head) {

@@ -20,7 +20,11 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 	var devices: Node = root.get_node("Devices")
 	var ride := mode == "ride"
 	if ride:
-		app.workout = ZwoParser.parse_file("res://workouts/cadence_today.zwo")
+		var wpath := "res://workouts/cadence_today.zwo"
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("workout="):
+				wpath = a.trim_prefix("workout=")
+		app.workout = ZwoParser.parse_file(wpath)
 		app.dry_run = true   # never record preview rides into the real library
 		devices.use_simulated_devices()
 	var fake: RideRecorder = null

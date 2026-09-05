@@ -231,10 +231,13 @@ func _restyle(character: Node) -> void:
 			if not is_hair and not is_eyes:
 				# Long sleeves and pants: skin regions take the jersey and shorts colours.
 				m.set_shader_parameter("body_zones", true)
-				m.set_shader_parameter("sleeve_dark", Vector3(0.56, 0.13, 0.16))
-				m.set_shader_parameter("sleeve_light", Vector3(Palette.RIDER_RED.r, Palette.RIDER_RED.g, Palette.RIDER_RED.b))
-				m.set_shader_parameter("pants_dark", Vector3(0.11, 0.2, 0.44))
-				m.set_shader_parameter("pants_light", Vector3(Palette.RIDER_BLUE.r, Palette.RIDER_BLUE.g, Palette.RIDER_BLUE.b))
+				# Kit: light grey long-sleeve jersey, black pants, black shoes (Bob, 2026-09-04).
+				m.set_shader_parameter("sleeve_dark", Vector3(0.50, 0.52, 0.56))
+				m.set_shader_parameter("sleeve_light", Vector3(0.88, 0.89, 0.91))
+				m.set_shader_parameter("pants_dark", Vector3(0.05, 0.05, 0.07))
+				m.set_shader_parameter("pants_light", Vector3(0.19, 0.19, 0.23))
+				m.set_shader_parameter("shoe_color", Vector3(0.12, 0.12, 0.14))
+				m.set_shader_parameter("shoe_bones", Vector4i(_bones["LeftFoot"], _bones["LeftToeBase"], _bones["RightFoot"], _bones["RightToeBase"]))
 			mi.set_surface_override_material(i, m)
 
 

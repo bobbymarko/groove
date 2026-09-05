@@ -49,6 +49,8 @@ var _dist_l: Label
 var _elev_l: Label
 var _kj_l: Label
 var _reps_l: Label
+var _rows_scroll: ScrollContainer
+const MAX_VISIBLE_BLOCKS := 6
 var _reps_icon: Control
 var _kills_icon: Control
 var _kills_l: Label
@@ -296,6 +298,8 @@ func _on_segment(i: int, s: WorkoutSegment) -> void:
 		var g := _groups[gi]
 		var active: bool = i >= int(g.first) and i <= int(g.last)
 		_style_row(_rows[gi], active)
+		if active and _rows_scroll:
+			_rows_scroll.ensure_control_visible.call_deferred(_rows[gi])
 	_update_reps(i)
 
 
@@ -575,10 +579,21 @@ func _build_workout_panel(parent: Control) -> PanelContainer:
 	_finish_l = HudStyle.label(fin, _fmt(App.workout.total_duration()), 26, 900)
 	HudStyle.share_baseline(fin, _finish_l, fin_l)
 
+	# Long workouts: the list is capped and scrolls, following the active block.
+	_rows_scroll = ScrollContainer.new()
+	_rows_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_rows_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	v.add_child(_rows_scroll)
+	var rows_box := VBoxContainer.new()
+	rows_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows_box.add_theme_constant_override("separation", 6)
+	_rows_scroll.add_child(rows_box)
 	_groups = WorkoutSummary.rows(App.workout, App.ftp)
 	_rows.clear()
 	for g in _groups:
-		_rows.append(HudStyle.block_row(v, g))
+		_rows.append(HudStyle.block_row(rows_box, g))
+	var visible_rows := mini(_groups.size(), MAX_VISIBLE_BLOCKS)
+	_rows_scroll.custom_minimum_size.y = visible_rows * 46.0 + (visible_rows - 1) * 6.0 + 4.0
 
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 6)
