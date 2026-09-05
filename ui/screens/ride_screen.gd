@@ -64,6 +64,8 @@ var _controls: HBoxContainer
 var _coach: CoachDialog
 var _hud_root: MarginContainer
 const GROOVE_HEIGHT := 84.0          # the plan strip along the bottom edge
+const COACH_BAND_ABOVE := 96.0       # room for the controls bar between the coach and the groove
+const COACH_BAND := 220.0            # the band the coach dialog is centred in
 var _fade: ColorRect                 # covers the world at start, fades away
 var _intro_panels: Array[Control] = []   # top panels that slide in after the world
 var _effort_shot_done := false
@@ -506,8 +508,12 @@ func _build_ui() -> void:
 	v.add_child(spacer)
 
 	# Coach notes: centred dialog with portrait (see CoachDialog). Added last so it draws on top.
+	# Coach notes sit low, just above the controls and the groove strip, so the
+	# action in the middle of the screen stays visible.
 	var centre := CenterContainer.new()
-	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centre.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	centre.offset_top = -(GROOVE_HEIGHT + COACH_BAND_ABOVE + COACH_BAND)
+	centre.offset_bottom = -(GROOVE_HEIGHT + COACH_BAND_ABOVE)
 	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(centre)
 	_coach = CoachDialog.new()
