@@ -158,13 +158,10 @@ func _build_content(v: VBoxContainer) -> void:
 		_coach_note(left, w.description)
 	if w.author != "":
 		HudStyle.label(left, "by %s" % w.author, 13, 500, HudStyle.TEXT_DIM)
-	HudStyle.section_label(right, "Blocks", 12)
-	var blocks := HudStyle.panel(right, HudStyle.PANEL, 8, 8)
-	var bl := VBoxContainer.new()
-	bl.add_theme_constant_override("separation", 4)
-	blocks.add_child(bl)
+	# The block rows stand on their own: no title, no container.
+	right.add_theme_constant_override("separation", 4)
 	for r in WorkoutSummary.rows(w, ftp):
-		HudStyle.block_row(bl, r, 24, 16, Color(0.20, 0.23, 0.31, 0.9))
+		HudStyle.block_row(right, r, 24, 16, Color(0.20, 0.23, 0.31, 0.9))
 
 	_devices_l = HudStyle.label(v, "", 13, 500, HudStyle.TEXT_DIM)
 	var bar := HBoxContainer.new()
