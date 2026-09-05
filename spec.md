@@ -1,4 +1,4 @@
-# Spec: Ride — requirements and design
+# Spec: Groove — requirements and design
 
 **Input:** `intent.md` (approved 2026-09-02)
 **Author:** Claude, with Bob Marko as product owner

@@ -2,7 +2,17 @@
 
 A structured-workout trainer app for indoor cycling: load a workout, let it drive your smart trainer in ERG mode, and ride a pixel-art mountain-bike trail whose hills follow your intervals. Rides are saved as FIT files and can be posted to intervals.icu and Strava. Built with Godot 4.7 and GDScript; macOS first, cross-platform by design.
 
-Working title. Product owner: Bobby Marko. The code is written by Claude following the AI-native SDLC playbook: `intent.md` says why, `spec.md` says what (requirements, architecture, milestones, decisions), `Design.md` says how it looks.
+Source: https://github.com/bobbymarko/groove. Product owner: Bobby Marko. The code is written by Claude following the AI-native SDLC playbook: `intent.md` says why, `spec.md` says what (requirements, architecture, milestones, decisions), `Design.md` says how it looks.
+
+## Download
+
+Grab the latest macOS build from the [releases page](https://github.com/bobbymarko/groove/releases). Unzip, drag Groove to Applications, and on first launch right-click the app and choose Open: the build is signed ad hoc, not notarized, so macOS will otherwise refuse it. If it still refuses, clear the quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Groove.app
+```
+
+Apple Silicon and Intel are both in the one app. macOS will ask for Bluetooth permission on the first scan.
 
 ## What it does
 - Ships with eight workouts (recovery, endurance, sweet spot, threshold, VO2, over-unders, Tabata, ramp test) and opens `.zwo`, `.mrc`, `.erg` and FIT workout files, and shows your planned workouts from the intervals.icu calendar by day.

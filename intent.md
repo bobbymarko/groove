@@ -1,4 +1,6 @@
-# Intent: Ride — structured indoor cycling workouts without the subscription
+# Intent: Groove — structured indoor cycling workouts without the subscription
+
+(Working title was "Ride" until 2026-09-04.)
 
 **Originator:** Bob Marko
 **Date:** 2026-09-02

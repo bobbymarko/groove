@@ -27,7 +27,7 @@ PLIST="$OUT/Contents/Info.plist"
 DESC="Ride connects to your smart trainer and sensors over Bluetooth."
 plutil -replace NSBluetoothAlwaysUsageDescription -string "$DESC" "$PLIST"
 plutil -replace NSBluetoothPeripheralUsageDescription -string "$DESC" "$PLIST"
-plutil -replace CFBundleIdentifier -string "dev.ride.godot-dev" "$PLIST"
+plutil -replace CFBundleIdentifier -string "app.groove.dev" "$PLIST"
 plutil -replace CFBundleName -string "GrooveDev" "$PLIST"
 plutil -replace CFBundleDisplayName -string "Groove" "$PLIST"
 
