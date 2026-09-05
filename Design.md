@@ -69,7 +69,7 @@ Primary set: Bob's pixel sprite sheet `assets/images/groove-icon-sprite-sheet-8x
 The workout sheet is 940 px wide: graph, a three-column stat grid, then two columns with the coach's description at two thirds and the block list at one third, so nothing needs scrolling on a TV.
 
 ## Retro vs smooth
-Two tuning sliders set how much banding the world shows: **Colour steps** (posterize levels per channel, 6 to 64, default 32) and **Shading bands** (light steps in the cel shader, 2 to 12, default 6). Lower is chunkier and more 8-bit; higher is smoother. They live in Settings → Look with the live preview, and in the T overlay during a ride.
+Two tuning sliders set how much banding the world shows: **Colour steps** (posterize levels per channel, 6 to 64, default 32) and **Shading bands** (light steps in the cel shader, 2 to 12, default 6). Lower is chunkier and more 8-bit; higher is smoother. They live in Settings → Look with the live preview, and in the T overlay during a ride. Defaults are Bob's tuned values (2026-09-04): both at their maximum, i.e. the smooth end.
 
 ## Backgrounds
 Home uses `assets/images/menu-bg.png` (pixel night mountains) under a 45 % ink wash so cards stay legible. The ride HUD floats over the live world; panels stay translucent.
