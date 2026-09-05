@@ -440,6 +440,9 @@ func _build_ui() -> void:
 	_error = HudStyle.label(v, "", 14, 500, Color(1, 0.6, 0.6))
 	# Licence link, bottom-right corner of the page.
 	var lic := HudStyle.link(self, "License", open_licenses, 12)
+	lic.add_theme_font_size_override("font_size", 11)   # below the TV floor on purpose: a quiet footer link
+	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		lic.add_theme_color_override(st, HudStyle.TEXT_DIM if st == "font_color" else HudStyle.TEXT)
 	lic.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	lic.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	lic.grow_vertical = Control.GROW_DIRECTION_BEGIN
