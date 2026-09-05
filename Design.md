@@ -1,6 +1,6 @@
 # Groove — design system
 
-Working name: **Groove**. Source: Bob's "Groove UI System" board (design/reference/ui-inspo.png, 2026-09-03). Inspiration, not a component spec: we take the tokens, the tone and the shapes and keep our own layouts. The board's pixel font does not exist; we keep Lato until we find or draw a bitmap face. Code lives in `ui/hud/hud_style.gd` (tokens, controls) and `ui/hud/workout_colors.gd` (effort colours); change them there, not per screen.
+Working name: **Groove**. Source: Bob's "Groove UI System" board (design/reference/ui-inspo.png, 2026-09-03). Inspiration, not a component spec: we take the tokens, the tone and the shapes and keep our own layouts. The board's pixel font does not exist; we use Pixel Operator and Departure Mono (see Type). Code lives in `ui/hud/hud_style.gd` (tokens, controls) and `ui/hud/workout_colors.gd` (effort colours); change them there, not per screen.
 
 ## Tone
 Night-sky navy over ink, one cyan for anything interactive, orange only for "active / focus", the workout zone ramp for effort. Dark, quiet panels with a hairline border; big numbers, small uppercase labels. Pixel-art world behind, crisp vector UI in front.
@@ -39,7 +39,7 @@ Used by the plan graph, the ride trace, the block rows in the HUD and sheets, an
 The workout is not a row of blocks but one continuous path: height is target power, colour is the zone, steps between blocks are drawn as risers so the line never breaks. Under it a faint fill in the same colour. While riding, a white glowing marker (soft halo, hard centre) sits on the path at the current time; the path behind the marker brightens, the path ahead sits at 55 %. The rider's actual power runs as a 1.5 px ice line and heart rate as a 1.5 px red line, so "following the groove" is literal. Cards and sheets show the same path without the marker.
 
 ## Type
-Two pixel faces (2026-09-04): **Pixel Operator** (CC0) for display sizes, 20 px and up, bold at weight 700+, sizes snapped up to its 16 px grid, never below 32 px; **Departure Mono** (OFL) for everything smaller: body, labels, units, buttons, sizes snapped up to its 11 px grid and never below 22 px. The app runs on a TV across the room: when in doubt, bigger. No antialiasing, no hinting, whole-pixel positioning. Lato is retired.
+Two pixel faces (2026-09-04): **Pixel Operator** (CC0) for display sizes, 20 px and up, bold at weight 700+, sizes snapped up to its 16 px grid, never below 32 px; **Departure Mono** (OFL) for everything smaller: body, labels, units, buttons, sizes snapped up to its 11 px grid and never below 22 px. The app runs on a TV across the room: when in doubt, bigger. No antialiasing, no hinting, whole-pixel positioning.
 | Role | Size | Weight | Case |
 |---|---|---|---|
 | Display | 48 | 900 | as written |

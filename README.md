@@ -40,7 +40,7 @@ Manual hardware test procedures are in `tests/manual.md`.
 ## Assets and licences
 - Quaternius Stylized Nature MegaKit and Ultimate Nature Pack: CC0.
 - "Animated Zombie" by Quaternius (via Poly Pizza): CC BY 3.0, attribution required and given here.
-- Fonts: Departure Mono (SIL Open Font License) and Pixel Operator (CC0). Lato (OFL) remains in the repo but is unused.
+- Fonts: Departure Mono (SIL Open Font License) and Pixel Operator (CC0).
 - Icon sprite sheet, wordmark, coach portrait and menu background are Bob's.
 - Rider model from Mixamo (Adobe), used under the Mixamo terms; not redistributed here as an asset kit.
 

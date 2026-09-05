@@ -12,5 +12,4 @@ The pixel art (wordmark, coach portrait, icon sprite sheet, menu background) is 
 - Quaternius, "Animated Zombie" via Poly Pizza — CC BY 3.0. Attribution: Animated Zombie by Quaternius. https://poly.pizza/m/jkrEvQZb8J
 - Departure Mono by Helena Zhang — SIL Open Font License 1.1. https://departuremono.com
 - Pixel Operator by Jayvee Enaguas — CC0 1.0. https://www.dafont.com/pixel-operator.font
-- Lato by Łukasz Dziedzic — SIL Open Font License 1.1 (in the repository, unused).
 - Rider character from Adobe Mixamo — Mixamo licence; used as an in-app asset, not redistributed as a kit.
