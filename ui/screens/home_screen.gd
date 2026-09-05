@@ -301,7 +301,7 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 	if App.is_user_workout(path):
 		_add_card_menu(card, w, path)
 	var est := WorkoutSummary.estimates(w, App.ftp)
-	HudStyle.label(v, "%s  ·  %s  ·  %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
+	HudStyle.label(v, "%s    %s    %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
 	card.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			_sheet.open(WorkoutLoader.load_file(path, App.ftp)))
