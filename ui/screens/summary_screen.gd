@@ -115,7 +115,7 @@ func _build_ui() -> void:
 	var files := HudStyle.section(left, "Files")
 	var path_l := HudStyle.label(files, ProjectSettings.globalize_path(str(_ride.fit)), 12, 500, HudStyle.TEXT_DIM)
 	path_l.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-	HudStyle.button(files, "Show in Finder", 13, func() -> void: OS.shell_show_in_file_manager(ProjectSettings.globalize_path(str(_ride.fit)))).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	HudStyle.button(files, HudStyle.file_manager_label(), 13, func() -> void: OS.shell_show_in_file_manager(ProjectSettings.globalize_path(str(_ride.fit)))).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 
 	var shots := RidesPanel._screenshots(str(_ride.fit))
 	if not shots.is_empty():

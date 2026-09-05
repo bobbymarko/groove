@@ -120,7 +120,7 @@ static func open_ride(sheet: SideSheet, r: Dictionary) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 8)
 	v.add_child(bar)
-	HudStyle.button(bar, "Show in Finder", 13, func() -> void: OS.shell_show_in_file_manager(ProjectSettings.globalize_path(fit)))
+	HudStyle.button(bar, HudStyle.file_manager_label(), 13, func() -> void: OS.shell_show_in_file_manager(ProjectSettings.globalize_path(fit)))
 	sheet.replace_content(v)
 
 

@@ -299,6 +299,14 @@ static func popup_below(menu: PopupMenu, anchor: Control, align_right := false) 
 	menu.popup()
 
 
+## "Show in Finder" on macOS, Explorer on Windows, Files elsewhere.
+static func file_manager_label() -> String:
+	match OS.get_name():
+		"macOS": return "Show in Finder"
+		"Windows": return "Show in Explorer"
+	return "Show in Files"
+
+
 ## Small uppercase section label in cyan.
 static func section_label(parent: Control, text: String, size := 12, color := CYAN) -> Label:
 	return label(parent, text.to_upper(), size, 700, color)

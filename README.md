@@ -14,6 +14,8 @@ xattr -dr com.apple.quarantine /Applications/Groove.app
 
 Apple Silicon and Intel are both in the one app. macOS will ask for Bluetooth permission on the first scan.
 
+A Windows x86_64 zip is on the same page: unzip, run `Groove.exe` with the `.pck` and `.dll` beside it, and pass SmartScreen with More info, Run anyway. It's unsigned and, as of 0.0.1, untested on real hardware.
+
 ## What it does
 - Ships with eight workouts (recovery, endurance, sweet spot, threshold, VO2, over-unders, Tabata, ramp test) and opens `.zwo`, `.mrc`, `.erg` and FIT workout files, and shows your planned workouts from the intervals.icu calendar by day.
 - Controls a Bluetooth FTMS trainer (tested on a Wahoo KICKR CORE) and reads a heart-rate strap, reconnecting after dropouts.
