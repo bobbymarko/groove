@@ -49,7 +49,7 @@ func _refresh_cards() -> void:
 		var w := WorkoutLoader.load_file(f, App.ftp)
 		if w == null or not _passes_filter(w, f):
 			continue
-		_add_card(lib, w, f, false)
+		_add_card(lib, w, f, false, true)   # flexible: shares the five-column grid with the plan
 	_cal_status.text = Sync.calendar.status if linked else ""
 	_cal_status.visible = _cal_status.text != ""
 	_relayout()
@@ -268,10 +268,10 @@ func _section(title: String, highlight: bool, with_filter := false) -> GridConta
 	return grid
 
 
+## Every grid uses the training plan's five columns so the two sections line up.
 func _relayout() -> void:
-	var cols := maxi(1, int((size.x - 56) / 316.0))
 	for g in _grids:
-		g.columns = cols
+		g.columns = PLAN_DAYS
 
 
 ## flexible: fill the parent's width (plan columns) instead of a fixed card width.
@@ -300,7 +300,8 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 	if App.is_user_workout(path):
 		_add_card_menu(card, w, path)
 	var est := WorkoutSummary.estimates(w, App.ftp)
-	HudStyle.label(v, "%s    %s    %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
+	var meta_l := HudStyle.label(v, "%s   %s   %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
+	meta_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # text never widens the column
 	card.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 			_sheet.open(WorkoutLoader.load_file(path, App.ftp)))
@@ -311,7 +312,8 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 func _add_open_card(grid: GridContainer) -> void:
 	var card := HudStyle.panel(grid, Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16)
 	card.add_theme_stylebox_override("panel", HudStyle.flat(Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
-	card.custom_minimum_size = Vector2(300, CARD_HEIGHT)
+	card.custom_minimum_size = Vector2(0, CARD_HEIGHT)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	_cards.append(card)
 	var c := CenterContainer.new()
