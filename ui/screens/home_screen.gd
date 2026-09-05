@@ -163,11 +163,11 @@ func _add_card_menu(card: PanelContainer, w: Workout, path: String) -> void:
 	menu.add_theme_font_override("font", HudStyle.font(500, 22))
 	menu.add_theme_font_size_override("font_size", 22)
 	card.add_child(menu)
-	var btn := HudStyle.icon_button(card, "more", func() -> void:
-		# Below the card's top-right corner (lambdas capture by value, so use the card, not the button).
-		var win_pos := card.get_window().position
-		menu.position = win_pos + Vector2i(card.global_position + Vector2(card.size.x - 190.0, 46.0))
-		menu.popup(), 18)
+	var btn := HudStyle.icon_button(card, "more", func() -> void: pass, 18)
+	btn.pressed.connect(func() -> void:
+		# Hangs off the button, right-aligned to it.
+		menu.position = get_window().position + Vector2i(btn.global_position + Vector2(btn.size.x - menu.size.x, btn.size.y + 2.0))
+		menu.popup())
 	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	btn.offset_left = -44.0
 	btn.offset_right = -10.0
@@ -235,11 +235,12 @@ func _filter_menu(parent: Control) -> void:
 	menu.set_item_checked(5 + _filter_source, true)
 	parent.add_child(menu)
 	var active := _filter_duration != 0 or _filter_source != 0
-	var btn := HudStyle.icon_button(parent, "filter", func() -> void:
-		var win_pos := get_window().position
-		menu.position = win_pos + Vector2i(int(size.x) - 300, 150)
-		menu.popup(), 18, "secondary" if active else "ghost")
+	var btn := HudStyle.icon_button(parent, "filter", func() -> void: pass, 18, "secondary" if active else "ghost")
 	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# The menu hangs directly off the button's bottom-left corner.
+	btn.pressed.connect(func() -> void:
+		menu.position = get_window().position + Vector2i(btn.global_position + Vector2(0.0, btn.size.y + 2.0))
+		menu.popup())
 	menu.id_pressed.connect(func(id: int) -> void:
 		if id <= 3:
 			_filter_duration = id
@@ -257,9 +258,12 @@ func _section(title: String, highlight: bool, with_filter := false) -> GridConta
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	_list.add_child(head)
-	HudStyle.section_label(head, title, 20, HudStyle.ORANGE if highlight else HudStyle.CYAN).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	HudStyle.section_label(head, title, 20, HudStyle.ORANGE if highlight else HudStyle.CYAN)
 	if with_filter:
-		_filter_menu(head)
+		_filter_menu(head)   # sits right after the word
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(spacer)
 	var grid := GridContainer.new()
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 16)
