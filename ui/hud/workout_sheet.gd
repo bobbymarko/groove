@@ -135,6 +135,9 @@ func _build_content(v: VBoxContainer) -> void:
 	_stat(grid, "%d" % int(round(kcal)), "kcal")
 	_stat(grid, "%.1f" % RideMetrics.pizza_slices(kcal), "slices of pizza")
 
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 10   # breathing room between the stats and the columns below
+	v.add_child(gap)
 	# Two columns: the coach's description (two thirds) beside the block list (one third).
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
