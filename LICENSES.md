@@ -6,7 +6,7 @@ The pixel art (wordmark, coach portrait, icon sprite sheet, menu background) is 
 ## Third-party
 
 - Godot Engine 4 — MIT. https://godotengine.org
-- GDBLE (Bluetooth GDExtension, built from source) — MIT. https://github.com/bytzdev/gdble
+- GDBLE (Bluetooth GDExtension, built from source) — MIT. https://github.com/Fantety/GDBLE
 - Quaternius, Stylized Nature MegaKit — CC0 1.0. https://quaternius.com
 - Quaternius, Ultimate Nature Pack — CC0 1.0. https://quaternius.com
 - Quaternius, "Animated Zombie" via Poly Pizza — CC BY 3.0. Attribution: Animated Zombie by Quaternius. https://poly.pizza/m/jkrEvQZb8J

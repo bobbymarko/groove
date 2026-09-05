@@ -481,7 +481,13 @@ func open_licenses() -> void:
 	for f in ["res://LICENSE", "res://LICENSES.md"]:
 		var text := FileAccess.get_file_as_string(f) if FileAccess.file_exists(f) else "(%s missing)" % f.get_file()
 		var card := HudStyle.section(body, "Groove" if f.ends_with("LICENSE") else "Third-party")
-		var l := HudStyle.label(card, text.replace("# Licences\n\n", "").replace("## Third-party\n", "").replace("- ", "").strip_edges(), 13, 500, HudStyle.TEXT_DIM)
+		# Reflow: hard-wrapped lines join into paragraphs, blank lines and list items stay.
+		text = text.replace("# Licences\n\n", "").replace("## Third-party\n", "")
+		var paragraphs := text.split("\n\n")
+		for i in paragraphs.size():
+			var para: String = paragraphs[i]
+			paragraphs[i] = para if para.begins_with("- ") else para.replace("\n", " ")
+		var l := HudStyle.label(card, "\n\n".join(paragraphs).strip_edges(), 13, 500, HudStyle.TEXT_DIM)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_side.show_content(v)
 

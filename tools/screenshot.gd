@@ -149,7 +149,7 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		if mode == "calendar":
 			for i in 110:
 				await process_frame
-		if mode in ["settings", "devices", "rides"]:
+		if mode in ["settings", "devices", "rides", "licenses"]:
 			await process_frame
 			scene.call("open_" + mode)
 			for i in 30:
