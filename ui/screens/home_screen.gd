@@ -38,7 +38,9 @@ func _refresh_cards() -> void:
 	var linked := Sync.intervals().is_configured()
 	if linked:
 		_add_training_plan()
-	var lib := _section("Library" if linked else "Workouts", false)
+	else:
+		_add_onboarding()
+	var lib := _section("Library", false)
 	for f in _files:
 		var w := WorkoutLoader.load_file(f, App.ftp)
 		if w == null:
@@ -114,15 +116,81 @@ func _add_training_plan() -> void:
 			_add_empty_card(col)
 
 
+## No intervals.icu yet: say what linking gets you and point at Settings.
+func _add_onboarding() -> void:
+	HudStyle.section_label(_list, "Training plan", 13)
+	var card := HudStyle.panel(_list, HudStyle.CARD, HudStyle.RADIUS, 16)
+	card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 20, 18, HudStyle.BORDER))
+	card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	card.custom_minimum_size.x = 720
+	_cards.append(card)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 20)
+	card.add_child(h)
+	HudStyle.icon(h, "signal", 44, HudStyle.CYAN).size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 6)
+	h.add_child(v)
+	HudStyle.label(v, "Connect intervals.icu for live training", 20, 900)
+	var body := HudStyle.label(v, "Link your account and the next five days of planned rides show up here, ready to ride, with today's workout first. Finished rides can be shared back too.", 14, 500, HudStyle.TEXT_DIM)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	v.add_child(row)
+	HudStyle.button(row, "Connect in Settings", 13, open_settings, "primary")
+	HudStyle.label(row, "or upload a workout file below", 13, 500, HudStyle.TEXT_DIM).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+
 func _add_empty_card(parent: Control) -> void:
 	var card := HudStyle.panel(parent, Color(HudStyle.CARD, 0.45), HudStyle.RADIUS, 16)
 	card.add_theme_stylebox_override("panel", HudStyle.flat(Color(HudStyle.CARD, 0.45), HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
 	card.custom_minimum_size = Vector2(0, CARD_HEIGHT)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_cards.append(card)
-	var c := CenterContainer.new()
-	card.add_child(c)
-	HudStyle.label(c, "Nothing planned", 14, 500, HudStyle.TEXT_DIM)
+	# An empty slot says it by being empty.
+
+
+## Three-dot menu in a card's top-right corner: Ride (straight to the scene
+## picker) or Delete (confirmed; the file moves to workouts/deleted, never destroyed).
+func _add_card_menu(card: PanelContainer, w: Workout, path: String) -> void:
+	var menu := PopupMenu.new()
+	menu.add_item("Ride", 0)
+	menu.add_item("Delete", 1)
+	menu.add_theme_font_override("font", HudStyle.font(500, 22))
+	menu.add_theme_font_size_override("font_size", 22)
+	card.add_child(menu)
+	var btn := HudStyle.icon_button(card, "more", func() -> void:
+		# Below the card's top-right corner (lambdas capture by value, so use the card, not the button).
+		var win_pos := card.get_window().position
+		menu.position = win_pos + Vector2i(card.global_position + Vector2(card.size.x - 190.0, 46.0))
+		menu.popup(), 18)
+	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	btn.offset_left = -44.0
+	btn.offset_right = -10.0
+	btn.offset_top = 10.0
+	btn.offset_bottom = 40.0
+	menu.id_pressed.connect(func(id: int) -> void:
+		if id == 0:
+			_sheet.open(w)
+			_sheet.choose_scene(false)
+		else:
+			_confirm_delete(w, path))
+
+
+func _confirm_delete(w: Workout, path: String) -> void:
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Delete workout?"
+	dlg.dialog_text = "%s will move to the deleted folder. Nothing is erased." % w.name
+	dlg.ok_button_text = "Delete"
+	dlg.cancel_button_text = "Keep"
+	dlg.confirmed.connect(func() -> void:
+		if App.delete_workout(path):
+			_refresh_cards()
+		else:
+			_error.text = "Could not move %s" % path.get_file())
+	add_child(dlg)
+	dlg.popup_centered()
 
 
 ## Header button with an icon and an uppercase word.
@@ -182,6 +250,8 @@ func _add_card(parent: Control, w: Workout, path: String, highlight: bool, flexi
 	v.add_child(graph)
 	var name_l := HudStyle.label(v, w.name, 16, 700, HudStyle.CYAN)
 	name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	if App.is_user_workout(path):
+		_add_card_menu(card, w, path)
 	var est := WorkoutSummary.estimates(w, App.ftp)
 	HudStyle.label(v, "%s  ·  %s  ·  %d TSS" % [WorkoutSummary.duration(w.total_duration()), WorkoutSummary.headline(w, App.ftp), int(round(est.tss))], 13, 500, HudStyle.TEXT_DIM)
 	card.gui_input.connect(func(e: InputEvent) -> void:
@@ -201,7 +271,7 @@ func _add_open_card(grid: GridContainer) -> void:
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(c)
-	var l := HudStyle.label(c, "+  OPEN WORKOUT FILE", 14, 700, HudStyle.CYAN)
+	var l := HudStyle.label(c, "+  UPLOAD WORKOUT", 14, 700, HudStyle.CYAN)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.gui_input.connect(func(e: InputEvent) -> void:
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:

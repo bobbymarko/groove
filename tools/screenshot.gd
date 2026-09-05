@@ -112,6 +112,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			print("[dbg] z=%.1f trail x=%.2f h=%.2f | terrain h(trail)=%.2f h(-6)=%.2f h(+6)=%.2f h(-30)=%.2f h(+30)=%.2f" % [
 				z, tx, rs.trail.h_at(z), rs.terrain.height(tx, z), rs.terrain.height(tx - 6.0, z), rs.terrain.height(tx + 6.0, z), rs.terrain.height(tx - 30.0, z), rs.terrain.height(tx + 30.0, z)])
 	else:
+		if OS.get_cmdline_user_args().has("unlinked"):
+			root.get_node("Sync").intervals().api_key = ""   # render only; the saved key is untouched
+			root.get_node("Sync").calendar.preview = true
 		if mode == "calendar":
 			# Fake intervals.icu planned workouts so the home screen shows its day sections.
 			var sync: Node = root.get_node("Sync")
@@ -128,6 +131,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			sync.calendar.set_preview(rows)
 		scene = load(scene_path).instantiate()
 		root.add_child(scene)
+		if mode == "" or mode == "plain":
+			for i in 80:   # let the home tiles finish cascading in
+				await process_frame
 		if mode == "sheet":
 			await process_frame
 			scene.get_node("WorkoutSheet").open(ZwoParser.parse_file("res://workouts/cadence_today.zwo"))
@@ -137,6 +143,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				scene.get_node("WorkoutSheet").choose_scene(false)
 				for i in 30:
 					await process_frame
+		if OS.get_cmdline_user_args().has("unlinked"):
+			root.get_node("Sync").intervals().api_key = ""   # render only; the saved key is untouched
+			root.get_node("Sync").calendar.preview = true
 		if mode == "calendar":
 			for i in 40:
 				await process_frame

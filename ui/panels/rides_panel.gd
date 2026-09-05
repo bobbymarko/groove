@@ -7,7 +7,7 @@ extends RefCounted
 static func open_in(sheet: SideSheet, animate: bool) -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
-	sheet.header(v, "Recent rides")
+	sheet.header(v, "Recent rides", Callable(), "Open rides folder", func() -> void: OS.shell_open(RideRecorder.rides_dir_abs()))
 	var entries := App.list_rides()
 	if entries.is_empty():
 		HudStyle.label(v, "No rides yet.", 15, 500, HudStyle.TEXT_DIM)
@@ -22,7 +22,6 @@ static func open_in(sheet: SideSheet, animate: bool) -> void:
 		scroll.add_child(list)
 		for r in entries:
 			_row(list, r, sheet)
-	HudStyle.button(v, "Open rides folder", 13, func() -> void: OS.shell_open(RideRecorder.rides_dir_abs())).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	if animate:
 		sheet.show_content(v)
 	else:

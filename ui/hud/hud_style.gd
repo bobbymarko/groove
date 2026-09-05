@@ -270,6 +270,23 @@ static func icon(parent: Control, icon_name: String, size := 16, color := TEXT) 
 	return t
 
 
+## Text link: cyan, no box, underlined on hover.
+static func link(parent: Control, text: String, on_pressed: Callable, size := 13) -> LinkButton:
+	var l := LinkButton.new()
+	l.text = text
+	l.focus_mode = Control.FOCUS_NONE
+	l.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+	l.add_theme_font_override("font", font(500, size))
+	l.add_theme_font_size_override("font_size", snap_size(size))
+	l.add_theme_color_override("font_color", CYAN)
+	l.add_theme_color_override("font_hover_color", CYAN.lightened(0.2))
+	l.add_theme_color_override("font_pressed_color", CYAN)
+	l.add_theme_color_override("font_focus_color", CYAN)
+	l.pressed.connect(on_pressed)
+	parent.add_child(l)
+	return l
+
+
 ## Small uppercase section label in cyan.
 static func section_label(parent: Control, text: String, size := 12, color := CYAN) -> Label:
 	return label(parent, text.to_upper(), size, 700, color)

@@ -144,6 +144,25 @@ func reset_tuning() -> void:
 	save_settings()
 
 
+const DELETED_WORKOUTS_DIR := "user://workouts/deleted"
+
+
+## True for files the user added (bundled and calendar workouts cannot be deleted here).
+func is_user_workout(path: String) -> bool:
+	return path.begins_with(USER_WORKOUTS_DIR + "/") and not path.begins_with(DELETED_WORKOUTS_DIR)
+
+
+## Never destroys the file: it moves into workouts/deleted, with a timestamp if the name is taken.
+func delete_workout(path: String) -> bool:
+	if not is_user_workout(path):
+		return false
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DELETED_WORKOUTS_DIR))
+	var dest := DELETED_WORKOUTS_DIR.path_join(path.get_file())
+	if FileAccess.file_exists(dest):
+		dest = DELETED_WORKOUTS_DIR.path_join("%s-%d.%s" % [path.get_file().get_basename(), int(Time.get_unix_time_from_system()), path.get_extension()])
+	return DirAccess.rename_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(dest)) == OK
+
+
 ## Bundled and user-added workout files.
 func list_workout_files() -> Array[String]:
 	var out: Array[String] = []
@@ -151,7 +170,7 @@ func list_workout_files() -> Array[String]:
 		var d := DirAccess.open(dir_path)
 		if d == null:
 			continue
-		for f in d.get_files():
+		for f in d.get_files():   # get_files() skips subfolders, so workouts/deleted stays hidden
 			if WorkoutLoader.supported(f):
 				out.append(dir_path.path_join(f))
 	out.sort()

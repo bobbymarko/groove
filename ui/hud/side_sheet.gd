@@ -88,13 +88,17 @@ func _mount(content: Control) -> void:
 
 
 ## Standard header row: optional back arrow, title and a close button.
-func header(parent: Control, title: String, on_back := Callable()) -> void:
+func header(parent: Control, title: String, on_back := Callable(), link := "", on_link := Callable()) -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)
 	parent.add_child(head)
 	if on_back.is_valid():
 		HudStyle.icon_button(head, "chevron-left", on_back, 22).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var t := HudStyle.label(head, title, 24, 900)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL if link == "" else Control.SIZE_SHRINK_BEGIN
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if link == "" else TextServer.AUTOWRAP_OFF
+	if link != "":
+		var l := HudStyle.link(head, link, on_link)
+		l.size_flags_vertical = Control.SIZE_SHRINK_END
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	HudStyle.icon_button(head, "close", close, 20).size_flags_vertical = Control.SIZE_SHRINK_CENTER
