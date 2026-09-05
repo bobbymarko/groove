@@ -446,10 +446,10 @@ func _build_ui() -> void:
 	lic.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	lic.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	lic.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	lic.offset_right = -28.0
+	lic.offset_right = -28.0            # flush with the grid's right edge (the page margin)
 	lic.offset_bottom = -20.0
-	lic.offset_left = -140.0
-	lic.offset_top = -50.0
+	lic.offset_left = -28.0 - lic.get_combined_minimum_size().x
+	lic.offset_top = -20.0 - lic.get_combined_minimum_size().y
 
 	_dialog = FileDialog.new()
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM
@@ -484,14 +484,24 @@ func open_licenses() -> void:
 	for f in ["res://LICENSE", "res://LICENSES.md"]:
 		var text := FileAccess.get_file_as_string(f) if FileAccess.file_exists(f) else "(%s missing)" % f.get_file()
 		var card := HudStyle.section(body, "Groove" if f.ends_with("LICENSE") else "Third-party")
-		# Reflow: hard-wrapped lines join into paragraphs, blank lines and list items stay.
 		text = text.replace("# Licences\n\n", "").replace("## Third-party\n", "")
-		var paragraphs := text.split("\n\n")
-		for i in paragraphs.size():
-			var para: String = paragraphs[i]
-			paragraphs[i] = para if para.begins_with("- ") else para.replace("\n", " ")
-		var l := HudStyle.label(card, "\n\n".join(paragraphs).strip_edges(), 13, 500, HudStyle.TEXT_DIM)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		# Hard-wrapped lines join into paragraphs; "- " lines become bulleted rows with a hanging indent.
+		for para in text.split("\n\n"):
+			para = para.strip_edges()
+			if para == "":
+				continue
+			if para.begins_with("- "):
+				for item in para.split("\n"):
+					var row := HBoxContainer.new()
+					row.add_theme_constant_override("separation", 8)
+					card.add_child(row)
+					HudStyle.label(row, "•", 13, 700, HudStyle.CYAN).size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+					var il := HudStyle.label(row, item.trim_prefix("- ").strip_edges(), 13, 500, HudStyle.TEXT_DIM)
+					il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+					il.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			else:
+				var l := HudStyle.label(card, para.replace("\n", " "), 13, 500, HudStyle.TEXT_DIM)
+				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_side.show_content(v)
 
 
