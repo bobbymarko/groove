@@ -181,7 +181,19 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		runner.time_scale = 60.0
 		var rs: RideScene = scene.get_node("RideScene")
 		rs.time_scale = 60.0
-		runner.start()
+		if OS.get_cmdline_user_args().has("simstart"):
+			# Bob's flow: the simulator has reported before Start is pressed; real time.
+			runner.time_scale = 1.0
+			rs.time_scale = 1.0
+			devices.trainer.step(1.0)
+			runner.toggle_pause()
+			print("[dbg] after start: state %s auto %s" % [runner.state, runner.auto_paused])
+			for i in 5:
+				for f in 60:
+					await process_frame
+				print("[dbg] t+%ds state %s auto %s elapsed %.1f last power %d" % [i + 1, runner.state, runner.auto_paused, runner.elapsed, runner._last_power])
+		else:
+			runner.start()
 		# "climb": run into the first hard rep (~10.5 min in) so the grade shows.
 		var frames := 640 if OS.get_cmdline_user_args().has("climb") else 60
 		for a in OS.get_cmdline_user_args():

@@ -92,7 +92,6 @@ func _ready() -> void:
 	_runner.erg_changed.connect(_on_erg)
 	_runner.bias_changed.connect(func(b: int): _bias_l.text = "%d%%" % b)
 	_runner.finished.connect(_on_finished)
-	_runner.auto_pause = App.auto_pause
 
 	# The recorder must exist before devices are bound, or it never hears
 	# power, cadence or heart rate (every ride before 2026-09-04 recorded zeros).
@@ -189,6 +188,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _bind_trainer(t: Trainer) -> void:
 	_trainer = t
+	# The simulator has no pedals to stop: auto-pause is for real trainers only.
+	_runner.auto_pause = App.auto_pause and not (t is SimulatedTrainer)
 	if t == null:
 		_refresh_connection()
 		return
