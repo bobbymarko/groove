@@ -7,9 +7,9 @@ extends Control
 
 const INTERNAL_HEIGHT := 240
 ## Pixel stability (R35): the low-res frame is drawn at a whole number of screen
-## pixels per texel, the camera's rotation and sideways position are snapped to
-## the texel grid before rendering, and the frame is then shifted on screen by
-## the sub-texel remainder, so the world moves smoothly without texels crawling.
+## pixels per texel, the camera's rotation is snapped to the texel grid before
+## rendering, and the frame is then shifted on screen by the sub-texel remainder,
+## so the world turns smoothly without texels crawling. See _snap_camera().
 const PIXEL_MARGIN := 2      ## spare texels each side, room for that shift
 var _internal_height := INTERNAL_HEIGHT
 var pixel_filter := true
@@ -340,26 +340,23 @@ func _layout_screen() -> void:
 	_screen.size = Vector2(_viewport.size) * t
 
 
-## Snap the camera to the texel grid and return, in texels, where the frame must
-## be shifted so `ref` (the rider) lands where the unsnapped camera would have put it.
-func _snap_camera(ref: Vector3) -> Vector2:
+## Snap the camera's yaw and pitch to the texel grid and return, in texels, the
+## shift that puts the frame's centre back where the unsnapped camera had it.
+## Only rotation is snapped: a rotation moves every depth by the same amount on
+## screen, so one 2D shift undoes it. A position snap cannot be undone that way
+## in perspective (the near ground would jump many texels for each step at the
+## rider's depth), so the camera's position stays smooth and unsnapped.
+func _snap_camera() -> Vector2:
 	var rows := float(_viewport.size.y)
-	var p_ideal := camera.unproject_position(ref)
-	# One texel of rotation at the frame's centre.
-	var q := deg_to_rad(camera.fov) / rows
+	var ideal := camera.global_transform
+	var ref := ideal.origin - ideal.basis.z * 20.0   # a point straight down the ideal lens
+	var p_ideal := camera.unproject_position(ref)    # the frame's centre
+	var q := deg_to_rad(camera.fov) / rows            # one texel of rotation at the centre
 	var e := camera.rotation
 	e.x = roundf(e.x / q) * q
 	e.y = roundf(e.y / q) * q
 	e.z = 0.0
 	camera.rotation = e
-	# One texel of sideways or vertical travel, measured at the rider's depth.
-	var b := camera.global_transform.basis
-	var depth := maxf((ref - camera.global_position).length(), 1.0)
-	var g := depth * 2.0 * tan(deg_to_rad(camera.fov) * 0.5) / rows
-	var local := b.transposed() * camera.global_position
-	local.x = roundf(local.x / g) * g
-	local.y = roundf(local.y / g) * g
-	camera.global_position = b * local
 	return p_ideal - camera.unproject_position(ref)
 
 
@@ -411,7 +408,7 @@ func _process(raw_delta: float) -> void:
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)
 		if pixel_filter and pixel_stable:
-			_shift = _snap_camera(rider.global_position + Vector3.UP * 0.9)
+			_shift = _snap_camera()
 			_layout_screen()
 		elif _shift != Vector2.ZERO:
 			_shift = Vector2.ZERO
