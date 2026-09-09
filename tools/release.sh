@@ -10,6 +10,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GODOT="${GODOT:-/Applications/Godot.app/Contents/MacOS/Godot}"
 cd "$ROOT"
 grep -q "application/version=\"$VERSION\"" export_presets.cfg || { echo "export_presets.cfg is not at version $VERSION"; exit 1; }
+grep -q "config/version=\"$VERSION\"" project.godot || { echo "project.godot is not at version $VERSION (the app reports this one to the updater)"; exit 1; }
 ls addons/gdble/*.dylib >/dev/null 2>&1 || { echo "missing macOS GDBLE library"; exit 1; }
 ls addons/gdble/*.dll >/dev/null 2>&1 || { echo "missing Windows GDBLE library"; exit 1; }
 rm -rf build/Groove-macos.zip build/Groove-windows

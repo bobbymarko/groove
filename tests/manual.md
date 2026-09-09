@@ -67,3 +67,10 @@ Status 2026-09-02: step 1 imported into COROS fine; Strava forwarding still bein
 
 1. Start a ride with the heart-rate strap off. Put the strap on. Expect: within about 30 s the bpm appears without touching anything (background rescan).
 2. Press Devices (or D) during a ride: the sheet opens over the ride, the ride keeps running, Escape closes the sheet and does not end the ride.
+
+## Updates (R36)
+
+1. Settings → About shows the running version; Check now reports "Up to date" against GitHub.
+2. Launch the release build with `--args -- version=0.0.1`: the home footer shows "Update to <latest>"; the sheet shows the release notes and Download and install.
+3. macOS: Download and install. Expect: progress to 100 %, "Verifying", "Unpacking", "Installing", the app relaunches as the new version, and `Groove.previous.app` beside it disappears on that launch. A copy in `~/Downloads` that macOS translocated is refused with "Move Groove to Applications first".
+4. Windows: the sheet offers Download from GitHub and opens the release page.

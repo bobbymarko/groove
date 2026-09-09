@@ -14,6 +14,8 @@ xattr -dr com.apple.quarantine /Applications/Groove.app
 
 Apple Silicon and Intel are both in the one app. macOS will ask for Bluetooth permission on the first scan.
 
+Groove checks GitHub for new releases once a day and shows "Update to x.y.z" in the corner of the home screen. On macOS that installs the update in place and relaunches; on Windows it opens the download page.
+
 A Windows x86_64 zip is on the same page: unzip, run `Groove.exe` with the `.pck` and `.dll` beside it, and pass SmartScreen with More info, Run anyway. It's unsigned and so far untested on real Windows hardware.
 
 ## What it does

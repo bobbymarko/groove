@@ -7,6 +7,7 @@ config_version=5
 [application]
 
 config/name="Groove"
+config/version="0.0.2"
 config/custom_user_dir_name="Groove"
 config/icon="res://assets/images/app-icon.png"
 run/main_scene="res://ui/screens/home_screen.tscn"
@@ -17,6 +18,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 App="*res://app/app.gd"
 Devices="*res://devices/device_manager.gd"
 Sync="*res://connectors/upload_queue.gd"
+Updates="*res://core/update/updater.gd"
 
 [display]
 

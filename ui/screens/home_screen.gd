@@ -16,6 +16,7 @@ var _error: Label
 var _dialog: FileDialog
 var _sheet: WorkoutSheet
 var _side: SideSheet          # settings / devices / rides
+var _update_link: LinkButton  # footer: "Update to x.y.z", shown when a newer release exists
 
 
 func _ready() -> void:
@@ -438,16 +439,24 @@ func _build_ui() -> void:
 	resized.connect(_relayout)
 
 	_error = HudStyle.label(v, "", 14, 500, Color(1, 0.6, 0.6))
-	# Licence link, bottom-right corner of the page.
-	var lic := HudStyle.link(self, "License", open_licenses, 12)
+	# Footer, bottom-right corner of the page: update notice (when there is one) and the licence link.
+	var foot := HBoxContainer.new()
+	foot.add_theme_constant_override("separation", 18)
+	add_child(foot)
+	foot.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	foot.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	foot.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	foot.offset_right = -28.0            # flush with the grid's right edge (the page margin)
+	foot.offset_bottom = -20.0
+	_update_link = HudStyle.link(foot, "", open_update, 12)
+	_update_link.add_theme_font_size_override("font_size", 11)
+	_update_link.visible = false
+	var lic := HudStyle.link(foot, "License", open_licenses, 12)
 	lic.add_theme_font_size_override("font_size", 11)   # below the TV floor on purpose: a quiet footer link
 	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		lic.add_theme_color_override(st, HudStyle.TEXT_DIM if st == "font_color" else HudStyle.TEXT)
-	lic.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	lic.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	lic.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	lic.offset_right = -28.0            # flush with the grid's right edge (the page margin)
-	lic.offset_bottom = -20.0
+	Updates.checked.connect(func(_a: bool, _m: String) -> void: _refresh_update_link())
+	_refresh_update_link()
 	lic.offset_left = -28.0 - lic.get_combined_minimum_size().x
 	lic.offset_top = -20.0 - lic.get_combined_minimum_size().y
 
@@ -466,6 +475,25 @@ func _build_ui() -> void:
 	_side.name = "SideSheet"
 	_side.width = 740.0   # pixel type is wide; settings rows need the room
 	add_child(_side)
+
+
+func _refresh_update_link() -> void:
+	if _update_link == null:
+		return
+	_update_link.visible = Updates.update_available()
+	if _update_link.visible:
+		_update_link.text = "Update to %s" % Updates.latest.version
+
+
+## The Update sheet (R36): notes, and install on macOS or a download link elsewhere.
+func open_update() -> void:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	_side.header(v, "Update")
+	var p := UpdatePanel.new()
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(p)
+	_side.show_content(v)
 
 
 ## MIT licence plus third-party notices, read from the repository files.

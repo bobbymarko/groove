@@ -159,7 +159,15 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		if mode == "calendar":
 			for i in 110:
 				await process_frame
-		if mode in ["settings", "devices", "rides", "licenses"]:
+		if mode == "update":
+			# Wait for the GitHub answer (pass `version=0.0.1` to see the current release as an update).
+			var updates: Node = root.get_node("Updates")
+			for i in 300:
+				await process_frame
+				if updates.last_check > 0 or updates.last_error != "":
+					break
+			print("[dbg] update available %s (%s)" % [updates.update_available(), updates.last_error])
+		if mode in ["settings", "devices", "rides", "licenses", "update"]:
 			await process_frame
 			scene.call("open_" + mode)
 			for i in 30:

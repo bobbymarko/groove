@@ -13,6 +13,7 @@ var _strava_id: LineEdit
 var _strava_secret: LineEdit
 var _strava_status: Label
 var _strava_connect: Button
+var _update_status: Label
 
 
 func _ready() -> void:
@@ -167,6 +168,22 @@ func _build_ui() -> void:
 	_strava_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_strava_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS   # never widens the sheet
 	_strava_connect = HudStyle.button(foot, "Disconnect" if connected else "Connect", 13, _strava_button, "secondary")
+
+	# --- About ---
+	var about := HudStyle.section(rider, "About")
+	var ver_row := HudStyle.row(about, "Version")
+	HudStyle.label(ver_row, "Groove %s" % Updates.current_version, 13, 700).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var upd_row := HudStyle.row(about, "Updates")
+	var check_btn := HudStyle.button(upd_row, "Check now", 13, func() -> void: Updates.check(true))
+	_update_status = _status_line(upd_row, "", false)
+	_update_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	Updates.checked.connect(func(available: bool, msg: String) -> void:
+		_set_status(_update_status, msg, not available and msg == "Up to date")
+		if available:
+			_update_status.add_theme_color_override("font_color", HudStyle.CYAN))
+	check_btn.pressed.connect(func() -> void: _update_status.text = "Checking…")
+	if not Updates.latest.is_empty():
+		Updates.checked.emit(Updates.update_available(), "Groove %s is available" % Updates.latest.version if Updates.update_available() else "Up to date")
 
 	# --- Look ---
 	var look := _page()
