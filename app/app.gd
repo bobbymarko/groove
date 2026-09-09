@@ -10,6 +10,7 @@ var workout: Workout
 var ftp: int = 200
 var weight_kg := 80.0          # rider weight, always stored in kg
 var units := "metric"          # "metric" (kg, km/h) | "imperial" (lbs, mph)
+var auto_pause := true         # the workout pauses on zero watts and resumes when pedalling (R33)
 const BIKE_KG := 14.0          # fat bike, added to the rider for the speed model
 var look_mode := "16bit"    # "16bit" (pixel look) | "off" (native). The 8-bit palette mode was removed 2026-09-03.
 var show_fps := true
@@ -57,6 +58,7 @@ func _ready() -> void:
 		ftp = int(_cfg.get_value("rider", "ftp", ftp))
 		weight_kg = float(_cfg.get_value("rider", "weight_kg", weight_kg))
 		units = str(_cfg.get_value("rider", "units", units))
+		auto_pause = bool(_cfg.get_value("rider", "auto_pause", auto_pause))
 		look_mode = str(_cfg.get_value("scene", "look_mode", look_mode))
 		if look_mode == "8bit":
 			look_mode = "16bit"
@@ -129,6 +131,7 @@ func save_settings() -> void:
 	_cfg.set_value("rider", "ftp", ftp)
 	_cfg.set_value("rider", "weight_kg", weight_kg)
 	_cfg.set_value("rider", "units", units)
+	_cfg.set_value("rider", "auto_pause", auto_pause)
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)

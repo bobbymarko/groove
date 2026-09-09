@@ -139,6 +139,13 @@ func _build_ui() -> void:
 		App.save_settings()
 		_weight.text = _weight_text())
 
+	var ride := HudStyle.section(rider, "Ride",
+		"Auto-pause stops the workout clock when you stop pedalling and starts it again when you do, as Zwift does. Off: only the Pause button pauses.")
+	HudStyle.segmented(HudStyle.row(ride, "Auto-pause"), ["On", "Off"], 0 if App.auto_pause else 1,
+		func(i: int) -> void:
+			App.auto_pause = i == 0
+			App.save_settings())
+
 	var icu := HudStyle.section(rider, "intervals.icu",
 		"Personal API key from intervals.icu → Settings → Developer Settings. Planned workouts appear on the home screen and finished rides can be shared.")
 	var key_row := HudStyle.row(icu, "API key")

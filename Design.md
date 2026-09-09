@@ -76,3 +76,7 @@ Home uses `assets/images/menu-bg.png` (pixel night mountains) under a 45 % ink w
 
 ## Not yet
 Bitmap font; motion language for panel transitions beyond the sheet slide; sound.
+
+## Pixel stability
+
+The world is rendered at a whole number of screen pixels per texel, never a fraction: uneven texel widths shimmer as things move. The camera's rotation and sideways position are snapped to the texel grid before each frame and the finished frame is nudged on screen by the leftover fraction, so motion stays smooth while the texels stay put. Geometry edges are anti-aliased inside the low-res frame (MSAA), which reads as "clean pixel art", not blur. See R35.

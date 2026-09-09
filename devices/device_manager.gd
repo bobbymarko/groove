@@ -12,6 +12,10 @@ signal status(text: String)
 
 const DEVICES_PATH := "user://devices.cfg"
 const AUTO_CONNECT_SCAN_SECONDS := 20.0
+## A remembered device that is not yet connected (strap put on after launch,
+## trainer powered up late) is looked for again every RESCAN_EVERY seconds.
+const RESCAN_EVERY := 15.0
+const RESCAN_SECONDS := 10.0
 
 var trainer: Trainer
 var heart_rate: HeartRateSensor
@@ -22,6 +26,7 @@ var remembered: Dictionary = {}     ## role ("trainer"|"heart_rate") -> {address
 var _pending: Dictionary = {}       ## address -> BlePeripheral being probed
 var _adapter_ok := false
 var _adapter_error := ""
+var _rescan_wait := RESCAN_EVERY
 
 
 func _ready() -> void:
@@ -38,6 +43,26 @@ func _ready() -> void:
 	adapter.scan_stopped.connect(func() -> void: scan_state_changed.emit(false))
 	adapter.adapter_error.connect(func(m: String) -> void: status.emit("Bluetooth: " + m))
 	adapter.initialize()
+
+
+func _process(delta: float) -> void:
+	# Background search for remembered devices that have not turned up, for as
+	# long as the app runs: pairing once should mean never opening Devices again.
+	# Not while the simulator is chosen: a real trainer turning up must not replace it mid-ride.
+	if adapter == null or not _adapter_ok or remembered.is_empty() or _all_remembered_connected() or trainer is SimulatedTrainer:
+		_rescan_wait = RESCAN_EVERY
+		return
+	if adapter.is_scanning():
+		return
+	_rescan_wait -= delta
+	if _rescan_wait <= 0.0:
+		_rescan_wait = RESCAN_EVERY
+		var missing: Array[String] = []
+		for role in remembered:
+			if (role == "trainer" and not (trainer is FtmsTrainer)) or (role == "heart_rate" and not (heart_rate is BleHeartRate)):
+				missing.append(str(remembered[role].get("name", role)))
+		status.emit("Looking for %s…" % " and ".join(missing))
+		adapter.start_scan(RESCAN_SECONDS)
 
 
 # --- queries ---------------------------------------------------------------------

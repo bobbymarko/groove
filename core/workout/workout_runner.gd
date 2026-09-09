@@ -17,6 +17,11 @@ signal finished(completed: bool)
 
 const BIAS_MIN := 50
 const BIAS_MAX := 150
+## Auto-pause (R33): the workout stops when the rider stops. Zero watts for this
+## long pauses it; the first watts after that resume it. A trainer that goes
+## quiet for STALE_POWER_AFTER seconds counts as zero watts.
+const AUTO_PAUSE_AFTER := 3.0
+const STALE_POWER_AFTER := 5.0
 
 var workout: Workout
 var ftp: int = 200
@@ -27,8 +32,13 @@ var erg_enabled := true
 var current_index := -1
 var current_target := -1
 var time_scale := 1.0  ## >1 fast-forwards; used by tests and demos
+var auto_pause := true      ## pause on zero watts (Settings); off = only the Pause button pauses
+var auto_paused := false    ## true while a pause was caused by zero watts, so pedalling resumes it
 
 var _next_event := 0
+var _last_power := -1       ## last reported watts; -1 until a trainer has spoken
+var _zero_for := 0.0        ## seconds of zero watts while running
+var _since_report := 0.0    ## seconds since the last power report
 
 
 func load_workout(w: Workout, ftp_watts: int) -> void:
@@ -40,6 +50,8 @@ func load_workout(w: Workout, ftp_watts: int) -> void:
 	current_index = -1
 	current_target = -1
 	_next_event = 0
+	auto_paused = false
+	_zero_for = 0.0
 	_set_state(State.READY)
 
 
@@ -48,16 +60,54 @@ func start() -> void:
 		return
 	_set_state(State.RUNNING)
 	advance(0.0)
+	# Start pressed from across the room: wait at 0:00 until the pedals turn.
+	if auto_pause and _last_power == 0:
+		_auto_pause()
 
 
+## The Pause button. A manual pause stays paused until Resume, pedalling or not.
 func pause() -> void:
 	if state == State.RUNNING:
+		auto_paused = false
 		_set_state(State.PAUSED)
 
 
 func resume() -> void:
 	if state == State.PAUSED:
+		auto_paused = false
+		_zero_for = 0.0
 		_set_state(State.RUNNING)
+
+
+## Feed every power reading here; drives auto-pause and auto-resume.
+func report_power(watts: int) -> void:
+	_last_power = maxi(watts, 0)
+	_since_report = 0.0
+	if _last_power > 0:
+		_zero_for = 0.0
+		if auto_paused and state == State.PAUSED:
+			auto_paused = false
+			_set_state(State.RUNNING)
+
+
+## Called every frame with real seconds: counts zero-watt time while running.
+## Public so tests can drive it.
+func check_auto_pause(delta: float) -> void:
+	if not auto_pause or state != State.RUNNING or _last_power < 0:
+		return
+	_since_report += delta
+	if _last_power == 0 or _since_report > STALE_POWER_AFTER:
+		_zero_for += delta
+		if _zero_for >= AUTO_PAUSE_AFTER:
+			_auto_pause()
+	else:
+		_zero_for = 0.0
+
+
+func _auto_pause() -> void:
+	auto_paused = true
+	_zero_for = 0.0
+	_set_state(State.PAUSED)
 
 
 func toggle_pause() -> void:
@@ -103,6 +153,7 @@ func end_early() -> void:
 func _process(delta: float) -> void:
 	if state == State.RUNNING:
 		advance(delta * time_scale)
+	check_auto_pause(delta)
 
 
 ## Move the timeline forward by dt seconds. Public so tests can drive it.
@@ -142,6 +193,7 @@ func snapshot() -> Dictionary:
 		"target_watts": maxi(current_target, 0),
 		"bias": bias,
 		"erg": erg_enabled,
+		"auto_paused": auto_paused,
 	}
 
 

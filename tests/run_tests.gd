@@ -17,6 +17,11 @@ func _initialize() -> void:
 		if not (f.begins_with("test_") and f.ends_with(".gd")):
 			continue
 		var script: GDScript = load("res://tests/unit/" + f)
+		if script == null or not script.can_instantiate():
+			# A file that will not parse must fail the run, never stall it.
+			total_failed += 1
+			all_failures.append("%s: script failed to load (see parse errors above)" % f)
+			continue
 		var tc: TestCase = script.new()
 		var r := tc.run()
 		total_passed += r.passed

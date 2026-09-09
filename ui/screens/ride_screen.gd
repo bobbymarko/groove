@@ -74,6 +74,9 @@ var _effort_shot_done := false
 var _hardest_index := -1
 var _controls_idle := 0.0
 const CONTROLS_HIDE_AFTER := 3.0
+var _side: SideSheet                 # Devices, openable mid-ride (R34)
+const PAUSE_NOTE_START := "Start pedalling when you're ready."
+const PAUSE_NOTE := "Paused. Pedal to carry on."
 
 
 func _ready() -> void:
@@ -89,6 +92,7 @@ func _ready() -> void:
 	_runner.erg_changed.connect(_on_erg)
 	_runner.bias_changed.connect(func(b: int): _bias_l.text = "%d%%" % b)
 	_runner.finished.connect(_on_finished)
+	_runner.auto_pause = App.auto_pause
 
 	# The recorder must exist before devices are bound, or it never hears
 	# power, cadence or heart rate (every ride before 2026-09-04 recorded zeros).
@@ -151,7 +155,7 @@ func _input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	_controls_idle += delta
-	var show := _controls_idle < CONTROLS_HIDE_AFTER or _runner.state != WorkoutRunner.State.RUNNING or _tuning.visible
+	var show := _controls_idle < CONTROLS_HIDE_AFTER or _runner.state != WorkoutRunner.State.RUNNING or _tuning.visible or _side.is_open()
 	_controls.modulate.a = move_toward(_controls.modulate.a, 1.0 if show else 0.0, delta * 4.0)
 	_controls.mouse_filter = Control.MOUSE_FILTER_STOP if _controls.modulate.a > 0.05 else Control.MOUSE_FILTER_IGNORE
 
@@ -159,8 +163,11 @@ func _process(delta: float) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
+	if _side.is_open():
+		return   # the sheet owns the keyboard (Escape closes it, never the ride)
 	match event.keycode:
 		KEY_SPACE: _runner.toggle_pause()
+		KEY_D: open_devices()
 		KEY_S: _runner.skip_segment()
 		KEY_RIGHT: _scene.camera.orbit = wrapf(_scene.camera.orbit + deg_to_rad(15.0), -PI, PI)
 		KEY_LEFT: _scene.camera.orbit = wrapf(_scene.camera.orbit - deg_to_rad(15.0), -PI, PI)
@@ -209,6 +216,7 @@ func _bind_heart_rate(h: HeartRateSensor) -> void:
 func _on_power(w: int) -> void:
 	_actual_power = w
 	_power.text = "%d" % w
+	_runner.report_power(w)
 
 
 func _on_cadence(c: int) -> void:
@@ -241,7 +249,7 @@ func _refresh_connection() -> void:
 		problems.append("%s disconnected, reconnecting…" % _trainer.display_name())
 	if _hr != null and not _hr.is_device_connected():
 		problems.append("%s disconnected, reconnecting…" % _hr.display_name())
-	_conn_l.text = "  ·  ".join(problems)
+	_conn_l.text = "  ·  ".join(problems) + ("   Open Devices" if not problems.is_empty() else "")
 	_conn_l.visible = not problems.is_empty()
 
 
@@ -344,6 +352,10 @@ func _on_text(msg: String) -> void:
 
 func _on_state(s: WorkoutRunner.State) -> void:
 	_state_l.text = "" if s == WorkoutRunner.State.RUNNING else WorkoutRunner.State.keys()[s].capitalize()
+	if s == WorkoutRunner.State.PAUSED and _runner.auto_paused:
+		_coach.say(PAUSE_NOTE_START if _runner.elapsed < 0.5 else PAUSE_NOTE, 0.0)
+	elif s == WorkoutRunner.State.RUNNING and _coach.label.text in [PAUSE_NOTE_START, PAUSE_NOTE]:
+		_coach.dismiss()
 	_start_btn.text = {
 		WorkoutRunner.State.READY: "Start",
 		WorkoutRunner.State.RUNNING: "Pause",
@@ -502,6 +514,11 @@ func _build_ui() -> void:
 
 	_conn_l = HudStyle.label(v, "", 18, 700, Color(1.0, 0.55, 0.45))
 	_conn_l.visible = false
+	_conn_l.mouse_filter = Control.MOUSE_FILTER_STOP
+	_conn_l.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_conn_l.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			open_devices())
 	# Hidden legacy labels that the runner handlers still write to.
 	_segment = Label.new(); _segment.visible = false; v.add_child(_segment)
 	_next = Label.new(); _next.visible = false; v.add_child(_next)
@@ -547,6 +564,7 @@ func _build_ui() -> void:
 	_fps_l.offset_top = 8.0
 	_fps_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_fps_l.visible = App.show_fps
+	HudStyle.button(bar, "Devices", 16, open_devices)
 	HudStyle.button(bar, "End", 16, func(): _runner.end_early())
 	HudStyle.button(bar, "Home", 16, func(): App.go_to("res://ui/screens/home_screen.tscn"))
 
@@ -558,6 +576,26 @@ func _build_ui() -> void:
 	_graph.offset_bottom = 0.0
 	_graph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_graph)
+	# The Devices sheet, over everything: a strap that did not pair can be fixed without leaving the ride.
+	_side = SideSheet.new()
+	_side.name = "SideSheet"
+	_side.width = 740.0
+	_side.z_index = 20
+	add_child(_side)
+
+
+## Devices sheet mid-ride (R34): same panel as home; the ride keeps running behind it.
+func open_devices() -> void:
+	if _side.is_open():
+		return
+	_controls_idle = 0.0
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	_side.header(v, "Devices")
+	var p := DevicesPanel.new()
+	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(p)
+	_side.show_content(v)
 
 
 ## Top-left: workout name, overall progress, finish time, block list, bias, reps.

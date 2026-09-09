@@ -54,3 +54,16 @@ Status 2026-09-02: step 1 imported into COROS fine; Strava forwarding still bein
 
 1. Ride a minute on the simulator or trainer while pedalling, End, open the ride in Recent rides.
 2. Avg power, cadence and heart rate must be non-zero and the trace must show your power. A journal full of `"p":0` means the recorder was not attached to the devices.
+
+## Auto-pause (R33)
+
+1. Trainer connected, not pedalling. Open a workout, Ride, press Start. Expect: clock stays at 0:00, the coach says "Start pedalling when you're ready", the rider stands with a foot down.
+2. Pedal. Expect: the clock starts within a second, the coach note goes.
+3. Stop pedalling mid-block. Expect: after about three seconds "Paused. Pedal to carry on." and the clock stops; pedalling again resumes it.
+4. Press Pause, then pedal. Expect: it stays paused until Resume.
+5. Settings → Ride → Auto-pause Off: step 1 starts the clock immediately.
+
+## Devices during a ride (R34)
+
+1. Start a ride with the heart-rate strap off. Put the strap on. Expect: within about 30 s the bpm appears without touching anything (background rescan).
+2. Press Devices (or D) during a ride: the sheet opens over the ride, the ride keeps running, Escape closes the sheet and does not end the ride.

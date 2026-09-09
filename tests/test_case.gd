@@ -42,6 +42,10 @@ func assert_true(cond: bool, msg := "") -> void:
 		fail("expected true" + (" — " + msg if msg else ""))
 
 
+func assert_false(cond: bool, msg := "") -> void:
+	assert_true(not cond, msg)
+
+
 func assert_eq(actual, expected, msg := "") -> void:
 	if actual != expected:
 		fail("expected %s, got %s%s" % [str(expected), str(actual), (" — " + msg if msg else "")])

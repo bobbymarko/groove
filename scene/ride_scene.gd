@@ -6,8 +6,16 @@ extends Control
 ## the upcoming workout profile.
 
 const INTERNAL_HEIGHT := 240
+## Pixel stability (R35): the low-res frame is drawn at a whole number of screen
+## pixels per texel, the camera's rotation and sideways position are snapped to
+## the texel grid before rendering, and the frame is then shifted on screen by
+## the sub-texel remainder, so the world moves smoothly without texels crawling.
+const PIXEL_MARGIN := 2      ## spare texels each side, room for that shift
 var _internal_height := INTERNAL_HEIGHT
 var pixel_filter := true
+var pixel_stable := true     ## camera snapping and compensated presentation
+var _factor := 4             ## screen pixels per texel
+var _shift := Vector2.ZERO   ## texels the frame is displaced by, from the snapped camera to the ideal one
 var look_mode := "16bit"         ## "16bit" (pixel look) or "off" (native); "8bit" is accepted and mapped to 16bit
 
 var trail: Trail
@@ -73,7 +81,8 @@ func _ready() -> void:
 	_viewport = SubViewport.new()
 	_viewport.size = Vector2i(426, INTERNAL_HEIGHT)
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_viewport.msaa_3d = Viewport.MSAA_DISABLED
+	# Geometry edges are averaged inside each texel: thin branches stop flickering as they move.
+	_viewport.msaa_3d = Viewport.MSAA_4X
 	_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	_viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
 	add_child(_viewport)
@@ -89,7 +98,7 @@ func _ready() -> void:
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.directional_shadow_split_1 = 0.25
-	sun.shadow_blur = 0.0          # hard-edged shadows suit the pixel look
+	sun.shadow_blur = 1.0          # soft enough that the cel band's edge moves smoothly, not texel by texel
 	# Low winter sun grazes the snow; generous biases keep the shadow map from
 	# striping flat ground (acne) at small elevations.
 	sun.shadow_bias = 0.35
@@ -132,6 +141,7 @@ func _ready() -> void:
 	rain = Rain.new()
 	_world.add_child(rain)
 
+	clip_contents = true   # the presentation overhangs by PIXEL_MARGIN texels on every side
 	_screen = TextureRect.new()
 	_screen.texture = _viewport.get_texture()
 	_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -291,18 +301,66 @@ func apply_tuning(t: Dictionary) -> void:
 		_fit_viewport()
 
 
+## Screen pixels per canvas unit: the window stretch times the display's scale.
+func _canvas_scale() -> float:
+	var vp := get_viewport()
+	if vp == null:
+		return 1.0
+	return maxf(vp.get_final_transform().get_scale().y, 0.01)
+
+
 func _fit_viewport() -> void:
+	var cs := _canvas_scale()
 	if not pixel_filter:
-		var native := Vector2i(maxi(int(size.x), 64), maxi(int(size.y), 64))
-		# Retina: render at the window's pixel size, not its logical size.
-		var scale := DisplayServer.screen_get_scale() if DisplayServer.get_name() != "headless" else 1.0
-		_viewport.size = Vector2i(int(native.x * scale), int(native.y * scale))
+		var native := Vector2i(maxi(int(size.x * cs), 64), maxi(int(size.y * cs), 64))
+		if _viewport.size != native:
+			_viewport.size = native
+		_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		return
-	var aspect := size.x / maxf(size.y, 1.0)
-	var rows := int(_internal_height * 1.4)
-	var w := int(round(rows * aspect))
-	_viewport.size = Vector2i(maxi(w, 64), rows)
-	_post.set_shader_parameter("texel", Vector2(1.0 / _viewport.size.x, 1.0 / rows))
+	# Whole screen pixels per texel, chosen to land near the requested row count;
+	# the frame then covers the control exactly, plus the margin.
+	var phys := Vector2(size) * cs
+	_factor = maxi(1, int(round(phys.y / maxf(_internal_height * 1.4, 1.0))))
+	var rows := int(ceil(phys.y / _factor)) + 2 * PIXEL_MARGIN
+	var cols := int(ceil(phys.x / _factor)) + 2 * PIXEL_MARGIN
+	var want := Vector2i(maxi(cols, 64), maxi(rows, 64))
+	if _viewport.size != want:
+		_viewport.size = want
+	_post.set_shader_parameter("texel", Vector2(1.0 / want.x, 1.0 / want.y))
+	_screen.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_layout_screen()
+
+
+## Place the low-res frame: margin off the top-left, displaced by the sub-texel shift.
+func _layout_screen() -> void:
+	if not pixel_filter:
+		return
+	var t := float(_factor) / _canvas_scale()   # canvas units per texel
+	_screen.position = (Vector2(-PIXEL_MARGIN, -PIXEL_MARGIN) + _shift) * t
+	_screen.size = Vector2(_viewport.size) * t
+
+
+## Snap the camera to the texel grid and return, in texels, where the frame must
+## be shifted so `ref` (the rider) lands where the unsnapped camera would have put it.
+func _snap_camera(ref: Vector3) -> Vector2:
+	var rows := float(_viewport.size.y)
+	var p_ideal := camera.unproject_position(ref)
+	# One texel of rotation at the frame's centre.
+	var q := deg_to_rad(camera.fov) / rows
+	var e := camera.rotation
+	e.x = roundf(e.x / q) * q
+	e.y = roundf(e.y / q) * q
+	e.z = 0.0
+	camera.rotation = e
+	# One texel of sideways or vertical travel, measured at the rider's depth.
+	var b := camera.global_transform.basis
+	var depth := maxf((ref - camera.global_position).length(), 1.0)
+	var g := depth * 2.0 * tan(deg_to_rad(camera.fov) * 0.5) / rows
+	var local := b.transposed() * camera.global_position
+	local.x = roundf(local.x / g) * g
+	local.y = roundf(local.y / g) * g
+	camera.global_position = b * local
+	return p_ideal - camera.unproject_position(ref)
 
 
 func current_grade() -> float:
@@ -352,6 +410,12 @@ func _process(raw_delta: float) -> void:
 			camera.look_at(rider.global_position + Vector3(0.0, 0.9, 0.0), Vector3.UP)
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)
+		if pixel_filter and pixel_stable:
+			_shift = _snap_camera(rider.global_position + Vector3.UP * 0.9)
+			_layout_screen()
+		elif _shift != Vector2.ZERO:
+			_shift = Vector2.ZERO
+			_layout_screen()
 	snow.follow(camera.global_position)
 	rain.follow(camera.global_position)
 	backdrop.follow(rider.global_position)

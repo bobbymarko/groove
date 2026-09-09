@@ -141,3 +141,79 @@ func test_snapshot_fields() -> void:
 	assert_eq(s.segment_index, 0)
 	assert_near(s.segment_remaining, 500.0)
 	assert_eq(s.target_watts, r.current_target)
+
+
+# --- auto-pause (R33) ---------------------------------------------------------
+
+func test_start_with_zero_watts_waits_for_pedalling() -> void:
+	r.report_power(0)
+	r.start()
+	assert_eq(r.state, WorkoutRunner.State.PAUSED)
+	assert_true(r.auto_paused)
+	assert_eq(r.elapsed, 0.0)
+	assert_eq(segments, [0])              # the first target is already out to the trainer
+	r.report_power(120)
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+	assert_false(r.auto_paused)
+
+
+func test_start_without_any_power_report_runs() -> void:
+	r.start()                              # no trainer has spoken yet: nothing to pause on
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+	r.check_auto_pause(10.0)
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+
+
+func test_three_seconds_of_zero_watts_pauses() -> void:
+	r.report_power(150)
+	r.start()
+	r.advance(20.0)
+	r.report_power(0)
+	r.check_auto_pause(2.9)
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+	r.check_auto_pause(0.2)
+	assert_eq(r.state, WorkoutRunner.State.PAUSED)
+	assert_true(r.auto_paused)
+	r.advance(60.0)                        # paused: the clock does not move
+	assert_eq(r.elapsed, 20.0)
+	r.report_power(90)
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+
+
+func test_brief_zero_does_not_pause() -> void:
+	r.report_power(150)
+	r.start()
+	r.report_power(0)
+	r.check_auto_pause(2.0)
+	r.report_power(150)
+	r.check_auto_pause(2.0)
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+
+
+func test_silent_trainer_counts_as_zero() -> void:
+	r.report_power(150)
+	r.start()
+	for i in 9:
+		r.check_auto_pause(1.0)            # 5 s stale, then 3 s counting
+	assert_eq(r.state, WorkoutRunner.State.PAUSED)
+	assert_true(r.auto_paused)
+
+
+func test_manual_pause_is_not_resumed_by_pedalling() -> void:
+	r.report_power(150)
+	r.start()
+	r.pause()
+	assert_false(r.auto_paused)
+	r.report_power(200)
+	assert_eq(r.state, WorkoutRunner.State.PAUSED)
+	r.resume()
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+
+
+func test_auto_pause_off_never_pauses() -> void:
+	r.auto_pause = false
+	r.report_power(0)
+	r.start()
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+	r.check_auto_pause(30.0)
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
