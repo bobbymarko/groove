@@ -30,7 +30,7 @@ const TUNING_SPEC := [
 	["ambient_energy", "Ambient light", 0.0, 1.2, 0.01, 0.09],
 	["shade_band", "Shaded-side brightness", 0.3, 1.0, 0.01, 0.74],
 	["fog_density", "Fog", 0.0, 0.012, 0.0001, 0.002],
-	["dither", "Dither", 0.0, 0.15, 0.005, 0.0],
+	["dither", "Dither", 0.0, 0.15, 0.005, 0.03],
 	["outline", "Outline", 0.0, 0.6, 0.01, 0.0],
 	["camera_distance", "Camera distance (m)", 3.0, 14.0, 0.1, 12.6],
 	["camera_height", "Camera height (m)", 1.0, 5.0, 0.1, 1.4],
@@ -40,7 +40,7 @@ const TUNING_SPEC := [
 	["highlight", "Sun highlight", 0.0, 0.5, 0.01, 0.1],
 	["sharpen", "Sharpen", 0.0, 1.5, 0.05, 0.4],
 	["tree_snow", "Snow on trees", 0.0, 1.0, 0.02, 0.48],
-	["motion_blur", "Speed blur at edges", 0.0, 1.0, 0.02, 0.28],
+	["motion_blur", "Speed blur at edges", 0.0, 1.0, 0.02, 0.0],
 	["color_levels", "Colour steps (banding)", 6.0, 64.0, 1.0, 64.0],
 	["shade_bands", "Shading bands (light steps)", 2.0, 12.0, 1.0, 12.0],
 ]
