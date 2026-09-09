@@ -7,7 +7,7 @@ config_version=5
 [application]
 
 config/name="Groove"
-config/version="0.0.2"
+config/version="0.0.3"
 config/custom_user_dir_name="Groove"
 config/icon="res://assets/images/app-icon.png"
 run/main_scene="res://ui/screens/home_screen.tscn"
