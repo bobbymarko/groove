@@ -234,6 +234,17 @@ func _ground() -> void:
 	add_child(cm)
 
 
+## Ground spots of the lab's cameras (StyleLab); no tree may grow on them.
+const CAMERA_SPOTS := [Vector2(9.4, 4.4), Vector2(4.2, 12.5)]
+
+
+func _near_camera(p: Vector3) -> bool:
+	for c in CAMERA_SPOTS:
+		if Vector2(p.x, p.z).distance_to(c) < 5.0:
+			return true
+	return false
+
+
 func _dressing() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11
@@ -244,6 +255,8 @@ func _dressing() -> void:
 		var p := Vector3(cos(a) * r, 0, sin(a) * r * 0.9 - 4.0)
 		if p.z > 5.0 and absf(p.x) < 14.0:
 			continue          # keep the view to camp open
+		if _near_camera(p):
+			continue
 		var kind: String = ["pine_a", "pine_b", "pine_c"][rng.randi() % 3]
 		_prop("nature", kind, p + Vector3(0, 0.2, 0), rng.randf() * TAU, rng.randf_range(1.0, 1.6))
 		placed += 1
