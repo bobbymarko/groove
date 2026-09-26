@@ -7,6 +7,7 @@ const FILES := {
 	"monster": "res://camp/art/models/monster_kit.glb",
 	"bike": "res://camp/art/models/bike.glb",
 	"nature": "res://camp/art/models/nature.glb",
+	"camp": "res://camp/art/models/camp.glb",
 }
 
 static var _templates: Dictionary = {}

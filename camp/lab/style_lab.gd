@@ -14,12 +14,32 @@ const SKY_MID := Color("9a6cc4")
 const SKY_LOW := Color("ffa27a")
 
 
+var _camp: CampVignette
+var _sun: DirectionalLight3D
+
+
 func _ready() -> void:
 	_environment()
-	_ground()
-	_dressing()
 	camera = Camera3D.new()
 	add_child(camera)
+	if mode in ["camp", "trader"]:
+		_camp = CampVignette.new()
+		add_child(_camp)
+		CampLook.set_mood({"ambient": 0.36, "rim": 0.45})
+		_sun.light_energy = 0.95
+		_sun.light_color = Color("ffb27a")
+		_sun.rotation_degrees = Vector3(-36, -50, 0)
+		camera.fov = 34
+		if mode == "trader":
+			camera.position = Vector3(9.4, 2.7, 4.4)
+			camera.look_at(Vector3(5.9, 1.45, -1.4))
+		else:
+			camera.position = Vector3(4.2, 7.2, 12.5)
+			camera.look_at(Vector3(0.4, 0.5, -0.9))
+		set_time(0.0)
+		return
+	_ground()
+	_dressing()
 	match mode:
 		"lineup":
 			var presets := MonsterPresets.all()
@@ -64,6 +84,8 @@ func set_time(t: float) -> void:
 	time = t
 	for r in riders:
 		r.advance(dt)
+	if _camp:
+		_camp.advance(dt)
 
 
 # ------------------------------------------------------------------ world
@@ -109,6 +131,7 @@ void sky() {
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
+	_sun = sun
 	sun.light_color = Color("ffd2a0")
 	sun.light_energy = 1.25
 	sun.shadow_enabled = true

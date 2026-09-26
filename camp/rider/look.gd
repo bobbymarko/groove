@@ -5,7 +5,7 @@ extends RefCounted
 ## reaches every surface.
 
 const SHADER := preload("res://camp/shaders/lowpoly.gdshader")
-const GLOW_ROLES := ["glow"]
+const GLOW_ROLES := ["glow", "lamp", "flame", "flame2", "flame3", "ember"]
 
 ## Default role colours; riders override the ones they care about.
 const ROLES := {
@@ -20,6 +20,13 @@ const ROLES := {
 	"rock": Color("77778a"), "snow": Color("eeeef6"), "mountain": Color("5b5486"),
 	"berry": Color("c0184a"), "grass": Color("6a9444"), "cloud": Color("f7b7a8"),
 	"dirt": Color("8c5a36"), "limb": Color("7a45c8"),
+	"beard": Color("f0ece2"), "ember": Color("ff7a1a"), "flame": Color("ff6a14"),
+	"flame2": Color("ffb62e"), "flame3": Color("fff0b0"), "lamp": Color("ffcf7a"),
+	"paint": Color("5d8a62"), "paint2": Color("efe6cf"), "glass": Color("2a3550"),
+	"trim": Color("2a2a2e"), "wood": Color("a8764c"), "wood_dark": Color("664430"),
+	"canvas": Color("d9a35a"), "blanket": Color("c0392e"), "blanket2": Color("efe2c4"),
+	"box1": Color("4d6b4d"), "box2": Color("c8573a"), "jam": Color("8c1640"),
+	"stone": Color("80808c"), "mug": Color("eee6d6"), "water": Color("6674c0"),
 }
 
 ## Dusk, as on the camp title board.

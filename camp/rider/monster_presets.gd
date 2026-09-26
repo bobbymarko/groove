@@ -4,7 +4,7 @@ extends RefCounted
 
 const SIZE_DEFAULTS := {
 	"girth": 1.0, "height": 1.0, "head": 1.0, "eye": 1.0, "horn": 1.0,
-	"arm": 0.62, "leg": 0.66, "limb": 0.055, "hand": 1.0, "foot": 1.0,
+	"arm": 0.62, "leg": 0.66, "limb": 0.055, "hand": 1.0, "foot": 1.0, "hat": 1.0,
 }
 
 const FUZZ := {
@@ -43,6 +43,17 @@ const SKULLY := {
 		"cap": Color("feb801"), "cloth": Color("7a4a2a"), "accent": Color("dc352d"), "dark": Color("121316"),
 		"teeth": Color("ece3cc")},
 	"bike": {"frame": Color("dc352d"), "accent": Color("1b1b1d")},
+}
+
+## The trader who buys your haul: a big old pioneer yeti.
+const TRADER := {
+	"name": "Pioneer", "body": "round", "fur": true, "head": "", "eyes": "squint", "mouth": "",
+	"extras": ["beard", "hat_pioneer", "pipe"], "hands": "mitt", "feet": "hoof",
+	"size": {"girth": 1.3, "height": 1.45, "eye": 0.85, "arm": 0.78, "leg": 0.95, "limb": 0.09,
+		"hand": 1.3, "foot": 1.3, "hat": 0.95},
+	"colours": {"primary": Color("8a5a3c"), "secondary": Color("a8764e"), "limb": Color("7a4e34"),
+		"beard": Color("f2ede2"), "cloth": Color("6b4a2e"), "cap": Color("3a2c26"), "accent": Color("c0392e"),
+		"dark": Color("2e221c"), "horn": Color("e8d8b0")},
 }
 
 static func all() -> Array[Dictionary]:

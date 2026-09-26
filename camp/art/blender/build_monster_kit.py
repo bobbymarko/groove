@@ -349,6 +349,47 @@ move(pocket, -0.18, 0, -0.05)
 p.add(pocket, "cloth")
 p.build()
 
+p = Part("beard")                    # origin at the mouth socket
+b = ico(0.20, 2)
+scale(b, 0.55, 1.15, 1.35)
+move(b, 0.0, 0, -0.16)
+radial_jitter(b, 0.05, 71, (0, 0, -0.16))
+tufts(b, 400, 0.08, 1.0, 72, center=(0, 0, -0.10))
+p.add(b, "beard")
+for side in (-1, 1):                 # a drooping moustache
+    m = prism(0.045, 0.0, 0.20, 5)
+    p.add(m, "beard", Matrix.Translation((0.07, 0.03 * side, 0.02)) @ Matrix.Rotation(math.radians(150 * side), 4, 'X'))
+p.build()
+
+p = Part("hat_pioneer")              # wide brim, pinched crown, a band
+brim = prism(0.36, 0.36, 0.025, 12)
+jitter(brim, 0.012, 73, (0.5, 0.5, 1))
+for v in brim.verts:                 # brim turns up at the sides
+    v.co.z += (abs(v.co.y) / 0.36) ** 2 * 0.06
+p.add(brim, "cap")
+crown = prism(0.20, 0.17, 0.20, 8)
+for v in crown.verts:
+    if v.co.z > 0.19 and abs(v.co.y) < 0.05:
+        v.co.z -= 0.05
+move(crown, 0, 0, 0.02)
+p.add(crown, "cap")
+band = prism(0.205, 0.20, 0.045, 8)
+move(band, 0, 0, 0.025)
+p.add(band, "accent")
+feather = prism(0.02, 0.0, 0.22, 4)
+p.add(feather, "horn", Matrix.Translation((-0.05, 0.19, 0.06)) @ Matrix.Rotation(math.radians(-35), 4, 'Y'))
+p.build()
+
+p = Part("pipe")                     # origin at the mouth socket, out the camera side
+p.add(tube((0.02, -0.06, -0.01), (0.20, -0.12, -0.07), 0.012, 0.012, 5), "dark")
+bowl = prism(0.04, 0.045, 0.08, 7)
+move(bowl, 0.21, -0.125, -0.09)
+p.add(bowl, "dark")
+ember = prism(0.032, 0.032, 0.01, 7)
+move(ember, 0.21, -0.125, -0.012)
+p.add(ember, "ember")
+p.build()
+
 # ------------------------------------------------------------------ hands and feet
 # Hands: origin at the wrist, pointing +X. Feet: origin at the ankle, toe +X,
 # sole bottom at z = -0.09; the pedal sits under the ball of the foot.
