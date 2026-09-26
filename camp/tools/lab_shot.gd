@@ -23,12 +23,29 @@ func _run(args: PackedStringArray) -> void:
 			frames = int(a.trim_prefix("frames="))
 		elif a.begins_with("t="):
 			t = float(a.trim_prefix("t="))
+	var out: String = args[1]
+	if args[0].begins_with("res://"):
+		# Any scene, e.g. the monster editor; let it run a little first.
+		var scene: Node = (load(args[0]) as PackedScene).instantiate()
+		root.add_child(scene)
+		for i in int(t * 60.0) + 6:
+			await process_frame
+		if args.has("scroll"):
+			var sc := scene.find_children("*", "ScrollContainer", true, false)
+			if not sc.is_empty():
+				(sc[0] as ScrollContainer).scroll_vertical = 100000
+			for i in 3:
+				await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_viewport().get_texture().get_image().save_png(out)
+		print("screenshot %s -> %s" % [args[0], out])
+		quit(0)
+		return
 	var lab := StyleLab.new()
 	lab.mode = args[0]
 	root.add_child(lab)
 	for i in 4:
 		await process_frame
-	var out: String = args[1]
 	for f in frames:
 		lab.set_time(t + f / 30.0)
 		await process_frame

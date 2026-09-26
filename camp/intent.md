@@ -93,6 +93,10 @@ Art pipeline, as proposed by Claude:
 - **Props and decor** (van items, collectibles, trail dressing) can come from an AI 3D generator or be modelled in Blender, whichever holds the style better. These are static, so generator output is usable after cleanup.
 - **Licensing.** The repository is public and MIT. Every generated or downloaded asset is recorded in `LICENSES.md` with its source and terms. Reference images from other games stay out of the repository.
 
+### Progress
+
+- **2026-09-26: first pass of all three outcomes.** Blender scripts build the monster parts kit, a made-up trail BMX, trail props, our own van, a campfire, chairs, an events signpost and a trading post. The style lab renders the trail, a rider lineup, a three-quarter view, the camp and the trader. The monster builder runs in Godot with part pickers, extras, ten proportion sliders and colour swatches, and saves the rider. Bob's call: right direction, refine details as it comes together. See `camp/README.md` to open it.
+
 ## Discussion notes
 
 **Why not a fork** (agreed 2026-09-26, as a branch in the same repository). The trainer control, parsers, recorder, FIT writer and connectors are the parts that keep getting bug fixes, including whatever the Windows tester finds this week. A fork means applying every one of those twice. In the codebase today the only screen that is "the game" is the ride screen; home, summary, rides, settings and devices are the training-app shell. The new game replaces the ride screen with the trail and wraps the shell in the camp world, but it can call the same sheets for pairing, settings and the workout library. Build it in a `camp/` directory, launch it from a hidden switch, and if it becomes the product the current 3D scenes become one ride mode among others, or retire.

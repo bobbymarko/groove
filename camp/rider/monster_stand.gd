@@ -23,6 +23,13 @@ func _ready() -> void:
 	pose()
 
 
+## Rebuild after the recipe changed (the editor calls this on every edit).
+func rebuild() -> void:
+	rig.recipe = recipe
+	rig.build()
+	pose()
+
+
 func advance(dt: float) -> void:
 	_t += dt
 	pose()
