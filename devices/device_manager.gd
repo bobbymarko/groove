@@ -32,7 +32,7 @@ var _rescan_wait := RESCAN_EVERY
 func _ready() -> void:
 	_load_remembered()
 	status.connect(func(s: String) -> void: print("[devices] ", s))
-	if DisplayServer.get_name() == "headless":
+	if DisplayServer.get_name() == "headless" or OS.get_cmdline_user_args().has("no-radio"):
 		return  # tests and tooling: never touch the radio
 	adapter = BleAdapter.new()
 	adapter.name = "BleAdapter"

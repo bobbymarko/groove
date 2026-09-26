@@ -30,7 +30,7 @@ The loop:
 - **Spend at the store.** Money buys gear and decor.
 - **Build your van.** You start with a bare Volkswagen van. Paint it, change the exterior, furnish the interior. Make it yours.
 - **See your friends.** Your core group's vans are parked next to yours, so you watch them evolve as they train. A signpost outside each van lists the events that rider is training for. That is the missing piece in the community today: knowing what your friends are aiming at.
-- **Be yourself.** A character editor built into the game, with sliders that go well past what Zwift allows (fat, thin, and further into stylisation). Characters are generative, not chosen from a list of models. Whether they are people, monsters or something else is part of the art decision.
+- **Be yourself.** A character editor built into the game, with sliders that go well past what Zwift allows (fat, thin, and further into stylisation). Characters are monsters assembled from a kit of parts, not chosen from a list of models.
 
 Later, a companion app for phones shows activities and what people are training for, without the trainer.
 
@@ -59,7 +59,10 @@ Decided so far:
 - **Godot 4 with GDScript, one codebase**, same as Groove.
 - **Same repository, `camp` branch.** Decided 2026-09-26. Camp code lives under `camp/` and shares `core/`, `devices/`, `connectors/` and the pairing and settings sheets with Groove. Trainer fixes land on `main` and merge into `camp`, never the other way round until Camp is ready.
 - **Art style before mechanics.** Decided 2026-09-26. The first milestone proves a look that can carry the whole idea (trail, camp, van, trader, characters) and a character editor in that look. No gameplay is built until the style is agreed.
-- **Character generation, not model hunting.** No searching for third-party character models. One parametric base with sliders and palettes, authored once.
+- **Character generation, not model hunting.** No searching for third-party character models. Characters are built from a kit of parts authored once.
+- **The riders are monsters.** Decided 2026-09-26 from Bob's "Monster Builder" board. A rider is assembled from swappable parts: body, head, eyes, mouth, arms, legs, extras such as horns, spikes, tails, backpacks and hats, and a surface texture such as fur, scales, rock or metal. Sliders for size and proportion and colour pickers sit on top of the parts. Every leg option has to reach the pedals.
+- **Low-poly, with attitude.** Decided 2026-09-26. The look is faceted, flat-shaded low-poly 3D for the world and the riders alike, as in Bob's camp title board. Not pixel art. The riders lean toward attitude over cute: squints, teeth, gear and swagger rather than big round eyes and smiles.
+- **No real brands.** The van is our own design, not a Volkswagen. Bikes are stylised, not models of real bikes.
 
 ## Open questions
 
@@ -68,8 +71,7 @@ These are the things to settle before a spec is written.
 - **What does riding well look like on the trail?** The ground is the target profile. Where does actual power show? Proposal: collectibles hang at the target-power height, so you gather them only while holding the target. Under target and you ride below them and miss. Payout is then difficulty times compliance, and the moment-to-moment feedback is the pickup sound.
 - **Progress axis.** Does the level scroll with time (the workout is a timeline) or with distance (speed from power)? Time is honest and simple; distance rewards big riders.
 - **What is the yield curve?** TSS is easy to game by setting a low FTP. Since there is no competition, does that matter? Proposal: pay on TSS and intensity factor, cap per ride, bonus for compliance.
-- **Art direction.** Candidates to mock up: the current pixel post-process applied to a side view (cheap, consistent with Groove); chunky flat-shaded low-poly in the Firewatch poster vein; thick-outline cel look. Needs a style sheet before any asset is built.
-- **Who are the characters?** People, monsters, animals, robots. This decides the character editor's base mesh and how far the sliders can go.
+- **Art direction details.** Low-poly monsters are settled. Still open: palette per time of day, how much texture detail sits on the faceted surfaces, and how far the attitude goes.
 - **Friends.** Options: a small hosted backend with accounts; a peer-shared "postcard" file exported from each player and imported by friends; or a read-only feed hosted somewhere simple. Accounts contradict Groove's no-backend constraint, so this needs a real decision and can be deferred behind the solo loop.
 - **Events on the signpost.** Manually entered by the rider, pulled from the intervals.icu calendar, or both.
 - **Name.** "Camp" is a placeholder.
@@ -81,13 +83,13 @@ The question this milestone answers: is there an art style that is fun, stylised
 Outcome Bob can judge:
 
 1. **A style sheet.** One page per candidate style showing a rider on a bike, a van, the trader, a berry bush and a slice of trail, all in the same look. Bob picks one or asks for a blend.
-2. **A character editor in Godot, in the chosen style.** One parametric base character with sliders (body shape and proportions at minimum, then head, colours and a few outfit pieces). Sliders go further than Zwift's, into caricature. The character sits on a bike and pedals, so the editor proves the body still works on the bike at every slider extreme.
+2. **A character editor in Godot, in the chosen style.** A monster assembled from swappable parts, with sliders for proportions and pickers for colours. Sliders go further than Zwift's, into caricature. The character sits on a bike and pedals, so the editor proves the body still works on the bike at every slider extreme.
 3. **One trail and one camp vignette** rendered in the chosen style, to prove it holds up in both the side view and the isometric view.
 
 Art pipeline, as proposed by Claude:
 
 - **Concept art** from an AI image generator, steered by Bob's reference images, to explore styles quickly before anything is modelled.
-- **Characters and bikes are built in Blender** by Claude through scripts, not generated. The editor needs one clean, rigged mesh with blend shapes that Godot can drive from sliders; AI 3D generators produce static meshes with messy topology that cannot deform that way.
+- **Characters and bikes are built in Blender** by Claude through scripts, not generated. Each part is a clean low-poly mesh with named attachment points, so any body takes any head, eyes or horns. Limbs are generated in Godot as faceted tubes that bend to reach the pedals and bars, so any leg length still pedals.
 - **Props and decor** (van items, collectibles, trail dressing) can come from an AI 3D generator or be modelled in Blender, whichever holds the style better. These are static, so generator output is usable after cleanup.
 - **Licensing.** The repository is public and MIT. Every generated or downloaded asset is recorded in `LICENSES.md` with its source and terms. Reference images from other games stay out of the repository.
 
