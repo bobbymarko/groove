@@ -111,3 +111,32 @@ func test_rejects_garbage() -> void:
 func test_rejects_running_workouts() -> void:
 	var xml := "<workout_file><sportType>run</sportType><workout><SteadyState Duration='60' Power='0.8'/></workout></workout_file>"
 	assert_true(ZwoParser.parse(xml) == null)
+
+
+## intervals.icu writes zone and percentage ranges as PowerLow/PowerHigh with
+## show_avg. They used to fall back to 50 % FTP (Bob's "Clean Slate", 2026-10-26).
+func test_steady_range_holds_the_middle() -> void:
+	var w := ZwoParser.parse("""<workout_file><name>Clean Slate</name><sportType>bike</sportType><workout>
+		<Warmup PowerHigh="0.6" PowerLow="0.45" Duration="300"/>
+		<SteadyState show_avg="1" PowerHigh="0.66" PowerLow="0.58" Duration="1200"/>
+		<Cooldown PowerHigh="0.4" PowerLow="0.55" Duration="300"/>
+	</workout></workout_file>""")
+	assert_true(w != null, ZwoParser.last_error)
+	assert_eq(w.segments.size(), 3)
+	assert_near(w.segments[1].power_low, 0.62)
+	assert_near(w.segments[1].power_high, 0.62)
+	assert_near(w.segments[0].power_low, 0.45)
+	assert_near(w.segments[2].power_high, 0.4)
+	assert_near(w.target_fraction_at(900.0) * 248.0, 153.76, 0.01)
+
+
+func test_interval_ranges() -> void:
+	var w := ZwoParser.parse("""<workout_file><name>R</name><sportType>bike</sportType><workout>
+		<IntervalsT Repeat="2" OnDuration="60" OffDuration="60" PowerOnLow="1.0" PowerOnHigh="1.1" PowerOffLow="0.5" PowerOffHigh="0.6" show_avg="1"/>
+		<IntervalsT Repeat="1" OnDuration="60" OffDuration="60" PowerOnLow="0.9" PowerOnHigh="1.2" PowerOffLow="0.5" PowerOffHigh="0.5"/>
+	</workout></workout_file>""")
+	assert_true(w != null, ZwoParser.last_error)
+	assert_near(w.segments[0].power_low, 1.05)
+	assert_near(w.segments[1].power_low, 0.55)
+	assert_near(w.segments[4].power_low, 0.9, 0.001, "no show_avg: a ramp from low")
+	assert_near(w.segments[4].power_high, 1.2)

@@ -96,7 +96,10 @@ static func _add_block(w: Workout, block: Dictionary, events: Array[Dictionary])
 			var s := WorkoutSegment.new()
 			s.kind = WorkoutSegment.Kind.STEADY
 			s.duration = _num(a, "Duration")
-			s.power_low = _num(a, "Power", 0.5)
+			# A steady block may be written as a range (intervals.icu exports "Z2" or
+			# "58-66%" as PowerLow/PowerHigh with show_avg); hold the middle of it.
+			var p := _power(a, "Power", "PowerLow", "PowerHigh", 0.5)
+			s.power_low = (p[0] + p[1]) * 0.5
 			s.power_high = s.power_low
 			s.cadence = int(_num(a, "Cadence"))
 			_append(w, s)
@@ -106,8 +109,9 @@ static func _add_block(w: Workout, block: Dictionary, events: Array[Dictionary])
 				var on := WorkoutSegment.new()
 				on.kind = WorkoutSegment.Kind.INTERVAL_ON
 				on.duration = _num(a, "OnDuration")
-				on.power_low = _num(a, "OnPower", 1.0)
-				on.power_high = on.power_low
+				var on_p := _power(a, "OnPower", "PowerOnLow", "PowerOnHigh", 1.0)
+				on.power_low = on_p[0]
+				on.power_high = on_p[1]
 				on.cadence = int(_num(a, "Cadence"))
 				on.rep = r + 1
 				on.rep_count = reps
@@ -115,8 +119,9 @@ static func _add_block(w: Workout, block: Dictionary, events: Array[Dictionary])
 				var off := WorkoutSegment.new()
 				off.kind = WorkoutSegment.Kind.INTERVAL_OFF
 				off.duration = _num(a, "OffDuration")
-				off.power_low = _num(a, "OffPower", 0.5)
-				off.power_high = off.power_low
+				var off_p := _power(a, "OffPower", "PowerOffLow", "PowerOffHigh", 0.5)
+				off.power_low = off_p[0]
+				off.power_high = off_p[1]
 				off.cadence = int(_num(a, "CadenceResting"))
 				off.rep = r + 1
 				off.rep_count = reps
@@ -165,6 +170,29 @@ static func _attributes(p: XMLParser) -> Dictionary:
 	for i in p.get_attribute_count():
 		d[p.get_attribute_name(i)] = p.get_attribute_value(i)
 	return d
+
+
+## Target power for a block as [start, end] fractions of FTP (64-bit floats:
+## a Vector2 would round 1.06 to 1.0599999 and cost a watt). Takes the single
+## value when present, else the low/high pair; a pair marked show_avg="1" is a
+## range to hold at its middle rather than a ramp. The default applies only when
+## the block names no power at all.
+static func _power(a: Dictionary, single: String, low_key: String, high_key: String, default_value: float) -> PackedFloat64Array:
+	var p := _num(a, single, -1.0)
+	if p >= 0.0:
+		return PackedFloat64Array([p, p])
+	var lo := _num(a, low_key, -1.0)
+	var hi := _num(a, high_key, -1.0)
+	if lo < 0.0 and hi < 0.0:
+		return PackedFloat64Array([default_value, default_value])
+	if lo < 0.0:
+		lo = hi
+	if hi < 0.0:
+		hi = lo
+	if str(a.get("show_avg", "")) == "1":
+		var mid := (lo + hi) * 0.5
+		return PackedFloat64Array([mid, mid])
+	return PackedFloat64Array([lo, hi])
 
 
 static func _num(a: Dictionary, key: String, default_value: float = 0.0) -> float:
