@@ -3,7 +3,6 @@ extends Node3D
 ## The camp between rides: your van, a fire, a chair, the events signpost,
 ## the trading post, and your friends' vans parked nearby.
 
-const SIGN_FONT := preload("res://assets/fonts/PixelOperator-Bold.ttf")
 
 ## Van paints: yours and two friends'.
 const PAINTS := [
@@ -11,7 +10,7 @@ const PAINTS := [
 	{"paint": Color("2f8f9a"), "paint2": Color("f2eadb")},
 	{"paint": Color("d69a2a"), "paint2": Color("f4ecdc")},
 ]
-const EVENTS := ["GRAVEL 200  JUN", "HILL CLIMB  AUG", "CX SEASON  OCT"]
+const EVENTS := ["Gravel 200 · Jun", "Hill Climb · Aug", "CX Season · Oct"]
 
 var _flames: Array[Node3D] = []
 var _fire_light: OmniLight3D
@@ -145,7 +144,7 @@ func _light(at: Vector3, c: Color, energy: float, reach: float) -> OmniLight3D:
 func _text(parent: Node3D, s: String, at: Vector3, px: float, c: Color) -> Label3D:
 	var l := Label3D.new()
 	l.text = s
-	l.font = SIGN_FONT
+	l.font = CampUI.font(700)
 	l.font_size = 64
 	l.outline_size = 0
 	l.pixel_size = px
@@ -170,7 +169,7 @@ func _trading_post(at: Vector3, yaw: float) -> void:
 	board.position = sign_at + Vector3(0, 0.05, 0.02)
 	board.material_override = CampLook.material(CampLook.ROLES.wood_dark)
 	tp.node.add_child(board)
-	_text(tp.node, "TRADING POST", sign_at + Vector3(0, 0.05, 0.05), 0.0032, Color("f4e6c4"))
+	_text(tp.node, "Trading Post", sign_at + Vector3(0, 0.05, 0.05), 0.0032, Color("f4e6c4"))
 	var trader := MonsterStand.new()
 	trader.recipe = MonsterPresets.TRADER
 	trader.stance = MonsterStand.Stance.COUNTER

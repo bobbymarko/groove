@@ -105,11 +105,11 @@ func _build_stage(parent: Control) -> void:
 	over.position = Vector2(36, 28)
 	over.add_theme_constant_override("separation", 10)
 	box.add_child(over)
-	HudStyle.label(over, "MONSTER BUILDER", 48, 700)
-	HudStyle.label(over, "Same parts. Endless riders.", 22, 500, HudStyle.TEXT_DIM)
-	HudStyle.segmented(over, ["On the bike", "Standing"], 0, func(i: int) -> void:
+	CampUI.label(over, "Monster Builder", CampUI.TITLE, 700)
+	CampUI.label(over, "Same parts. Endless riders.", CampUI.BODY, 500, HudStyle.TEXT_DIM)
+	CampUI.segmented(over, ["On the bike", "Standing"], 0, func(i: int) -> void:
 		_on_bike = i == 0
-		_rebuild(), 22)
+		_rebuild())
 
 
 func _rebuild() -> void:
@@ -153,12 +153,12 @@ func _build_panel(parent: Control) -> void:
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 10)
 	v.add_child(foot)
-	_name = HudStyle.input(foot, str(recipe.get("name", "")), "Name your rider", false, 22)
+	_name = CampUI.input(foot, str(recipe.get("name", "")), "Name your rider")
 	_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name.text_changed.connect(func(t: String) -> void: recipe["name"] = t)
-	var save := HudStyle.button(foot, "Save rider", 22, _save, "primary")
-	save.custom_minimum_size.y = 48
-	_status = HudStyle.label(v, "", 22, 500, HudStyle.TEXT_DIM)
+	var save := CampUI.button(foot, "Save rider", _save, "primary")
+	save.custom_minimum_size.y = 44
+	_status = CampUI.label(v, "", CampUI.SMALL, 500, HudStyle.TEXT_DIM)
 
 
 func _fill_panel() -> void:
@@ -172,8 +172,8 @@ func _fill_panel() -> void:
 	top.add_child(chips)
 	for preset in MonsterPresets.all():
 		var p: Dictionary = preset
-		HudStyle.button(chips, str(p.name), 22, func() -> void: _use(p))
-	HudStyle.button(chips, "Surprise me", 22, _randomize, "secondary")
+		CampUI.button(chips, str(p.name), func() -> void: _use(p))
+	CampUI.button(chips, "Surprise me", _randomize, "secondary")
 	for key in ["body", "head", "eyes", "mouth", "hands", "feet"]:
 		var g := _group(PART_TITLES[key])
 		var flow := _flow(g)
@@ -195,7 +195,7 @@ func _fill_panel() -> void:
 	var sizes: Dictionary = recipe.get("size", {})
 	for s in SLIDERS:
 		var key: String = s[0]
-		var row := HudStyle.row(sz, s[1], 150)
+		var row := CampUI.row(sz, s[1], 120)
 		var sl := HudStyle.slider(row)
 		sl.min_value = s[2]
 		sl.max_value = s[3]
@@ -209,7 +209,7 @@ func _fill_panel() -> void:
 	var col := _group("Colours")
 	for role in COLOUR_ROLES:
 		var key: String = role[0]
-		var row := HudStyle.row(col, role[1], 110)
+		var row := CampUI.row(col, role[1], 90)
 		var flow := HFlowContainer.new()
 		flow.add_theme_constant_override("h_separation", 5)
 		flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -218,7 +218,7 @@ func _fill_panel() -> void:
 		for hex in SWATCHES:
 			var c := Color(hex)
 			var sw := Button.new()
-			sw.custom_minimum_size = Vector2(30, 30)
+			sw.custom_minimum_size = Vector2(28, 28)
 			sw.focus_mode = Control.FOCUS_NONE
 			var chosen := current.is_equal_approx(c)
 			var sb := HudStyle.flat(c, 3, 0, 0, HudStyle.ICE if chosen else Color(0, 0, 0, 0))
@@ -235,7 +235,7 @@ func _group(title: String) -> VBoxContainer:
 	var g := VBoxContainer.new()
 	g.add_theme_constant_override("separation", 8)
 	_panel_box.add_child(g)
-	HudStyle.section_label(g, title.to_upper(), 22)
+	CampUI.heading(g, title)
 	return g
 
 
@@ -248,7 +248,7 @@ func _flow(parent: Control) -> HFlowContainer:
 
 
 func _chip(parent: Control, text: String, on: bool, cb: Callable) -> Button:
-	return HudStyle.button(parent, text, 22, cb, "primary" if on else "ghost")
+	return CampUI.button(parent, text, cb, "primary" if on else "ghost")
 
 
 # ------------------------------------------------------------------ edits
