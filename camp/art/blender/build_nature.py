@@ -148,5 +148,73 @@ for i in range(4):
     p.add(c, "cloud")
 p.build()
 
+# ------------------------------------------------------------------ forage finds
+
+p = Part("flower_patch")                # tempo and threshold plateaus
+rng = random.Random(21)
+for i in range(7):
+    x, y = rng.uniform(-0.28, 0.28), rng.uniform(-0.2, 0.2)
+    h = rng.uniform(0.22, 0.42)
+    p.add(tube((x, y, 0), (x + rng.uniform(-.04, .04), y, h), 0.012, 0.009, 4), "grass")
+    head = ico(0.055, 1)
+    radial_jitter(head, 0.2, 200 + i)
+    scale(head, 1.0, 1.0, 0.6)
+    move(head, x, y, h + 0.02)
+    p.add(head, "petal" if i % 3 else "petal2")
+    eye = ico(0.022, 0)
+    move(eye, x + 0.03, y - 0.03, h + 0.04)
+    p.add(eye, "petal2" if i % 3 else "dirt")
+leaves = ico(0.16, 1)
+radial_jitter(leaves, 0.3, 230)
+scale(leaves, 1.6, 1.2, 0.45)
+move(leaves, 0, 0, 0.05)
+p.add(leaves, "leaf")
+p.build()
+
+p = Part("rabbit")                      # faces +X, origin on the ground
+body = ico(0.17, 1)
+radial_jitter(body, 0.08, 240)
+scale(body, 1.3, 0.85, 0.9)
+move(body, 0, 0, 0.17)
+p.add(body, "critter")
+head = ico(0.11, 1)
+radial_jitter(head, 0.08, 241)
+move(head, 0.2, 0, 0.30)
+p.add(head, "critter")
+for y in (-0.045, 0.045):
+    ear = prism(0.03, 0.012, 0.2, 5)
+    scale(ear, 0.6, 1.0, 1.0)
+    p.add(ear, "critter", Matrix.Translation((0.17, y, 0.36)) @ Matrix.Rotation(math.radians(-18), 4, 'Y'))
+    eye = ico(0.018, 0)
+    move(eye, 0.29, y * 1.1, 0.33)
+    p.add(eye, "pupil")
+tail = ico(0.06, 1)
+move(tail, -0.22, 0, 0.22)
+p.add(tail, "critter2")
+for x in (-0.1, 0.12):
+    for y in (-0.07, 0.07):
+        foot = box(0.12 if x < 0 else 0.06, 0.05, 0.04, bevel=0.01)
+        move(foot, x, y, 0.02)
+        p.add(foot, "critter")
+p.build()
+
+p = Part("beehive")                     # max efforts: honey for watts
+p.add(lathe([(0.25, 0), (0.30, 0.15), (0.27, 0.32), (0.18, 0.46), (0.06, 0.55)], 9, 250, jit=0.02), "hive")
+for z in (0.12, 0.26, 0.40):
+    r = 0.30 if z < 0.2 else (0.28 if z < 0.3 else 0.21)
+    band = torus(r, 0.022, 12, 4)
+    rotate(band, 'X', 90)
+    move(band, 0, 0, z)
+    p.add(band, "wood_dark")
+door = prism(0.05, 0.05, 0.02, 7)
+rotate(door, 'Y', 90)
+move(door, 0.27, 0, 0.12)
+p.add(door, "trim")
+drip = ico(0.04, 1)
+scale(drip, 1, 1, 1.5)
+move(drip, 0.2, -0.12, 0.06)
+p.add(drip, "honey")
+p.build()
+
 export_glb(os.path.abspath(OUT))
 print("exported", os.path.abspath(OUT))

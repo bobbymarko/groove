@@ -1,0 +1,18 @@
+<workout_file>
+    <author>Camp</author>
+    <name>Camp Sampler</name>
+    <description>Two minutes of everything the trail can grow: a warm valley of berries, a hard plateau with a critter and flowers, a breather, a sprint for honey, and a roll home.</description>
+    <sportType>bike</sportType>
+    <tags/>
+    <workout>
+        <Warmup Duration="20" PowerLow="0.50" PowerHigh="0.70"/>
+        <SteadyState Duration="30" Power="1.10">
+            <textevent timeoffset="0" message="Hard plateau. Hold it and the rabbit is yours."/>
+        </SteadyState>
+        <SteadyState Duration="20" Power="0.55"/>
+        <MaxEffort Duration="15">
+            <textevent timeoffset="0" message="Sprint! Watts over FTP fill the honeycomb."/>
+        </MaxEffort>
+        <Cooldown Duration="25" PowerLow="0.60" PowerHigh="0.45"/>
+    </workout>
+</workout_file>

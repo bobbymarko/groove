@@ -6,6 +6,8 @@ extends RefCounted
 
 const SHADER := preload("res://camp/shaders/lowpoly.gdshader")
 const GLOW_ROLES := ["glow", "lamp", "flame", "flame2", "flame3", "ember"]
+## Roles that glow a little (not fully self-lit): forage finds catch the eye.
+const SHEEN_ROLES := {"berry": 0.25, "petal": 0.2, "petal2": 0.25, "honey": 0.4}
 
 ## Default role colours; riders override the ones they care about.
 const ROLES := {
@@ -27,6 +29,8 @@ const ROLES := {
 	"canvas": Color("d9a35a"), "blanket": Color("c0392e"), "blanket2": Color("efe2c4"),
 	"box1": Color("4d6b4d"), "box2": Color("c8573a"), "jam": Color("8c1640"),
 	"stone": Color("80808c"), "mug": Color("eee6d6"), "water": Color("6674c0"),
+	"petal": Color("f0709a"), "petal2": Color("ffd24a"), "critter": Color("9c7a5c"),
+	"critter2": Color("f4efe4"), "hive": Color("e4a83c"), "honey": Color("ffb21e"),
 }
 
 ## Dusk, as on the camp title board.
@@ -88,6 +92,7 @@ static func paint(node: Node, colours: Dictionary) -> void:
 			var src := mi.mesh.surface_get_material(i)
 			var role := src.resource_name if src else "primary"
 			var c: Color = colours.get(role, ROLES.get(role, Color.MAGENTA))
-			mi.set_surface_override_material(i, material(c, 1.0 if role in GLOW_ROLES else 0.0))
+			var g: float = 1.0 if role in GLOW_ROLES else float(SHEEN_ROLES.get(role, 0.0))
+			mi.set_surface_override_material(i, material(c, g))
 	for child in node.get_children():
 		paint(child, colours)

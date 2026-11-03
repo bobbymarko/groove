@@ -16,3 +16,6 @@ assets/mixamo/
 addons/gdble/*.dylib
 addons/gdble/*.so
 addons/gdble/*.dll
+
+# Blender script caches
+__pycache__/

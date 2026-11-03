@@ -25,3 +25,19 @@ Neither touches Bluetooth, so both are safe to open during a ride.
 - `rider/monster_rig.gd` assembles a monster from a recipe and bends generated limbs to whatever it holds. `monster_rider.gd` fits it to the bike like a real bike fit; `monster_stand.gd` stands or sits it.
 - `shaders/lowpoly.gdshader` is the one surface shader: faceted, a dusk ambient, a warm rim.
 - `tools/shot.sh <mode> build/out.png` renders a view headlessly for review (`frames=N` for a clip).
+
+## Ride it
+
+```bash
+camp/tools/run.sh ride
+```
+
+A practice ride on the simulator: VO2 5x4 by default, nothing recorded. Add `workout=res://camp/ride/workouts/camp_sampler.zwo` for a two-minute ride through everything the trail grows. Keys: Space start and pause, S skip, Up and Down bias, E toggles ERG, Esc ends. Simulator only: `[` and `]` push your effort off target, Q stops pedalling, F runs twenty times faster.
+
+```bash
+camp/tools/run.sh ride real
+```
+
+A real ride on your paired trainer, recorded and saved like any Groove ride, with the sharing screen at the end. Close Groove first.
+
+The rules are in [gameplay.md](gameplay.md).
