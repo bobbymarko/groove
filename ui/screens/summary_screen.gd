@@ -87,6 +87,8 @@ func _build_ui() -> void:
 	_stat(grid, ("%d" % int(m.avg_heart_rate)) if int(m.avg_heart_rate) > 0 else "—", "bpm avg")
 	_stat(grid, ("%d" % int(m.max_heart_rate)) if int(m.max_heart_rate) > 0 else "—", "bpm max")
 	_stat(grid, ("%d" % int(m.avg_cadence)) if int(m.avg_cadence) > 0 else "—", "rpm")
+	if RideMetrics.cadence_compliance(m) >= 0.0:
+		_stat(grid, "%d%%" % int(round(RideMetrics.cadence_compliance(m) * 100.0)), "on cadence target")
 
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 16)

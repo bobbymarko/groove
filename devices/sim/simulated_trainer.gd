@@ -8,6 +8,7 @@ extends Trainer
 @export var noise_fraction := 0.04
 @export var lag_seconds := 2.5
 @export var base_cadence := 88.0
+var target_cadence := 0          ## when set, the simulated rider pedals at this rpm
 
 var _connected := false
 var _erg := true
@@ -72,7 +73,7 @@ func step(dt: float) -> void:
 	var goal_cadence := 0.0
 	var goal_power := 0.0
 	if pedaling:
-		goal_cadence = base_cadence + (6.0 if _target > 0 and _erg and _target > 250 else 0.0)
+		goal_cadence = float(target_cadence) if target_cadence > 0 else base_cadence + (6.0 if _target > 0 and _erg and _target > 250 else 0.0)
 		if _erg:
 			goal_power = float(_target)
 		else:

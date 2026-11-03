@@ -22,7 +22,8 @@ func _fit(name: String, steps: Array) -> PackedByteArray:
 	var nm := name.to_utf8_buffer(); nm.resize(24); b.put_data(nm)
 	# step definition (local 1)
 	var fields := [[F_INDEX, 2, 0x84], [F_DUR_TYPE, 1, 0x00], [F_DUR_VALUE, 4, 0x86], [F_TGT_TYPE, 1, 0x00],
-		[F_TGT_VALUE, 4, 0x86], [F_LOW, 4, 0x86], [F_HIGH, 4, 0x86], [F_INTENSITY, 1, 0x00], [F_NAME, 16, 0x07]]
+		[F_TGT_VALUE, 4, 0x86], [F_LOW, 4, 0x86], [F_HIGH, 4, 0x86], [F_INTENSITY, 1, 0x00], [F_NAME, 16, 0x07],
+		[19, 1, 0x00], [21, 4, 0x86], [22, 4, 0x86]]   # secondary target type, low, high
 	b.put_u8(0x41); b.put_u8(0); b.put_u8(0); b.put_u16(27); b.put_u8(fields.size())
 	for f in fields:
 		b.put_u8(f[0]); b.put_u8(f[1]); b.put_u8(f[2])
@@ -35,6 +36,7 @@ func _fit(name: String, steps: Array) -> PackedByteArray:
 		b.put_u32(st.get("low", 0)); b.put_u32(st.get("high", 0))
 		b.put_u8(st.get("intensity", 0))
 		var sn: PackedByteArray = str(st.get("name", "")).to_utf8_buffer(); sn.resize(16); b.put_data(sn)
+		b.put_u8(st.get("sec_type", 0)); b.put_u32(st.get("sec_low", 0)); b.put_u32(st.get("sec_high", 0))
 	var data := b.data_array
 	var h := StreamPeerBuffer.new()
 	h.put_u8(14); h.put_u8(0x20); h.put_u16(2132); h.put_u32(data.size()); h.put_data(".FIT".to_utf8_buffer()); h.put_u16(0)
@@ -84,3 +86,16 @@ func test_zone_and_open_targets() -> void:
 
 func test_not_fit() -> void:
 	assert_true(FitWorkoutParser.parse("nope".to_utf8_buffer(), 250) == null)
+
+
+func test_cadence_targets() -> void:
+	var bytes := _fit("Spin-ups", [
+		{"dur": 120000, "low": 60, "high": 70, "sec_type": 3, "sec_low": 95, "sec_high": 105},   # power + cadence
+		{"dur": 60000, "tgt_type": 3, "low": 110, "high": 120},                                   # cadence only
+	])
+	var w := FitWorkoutParser.parse(bytes, 250)
+	assert_true(w != null, FitWorkoutParser.last_error)
+	assert_near(w.segments[0].power_low, 0.65)
+	assert_eq(w.segments[0].cadence, 100)
+	assert_eq(w.segments[1].kind, WorkoutSegment.Kind.FREE_RIDE)
+	assert_eq(w.segments[1].cadence, 115)

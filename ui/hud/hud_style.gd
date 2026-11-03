@@ -448,11 +448,25 @@ static func block_row(parent: Control, g: Dictionary, big := 26, small := 16, bg
 		lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lines.add_theme_constant_override("separation", 0)
 		h.add_child(lines)
-		label(lines, "%s @ %dw" % [duration(g.on_dur), int(g.on_w)], small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		label(lines, "%s @ %dw" % [duration(g.off_dur), int(g.off_w)], small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		label(lines, "%s @ %dw%s" % [duration(g.on_dur), int(g.on_w), rpm_suffix(int(g.get("on_rpm", 0)))], small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		label(lines, "%s @ %dw%s" % [duration(g.off_dur), int(g.off_w), rpm_suffix(int(g.get("off_rpm", 0)))], small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	else:
 		label(row, g.text, small, 700).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	return row
+
+
+static func rpm_suffix(rpm: int) -> String:
+	return " · %drpm" % rpm if rpm > 0 else ""
+
+
+## How far off a cadence target still counts as on it (rpm either side).
+const CADENCE_TOLERANCE := 5
+
+## Live cadence colour: green on target, orange off it, plain with no target.
+static func cadence_color(rpm: int, target: int) -> Color:
+	if target <= 0 or rpm <= 0:
+		return TEXT
+	return GREEN if absi(rpm - target) <= CADENCE_TOLERANCE else ORANGE
 
 
 static func style_block_row(row: PanelContainer, bg: Color) -> void:

@@ -43,3 +43,16 @@ func test_hour_at_ftp_is_100_tss() -> void:
 
 func test_short_ride_np_falls_back_to_avg() -> void:
 	assert_near(RideMetrics.normalized_power(_flat(180, 10)), 180.0)
+
+
+func test_cadence_compliance() -> void:
+	var samples := []
+	for i in 10:
+		samples.append({"p": 150, "c": 92 if i < 8 else 70, "ct": 95})   # 8 on target (within 5), 2 off
+	for i in 5:
+		samples.append({"p": 150, "c": 60})                               # no target
+	var m := RideMetrics.compute(samples, 200)
+	assert_eq(int(m.cadence_target_s), 10)
+	assert_eq(int(m.cadence_on_target_s), 8)
+	assert_near(RideMetrics.cadence_compliance(m), 0.8)
+	assert_near(RideMetrics.cadence_compliance(RideMetrics.compute([{"p": 100, "c": 90}], 200)), -1.0)
