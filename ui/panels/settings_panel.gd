@@ -186,11 +186,20 @@ func _build_ui() -> void:
 	var check_btn := HudStyle.button(upd_row, "Check now", 13, func() -> void: Updates.check(true))
 	_update_status = _status_line(upd_row, "", false)
 	_update_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var get_btn := HudStyle.button(upd_row, "Update", 13, func() -> void:
+		var screen := get_tree().current_scene
+		if screen and screen.has_method("open_update"):
+			screen.call("open_update"), "primary")
+	get_btn.visible = false
 	Updates.checked.connect(func(available: bool, msg: String) -> void:
 		_set_status(_update_status, msg, not available and msg == "Up to date")
+		get_btn.visible = available
+		_update_status.visible = not available   # the button carries the version instead
 		if available:
-			_update_status.add_theme_color_override("font_color", HudStyle.CYAN))
-	check_btn.pressed.connect(func() -> void: _update_status.text = "Checking…")
+			get_btn.text = ("Update to %s" % Updates.latest.version).to_upper())
+	check_btn.pressed.connect(func() -> void:
+		_update_status.visible = true
+		_update_status.text = "Checking…")
 	if not Updates.latest.is_empty():
 		Updates.checked.emit(Updates.update_available(), "Groove %s is available" % Updates.latest.version if Updates.update_available() else "Up to date")
 

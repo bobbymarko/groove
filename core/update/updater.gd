@@ -44,6 +44,7 @@ func _ready() -> void:
 	_download.request_completed.connect(_on_download_completed)
 	add_child(_download)
 	_cleanup_previous()
+	_add_menu_item()
 	# Dev: `-- update=install` runs the whole update unattended once the check says one exists.
 	if OS.get_cmdline_user_args().has("update=install"):
 		checked.connect(func(available: bool, msg: String) -> void:
@@ -65,6 +66,24 @@ func _process(_delta: float) -> void:
 		var total := maxi(_download.get_body_size(), int(latest.get("asset_size", 0)))
 		if total > 0:
 			progress.emit("Downloading", float(_download.get_downloaded_bytes()) / float(total))
+
+
+## macOS app menu: "Check for Updates…" under "About Groove", as Mac apps do.
+func _add_menu_item() -> void:
+	if not NativeMenu.has_system_menu(NativeMenu.APPLICATION_MENU_ID):
+		return
+	NativeMenu.add_item(NativeMenu.get_system_menu(NativeMenu.APPLICATION_MENU_ID),
+		"Check for Updates…", _on_menu_check, Callable(), null, KEY_NONE, 1)
+
+
+## Ask GitHub now, then show the Update sheet on the home screen. Mid-ride the
+## answer only feeds the home footer, so the workout is never interrupted.
+func _on_menu_check(_tag: Variant = null) -> void:
+	checked.connect(func(_available: bool, _msg: String) -> void:
+		var screen := get_tree().current_scene
+		if screen and screen.has_method("open_update"):
+			screen.call("open_update"), CONNECT_ONE_SHOT)
+	check(true)
 
 
 # --- checking -------------------------------------------------------------------
