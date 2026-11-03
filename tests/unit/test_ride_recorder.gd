@@ -55,3 +55,14 @@ func test_tick_samples_once_per_second_only_while_running() -> void:
 	rec._on_tick({"state": WorkoutRunner.State.PAUSED, "elapsed": 3.0})
 	assert_eq(rec.samples.size(), 3)
 	rec.finish(false)
+
+
+func test_samples_carry_the_cadence_target() -> void:
+	rec.begin("C", 200, 1800000000)
+	rec.on_cadence(93)
+	var a := rec.record_sample(0.0, 1800000000)
+	assert_false(a.has("ct"), "no target, no field")
+	rec.set_cadence_target(95)
+	var b := rec.record_sample(1.0, 1800000001)
+	assert_eq(int(b.ct), 95)
+	assert_eq(int(b.c), 93)

@@ -21,6 +21,7 @@ var _heart_rate := 0
 var _speed_kph := 0.0
 var _target := 0
 var _segment := -1
+var _cadence_target := 0      # rpm the current block asks for, 0 for none
 var _finished := false
 
 
@@ -52,7 +53,9 @@ func fit_path() -> String:
 func attach_runner(runner: WorkoutRunner) -> void:
 	runner.ticked.connect(_on_tick)
 	runner.target_changed.connect(func(w: int) -> void: _target = w)
-	runner.segment_changed.connect(func(i: int, _s: WorkoutSegment) -> void: _segment = i)
+	runner.segment_changed.connect(func(i: int, s: WorkoutSegment) -> void:
+		_segment = i
+		_cadence_target = s.cadence)
 
 
 func attach_trainer(t: Trainer) -> void:
@@ -75,6 +78,11 @@ func on_cadence(c: int) -> void:
 
 func on_heart_rate(b: int) -> void:
 	_heart_rate = b
+
+
+## Tests and tooling: set the cadence target without a runner.
+func set_cadence_target(rpm: int) -> void:
+	_cadence_target = rpm
 
 
 func on_speed(kph: float) -> void:
@@ -102,6 +110,8 @@ func record_sample(elapsed: float, now_unix: int) -> Dictionary:
 		"p": _power, "c": _cadence, "h": _heart_rate,
 		"v": snappedf(_speed_kph, 0.1), "tg": _target, "sg": _segment,
 	}
+	if _cadence_target > 0:
+		s["ct"] = _cadence_target
 	samples.append(s)
 	if _file:
 		_file.store_line(JSON.stringify({"s": s}))

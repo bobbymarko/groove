@@ -140,3 +140,25 @@ func test_interval_ranges() -> void:
 	assert_near(w.segments[1].power_low, 0.55)
 	assert_near(w.segments[4].power_low, 0.9, 0.001, "no show_avg: a ramp from low")
 	assert_near(w.segments[4].power_high, 1.2)
+
+
+func test_cadence_targets_and_ranges() -> void:
+	var w := ZwoParser.parse("""<workout_file><name>C</name><sportType>bike</sportType><workout>
+		<SteadyState Duration="60" Power="0.6" Cadence="95"/>
+		<SteadyState Duration="60" Power="0.6" CadenceLow="80" CadenceHigh="90"/>
+		<IntervalsT Repeat="1" OnDuration="30" OffDuration="30" OnPower="1.2" OffPower="0.5" Cadence="110" CadenceResting="85"/>
+		<Warmup Duration="60" PowerLow="0.4" PowerHigh="0.6" Cadence="90"/>
+		<SteadyState Duration="60" Power="0.6"/>
+	</workout></workout_file>""")
+	assert_true(w != null, ZwoParser.last_error)
+	assert_eq(w.segments[0].cadence, 95)
+	assert_eq(w.segments[1].cadence, 85)
+	assert_eq(w.segments[2].cadence, 110)
+	assert_eq(w.segments[3].cadence, 85, "recovery uses CadenceResting")
+	assert_eq(w.segments[4].cadence, 90)
+	assert_eq(w.segments[5].cadence, 0)
+	var rows := WorkoutSummary.rows(w, 200)
+	assert_true(str(rows[0].text).ends_with("· 95rpm"), "row text: %s" % rows[0].text)
+	assert_eq(int(rows[2].on_rpm), 110)
+	assert_eq(int(rows[2].off_rpm), 85)
+	assert_false(str(rows[4].text).contains("rpm"))

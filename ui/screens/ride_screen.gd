@@ -14,6 +14,8 @@ var _hr: HeartRateSensor
 var _power_samples: Array[int] = []
 var _actual_power := 0
 var _cadence := 0
+var _cadence_target := 0          # rpm the current block asks for, 0 for none
+var _block_rpm_l: Label           # "AT 95 RPM" in the current-block box
 var _bpm := 0
 var _message_until := 0.0
 var _total_kj := 0.0
@@ -223,6 +225,7 @@ func _on_power(w: int) -> void:
 func _on_cadence(c: int) -> void:
 	_cadence = c
 	_cadence_l.text = "%d" % c
+	_cadence_l.add_theme_color_override("font_color", HudStyle.cadence_color(c, _cadence_target))
 
 
 func _on_bpm(b: int) -> void:
@@ -303,6 +306,12 @@ func _on_segment(i: int, s: WorkoutSegment) -> void:
 	_block_name_l.text = _block_title(s)
 	_block_dur_l.text = "FOR %s" % HudStyle.duration(s.duration)
 	_segment.text = s.label() + ("  ·  %d rpm" % s.cadence if s.cadence > 0 else "")
+	_cadence_target = s.cadence
+	_block_rpm_l.text = "AT %d RPM" % s.cadence if s.cadence > 0 else ""
+	_block_rpm_l.visible = s.cadence > 0
+	_cadence_l.add_theme_color_override("font_color", HudStyle.cadence_color(_cadence, _cadence_target))
+	if _trainer is SimulatedTrainer:
+		(_trainer as SimulatedTrainer).target_cadence = s.cadence
 	for gi in _groups.size():
 		var g := _groups[gi]
 		var active: bool = i >= int(g.first) and i <= int(g.last)
@@ -694,6 +703,9 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	_target.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_block_dur_l = HudStyle.label(bv, "", 18, 700)
 	_block_dur_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_block_rpm_l = HudStyle.label(bv, "", 16, 700, HudStyle.CYAN)
+	_block_rpm_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_block_rpm_l.visible = false
 	# Segment progress and power
 	var mid := VBoxContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL

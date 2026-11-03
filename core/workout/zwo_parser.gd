@@ -101,7 +101,7 @@ static func _add_block(w: Workout, block: Dictionary, events: Array[Dictionary])
 			var p := _power(a, "Power", "PowerLow", "PowerHigh", 0.5)
 			s.power_low = (p[0] + p[1]) * 0.5
 			s.power_high = s.power_low
-			s.cadence = int(_num(a, "Cadence"))
+			s.cadence = _cadence(a, "Cadence")
 			_append(w, s)
 		"IntervalsT":
 			var reps := int(_num(a, "Repeat", 1))
@@ -112,7 +112,7 @@ static func _add_block(w: Workout, block: Dictionary, events: Array[Dictionary])
 				var on_p := _power(a, "OnPower", "PowerOnLow", "PowerOnHigh", 1.0)
 				on.power_low = on_p[0]
 				on.power_high = on_p[1]
-				on.cadence = int(_num(a, "Cadence"))
+				on.cadence = _cadence(a, "Cadence")
 				on.rep = r + 1
 				on.rep_count = reps
 				_append(w, on)
@@ -122,7 +122,7 @@ static func _add_block(w: Workout, block: Dictionary, events: Array[Dictionary])
 				var off_p := _power(a, "OffPower", "PowerOffLow", "PowerOffHigh", 0.5)
 				off.power_low = off_p[0]
 				off.power_high = off_p[1]
-				off.cadence = int(_num(a, "CadenceResting"))
+				off.cadence = _cadence(a, "CadenceResting")
 				off.rep = r + 1
 				off.rep_count = reps
 				_append(w, off)
@@ -149,7 +149,7 @@ static func _add_ramp(w: Workout, a: Dictionary, kind: WorkoutSegment.Kind) -> v
 	var flat := _num(a, "Power", -1.0)
 	s.power_low = _num(a, "PowerLow", flat if flat >= 0.0 else 0.5)
 	s.power_high = _num(a, "PowerHigh", flat if flat >= 0.0 else s.power_low)
-	s.cadence = int(_num(a, "Cadence"))
+	s.cadence = _cadence(a, "Cadence")
 	_append(w, s)
 
 
@@ -193,6 +193,19 @@ static func _power(a: Dictionary, single: String, low_key: String, high_key: Str
 		var mid := (lo + hi) * 0.5
 		return PackedFloat64Array([mid, mid])
 	return PackedFloat64Array([lo, hi])
+
+
+## Target rpm for a block, 0 for none. Takes "Cadence" (or "CadenceResting"),
+## else the middle of a "CadenceLow"/"CadenceHigh" range.
+static func _cadence(a: Dictionary, key: String) -> int:
+	var c := _num(a, key, -1.0)
+	if c > 0.0:
+		return int(round(c))
+	var lo := _num(a, key + "Low", -1.0)
+	var hi := _num(a, key + "High", -1.0)
+	if lo > 0.0 and hi > 0.0:
+		return int(round((lo + hi) * 0.5))
+	return int(round(maxf(lo, hi))) if maxf(lo, hi) > 0.0 else 0
 
 
 static func _num(a: Dictionary, key: String, default_value: float = 0.0) -> float:

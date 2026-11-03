@@ -12,6 +12,7 @@ const MSG_WORKOUT_STEP := 27
 const DURATION_TIME := 0
 const DURATION_OPEN := 5
 const DURATION_REPEAT := 6
+const TARGET_CADENCE := 3
 const TARGET_POWER := 4
 const INTENSITY_ACTIVE := 0
 const INTENSITY_REST := 1
@@ -82,6 +83,12 @@ static func parse(bytes: PackedByteArray, ftp: int, fallback_name := "Workout") 
 						s.kind = WorkoutSegment.Kind.STEADY
 		else:
 			s.kind = WorkoutSegment.Kind.FREE_RIDE
+		# Cadence: the step's main target (then the block is ridden by feel at that
+		# rpm) or its secondary target alongside power. Values are rpm.
+		if int(st.get(3, 0)) == TARGET_CADENCE:
+			s.cadence = _rpm(int(st.get(4, 0)), int(st.get(5, 0)), int(st.get(6, 0)))
+		elif int(st.get(19, 0)) == TARGET_CADENCE:
+			s.cadence = _rpm(int(st.get(20, 0)), int(st.get(21, 0)), int(st.get(22, 0)))
 		if s.duration <= 0.0:
 			continue
 		var start := 0.0
@@ -99,6 +106,17 @@ static func parse(bytes: PackedByteArray, ftp: int, fallback_name := "Workout") 
 		return null
 	w.rebuild_index()
 	return w
+
+
+static func _rpm(value: int, low: int, high: int) -> int:
+	var ok := func(x: int) -> bool: return x > 0 and x < 255
+	if ok.call(low) and ok.call(high):
+		return int(round((low + high) * 0.5))
+	if ok.call(low):
+		return low
+	if ok.call(value):
+		return value
+	return 0
 
 
 static func _power_fraction(v: int, ftp: int) -> float:

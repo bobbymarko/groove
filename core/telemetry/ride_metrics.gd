@@ -3,13 +3,24 @@ extends RefCounted
 ## Summary numbers for a ride from its 1 Hz samples.
 
 ## Returns {duration_s, avg_power, max_power, normalized_power, intensity_factor,
-## tss, kj, avg_heart_rate, max_heart_rate, avg_cadence, distance_m}.
+## tss, kj, avg_heart_rate, max_heart_rate, avg_cadence, distance_m,
+## cadence_target_s, cadence_on_target_s}. The last two count seconds with a
+## cadence target, and of those, seconds within CADENCE_TOLERANCE rpm of it.
+const CADENCE_TOLERANCE := 5   # rpm either side of the target (matches the HUD)
+
+
+## Share of targeted seconds ridden on cadence, 0..1, or -1 when nothing asked for a cadence.
+static func cadence_compliance(m: Dictionary) -> float:
+	var t := int(m.get("cadence_target_s", 0))
+	return float(m.get("cadence_on_target_s", 0)) / t if t > 0 else -1.0
+
+
 static func compute(samples: Array, ftp: int) -> Dictionary:
 	var n := samples.size()
 	if n == 0:
 		return {"duration_s": 0, "avg_power": 0, "max_power": 0, "normalized_power": 0,
 			"intensity_factor": 0.0, "tss": 0.0, "kj": 0.0, "avg_heart_rate": 0,
-			"max_heart_rate": 0, "avg_cadence": 0, "distance_m": 0.0}
+			"max_heart_rate": 0, "avg_cadence": 0, "distance_m": 0.0, "cadence_target_s": 0, "cadence_on_target_s": 0}
 	var sum_p := 0
 	var max_p := 0
 	var sum_h := 0
@@ -18,7 +29,14 @@ static func compute(samples: Array, ftp: int) -> Dictionary:
 	var sum_c := 0
 	var n_c := 0
 	var dist := 0.0
+	var ct_s := 0
+	var ct_on := 0
 	for s in samples:
+		var ct := int(s.get("ct", 0))
+		if ct > 0:
+			ct_s += 1
+			if absi(int(s.get("c", 0)) - ct) <= CADENCE_TOLERANCE:
+				ct_on += 1
 		var p := int(s.get("p", 0))
 		sum_p += p
 		max_p = maxi(max_p, p)
@@ -48,6 +66,8 @@ static func compute(samples: Array, ftp: int) -> Dictionary:
 		"max_heart_rate": max_h,
 		"avg_cadence": int(round(float(sum_c) / n_c)) if n_c > 0 else 0,
 		"distance_m": dist,
+		"cadence_target_s": ct_s,
+		"cadence_on_target_s": ct_on,
 	}
 
 

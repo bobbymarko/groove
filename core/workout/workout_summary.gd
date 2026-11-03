@@ -30,7 +30,7 @@ static func rows(w: Workout, ftp: int) -> Array[Dictionary]:
 				if off == null and w.segments[last].kind == WorkoutSegment.Kind.INTERVAL_OFF:
 					off = w.segments[last]
 			out.append({"kind": "intervals", "first": i, "last": last, "count": s.rep_count, "peak": s.power_low, "has_target": true,
-				"on_dur": s.duration, "on_w": round(s.power_low * ftp),
+				"on_dur": s.duration, "on_w": round(s.power_low * ftp), "on_rpm": s.cadence, "off_rpm": off.cadence if off else 0,
 				"off_dur": off.duration if off else 0.0, "off_w": round(off.power_low * ftp) if off else 0.0})
 			i = last + 1
 			continue
@@ -45,7 +45,9 @@ static func rows(w: Workout, ftp: int) -> Array[Dictionary]:
 					text = "%s %d→%dw" % [duration(s.duration), int(round(s.power_low * ftp)), int(round(s.power_high * ftp))]
 				else:
 					text = "%s @ %dw" % [duration(s.duration), int(round(s.power_low * ftp))]
-		out.append({"kind": "single", "first": i, "last": i, "text": text, "peak": s.peak(), "has_target": s.has_target()})
+		if s.cadence > 0:
+			text += " · %drpm" % s.cadence
+		out.append({"kind": "single", "first": i, "last": i, "text": text, "peak": s.peak(), "has_target": s.has_target(), "rpm": s.cadence})
 		i += 1
 	return out
 

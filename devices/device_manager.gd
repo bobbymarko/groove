@@ -32,7 +32,7 @@ var _rescan_wait := RESCAN_EVERY
 func _ready() -> void:
 	_load_remembered()
 	status.connect(func(s: String) -> void: print("[devices] ", s))
-	if DisplayServer.get_name() == "headless":
+	if DisplayServer.get_name() == "headless" or OS.get_cmdline_user_args().has("no-radio"):
 		return  # tests and tooling: never touch the radio
 	adapter = BleAdapter.new()
 	adapter.name = "BleAdapter"
@@ -185,11 +185,14 @@ func _on_device_found(info: Dictionary) -> void:
 	var address: String = info.address
 	discovered[address] = info
 	device_found.emit(info)
-	# Auto-connect remembered devices whose role is still empty.
+	# Auto-connect remembered devices whose role is still empty. A chosen
+	# simulator counts as filled: the trainer turning up must not replace it
+	# mid-ride (the background rescan already holds back; this covers the
+	# search that starts with the app). Pairing from Devices still works.
 	var role := role_of(address)
 	if role == "":
 		return
-	var slot_free := (role == "trainer" and not (trainer is FtmsTrainer)) \
+	var slot_free := (role == "trainer" and not (trainer is FtmsTrainer) and not (trainer is SimulatedTrainer)) \
 		or (role == "heart_rate" and not (heart_rate is BleHeartRate))
 	if slot_free and not _pending.has(address):
 		pair(address)

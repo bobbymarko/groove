@@ -26,6 +26,7 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				wpath = a.trim_prefix("workout=")
 		app.workout = ZwoParser.parse_file(wpath)
 		app.dry_run = true   # never record preview rides into the real library
+		app.auto_pause = false   # at 60x a frame hitch reads as seconds of zero watts
 		devices.use_simulated_devices()
 	var fake: RideRecorder = null
 	if mode == "summary" and OS.get_cmdline_user_args().has("latest"):
@@ -146,7 +147,11 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				await process_frame
 		if mode == "sheet":
 			await process_frame
-			scene.get_node("WorkoutSheet").open(ZwoParser.parse_file("res://workouts/cadence_today.zwo"))
+			var sheet_path := "res://workouts/cadence_today.zwo"
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("workout="):
+					sheet_path = a.trim_prefix("workout=")
+			scene.get_node("WorkoutSheet").open(ZwoParser.parse_file(sheet_path))
 			for i in 30:
 				await process_frame
 			if OS.get_cmdline_user_args().has("scenes"):

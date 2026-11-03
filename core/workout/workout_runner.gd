@@ -191,6 +191,7 @@ func snapshot() -> Dictionary:
 		"segment_elapsed": elapsed - seg_start,
 		"segment_remaining": maxf(seg_start + seg_dur - elapsed, 0.0),
 		"target_watts": maxi(current_target, 0),
+		"target_cadence": workout.segments[current_index].cadence if workout and current_index >= 0 else 0,
 		"bias": bias,
 		"erg": erg_enabled,
 		"auto_paused": auto_paused,
