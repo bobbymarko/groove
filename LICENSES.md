@@ -12,4 +12,5 @@ The pixel art (wordmark, coach portrait, icon sprite sheet, menu background) is 
 - Quaternius, "Animated Zombie" via Poly Pizza — CC BY 3.0. Attribution: Animated Zombie by Quaternius. https://poly.pizza/m/jkrEvQZb8J
 - Departure Mono by Helena Zhang — SIL Open Font License 1.1. https://departuremono.com
 - Pixel Operator by Jayvee Enaguas — CC0 1.0. https://www.dafont.com/pixel-operator.font
+- Outfit by The Outfit Project Authors — SIL Open Font License 1.1. Camp's interface font. https://github.com/Outfitio/Outfit-Fonts
 - Quaternius, Universal Base Characters (Superhero male, Standard tier) — CC0 1.0. The rider. https://quaternius.com

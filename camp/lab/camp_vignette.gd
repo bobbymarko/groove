@@ -54,7 +54,7 @@ func _ready() -> void:
 	CampLook.paint(post.node, {})
 	for i in 3:
 		var t: Transform3D = post.sockets["board_%d" % i]
-		_text(post.node, EVENTS[i], t.origin + Vector3(0, 0, 0.005), 0.0019, Color("3a2418"))
+		_text(post.node, EVENTS[i], t.origin + Vector3(0, 0, 0.005), 0.00155, Color("3a2418"))
 	_trading_post(Vector3(6.2, 0, -1.6), deg_to_rad(-22))
 	_prop("camp", "crate_berries", Vector3(4.6, 0, -0.4), 0.3)
 	_prop("camp", "crate_berries", Vector3(4.9, 0, 0.2), -0.2)

@@ -3,10 +3,10 @@ extends RefCounted
 ## Camp's interface style: a clean geometric sans on Groove's colour tokens.
 ## Groove keeps its pixel faces (HudStyle); Camp's text goes through here.
 ##
-## The bundled font is one variable file; weights are FontVariation axes.
-## Until it is in the repo, a system face stands in for local previews.
+## The bundled font is Outfit, one variable file; weights are FontVariation
+## axes. The system faces are only a fallback if the file goes missing.
 
-const FONT_PATH := "res://assets/fonts/Outfit[wght].ttf"
+const FONT_PATH := "res://assets/fonts/Outfit-Variable.ttf"
 const FALLBACK_FACES := ["Avenir Next", "Futura", "Helvetica Neue"]
 
 const BODY := 18

@@ -54,7 +54,7 @@ Manual hardware test procedures are in `tests/manual.md`.
 ## Assets and licences
 - Quaternius Stylized Nature MegaKit and Ultimate Nature Pack: CC0.
 - "Animated Zombie" by Quaternius (via Poly Pizza): CC BY 3.0, attribution required and given here.
-- Fonts: Departure Mono (SIL Open Font License) and Pixel Operator (CC0).
+- Fonts: Departure Mono and Outfit (SIL Open Font License), and Pixel Operator (CC0).
 - Icon sprite sheet, wordmark, coach portrait and menu background are Bob's.
 - Rider: Quaternius Universal Base Characters (Superhero male), CC0, imported with `tools/import_character.py`.
 
