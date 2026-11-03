@@ -221,11 +221,9 @@ func _fill_panel() -> void:
 			sw.custom_minimum_size = Vector2(28, 28)
 			sw.focus_mode = Control.FOCUS_NONE
 			var chosen := current.is_equal_approx(c)
-			var sb := HudStyle.flat(c, 3, 0, 0, HudStyle.ICE if chosen else Color(0, 0, 0, 0))
-			if chosen:
-				sb.set_border_width_all(3)
+			var sb := CampUI.box(c, CampUI.SOFT - 2, 0, 0, HudStyle.ICE if chosen else Color(0, 0, 0, 0), 3)
 			sw.add_theme_stylebox_override("normal", sb)
-			sw.add_theme_stylebox_override("hover", HudStyle.flat(c.lightened(0.15), 3, 0, 0, HudStyle.ICE))
+			sw.add_theme_stylebox_override("hover", CampUI.box(c.lightened(0.15), CampUI.SOFT - 2, 0, 0, HudStyle.ICE, 2))
 			sw.add_theme_stylebox_override("pressed", sb)
 			sw.pressed.connect(func() -> void: _set_colour(key, c))
 			flow.add_child(sw)
