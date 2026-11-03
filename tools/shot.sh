@@ -13,5 +13,5 @@ LOG="$ROOT/build/shot.log"; : > "$LOG"
 # Preview rides run with the radio off so they never take over the real trainer.
 RADIO=(); [ "${3:-}" = "ride" ] && RADIO=(no-radio)
 open -W -n "$RUNNER" --args --path "$ROOT" --resolution 1280x800 --log-file "$LOG" \
-  -s tools/screenshot.gd -- "$1" "$OUT" "${@:3}" "${RADIO[@]}"
+  -s tools/screenshot.gd -- "$1" "$OUT" "${@:3}" ${RADIO[@]+"${RADIO[@]}"}
 grep -E "screenshot|ERROR|SCRIPT ERROR|at:" "$LOG" || true

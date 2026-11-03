@@ -14,6 +14,7 @@ var _strava_secret: LineEdit
 var _strava_status: Label
 var _strava_connect: Button
 var _update_status: Label
+var _about: Control
 
 
 func _ready() -> void:
@@ -94,6 +95,13 @@ func show_page(i: int) -> void:
 	_tabs.get_child(i).pressed.emit()
 
 
+## Show the About card (version and updates), for the app menu's "About Groove".
+func show_about() -> void:
+	show_page(0)
+	await get_tree().process_frame   # the cards need a layout pass before they can be scrolled to
+	(_pages[0] as ScrollContainer).ensure_control_visible(_about)
+
+
 func _show_page(i: int) -> void:
 	for p in _pages.size():
 		_pages[p].visible = p == i
@@ -171,6 +179,7 @@ func _build_ui() -> void:
 
 	# --- About ---
 	var about := HudStyle.section(rider, "About")
+	_about = about
 	var ver_row := HudStyle.row(about, "Version")
 	HudStyle.label(ver_row, "Groove %s" % Updates.current_version, 13, 700).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var upd_row := HudStyle.row(about, "Updates")

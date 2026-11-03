@@ -180,6 +180,15 @@ func list_workout_files() -> Array[String]:
 	return out
 
 
+## macOS app menu → "About Groove". Home answers it with Settings at the
+## version; mid-ride it is ignored rather than interrupting the workout.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_ABOUT:
+		var screen := get_tree().current_scene
+		if screen and screen.has_method("open_about"):
+			screen.call("open_about")
+
+
 func go_to(scene_path: String) -> void:
 	get_tree().change_scene_to_file.call_deferred(scene_path)
 

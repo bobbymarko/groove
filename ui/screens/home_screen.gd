@@ -547,6 +547,14 @@ func open_settings() -> void:
 		_side.closed.connect(_refresh_cards)
 
 
+## The app menu's "About Groove": Settings, scrolled to the version.
+func open_about() -> void:
+	open_settings()
+	var p := _side.find_child("SettingsPanel", true, false) as SettingsPanel
+	if p:
+		p.show_about()
+
+
 func open_devices() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)

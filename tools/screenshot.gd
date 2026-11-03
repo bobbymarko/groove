@@ -142,6 +142,7 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			sync.calendar.set_preview(rows)
 		scene = load(scene_path).instantiate()
 		root.add_child(scene)
+		current_scene = scene   # as in the app, where App answers menu requests through it
 		if mode == "" or mode == "plain":
 			for i in 80:   # let the home tiles finish cascading in
 				await process_frame
@@ -172,6 +173,12 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				if updates.last_check > 0 or updates.last_error != "":
 					break
 			print("[dbg] update available %s (%s)" % [updates.update_available(), updates.last_error])
+		if mode == "about":
+			# What macOS sends from the app menu's "About Groove".
+			await process_frame
+			notification(NOTIFICATION_WM_ABOUT)
+			for i in 40:
+				await process_frame
 		if mode in ["settings", "devices", "rides", "licenses", "update"]:
 			await process_frame
 			scene.call("open_" + mode)
