@@ -36,7 +36,7 @@ var _route: Route
 var _path := ""
 var _stretches: Array = []     # [{from, to, bbox: Rect2 (x lon, y lat)}]
 var _next := 0
-var _elements: Array = []      # elements per stretch
+var _samples: Array[Dictionary] = []   # land cover so far, every SAMPLE metres
 var _attempts := 0
 var _endpoint := 0
 
@@ -56,8 +56,18 @@ func look_up(route: Route, gpx_path: String) -> void:
 	busy = true
 	_route = route
 	_path = gpx_path
-	_stretches = stretches_for(route)
-	_elements.clear()
+	# Resume where an earlier lookup of this route got to (app closed, servers gave up).
+	_samples.clear()
+	var start := 0.0
+	var part := partial_path(gpx_path)
+	if FileAccess.file_exists(part):
+		var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(part))
+		if saved is Dictionary and saved.has("samples"):
+			for x in saved.samples:
+				_samples.append({"d": float(x.d), "kind": str(x.kind), "water": bool(x.water)})
+			start = float(saved.get("done_to", 0.0))
+			print("[route lookup] resuming %s from %.1f km" % [gpx_path.get_file(), start / 1000.0])
+	_stretches = stretches_for(route, start)
 	_next = 0
 	_attempts = 0
 	_request_next()
@@ -79,7 +89,7 @@ func _request_next() -> void:
 
 func _on_completed(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS:
-		_retry("no connection")
+		_retry("timed out" if result == HTTPRequest.RESULT_TIMEOUT else "no connection (%d)" % result)
 		return
 	if code < 200 or code >= 300:
 		_retry("server answered %d" % code)
@@ -89,7 +99,12 @@ func _on_completed(result: int, code: int, _headers: PackedStringArray, body: Pa
 	if problem != "":
 		_retry(problem)
 		return
-	_elements.append(data.elements)
+	var cur: Dictionary = _stretches[_next]
+	_samples.append_array(classify(_route, data.elements, float(cur.from), float(cur.to)))
+	var f := FileAccess.open(partial_path(_path), FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify({"done_to": float(cur.to), "samples": _samples}))
+		f.close()
 	_next += 1
 	_attempts = 0
 	await get_tree().create_timer(1.0).timeout      # be gentle with a free public service
@@ -103,7 +118,16 @@ func _retry(why: String) -> void:
 		_finish(false, "OpenStreetMap is not answering (%s)" % why)
 		return
 	_endpoint = (_endpoint + 1) % ENDPOINTS.size()
-	var wait := minf(8.0 * pow(2.0, _attempts - 1), 90.0)
+	# A stretch that keeps failing is probably too heavy for a busy server
+	# (lots of mapped parkland): split it in half and try the halves.
+	var cur: Dictionary = _stretches[_next]
+	if _attempts >= 2 and float(cur.to) - float(cur.from) > 2000.0:
+		var mid := (float(cur.from) + float(cur.to)) * 0.5
+		_stretches[_next] = stretch(_route, float(cur.from), mid)
+		_stretches.insert(_next + 1, stretch(_route, mid, float(cur.to)))
+		_attempts = 0
+		print("[route lookup] splitting a slow stretch in two")
+	var wait := minf(8.0 * pow(2.0, maxi(_attempts, 1) - 1), 90.0)
 	status = "OpenStreetMap is busy, trying again in %d s…" % int(wait)
 	print("[route lookup] %s; retry %d in %d s" % [why, _attempts, int(wait)])
 	progress.emit(float(_next) / _stretches.size())
@@ -125,10 +149,8 @@ static func answer_problem(data: Variant) -> String:
 func _finish(ok: bool, message: String) -> void:
 	var cover: Array[Dictionary] = []
 	if ok:
-		var samples: Array[Dictionary] = []
-		for i in _stretches.size():
-			samples.append_array(classify(_route, _elements[i], _stretches[i].from, _stretches[i].to))
-		cover = cover_from_samples(samples, _route.length)
+		cover = cover_from_samples(_samples, _route.length)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(partial_path(_path)))
 	else:
 		cover = [{"from": 0.0, "to": _route.length, "kind": "unknown", "water": false}]
 	RouteLibrary.save_cover(_path, cover, not ok)
@@ -141,27 +163,37 @@ func _finish(ok: bool, message: String) -> void:
 
 # --- pure functions (tested without network) ------------------------------------
 
-## The route in ~5 km stretches, each with its lat/lon box plus MARGIN.
-static func stretches_for(route: Route) -> Array:
+## Where a lookup in progress keeps the stretches it has done.
+static func partial_path(gpx_path: String) -> String:
+	return gpx_path.get_basename() + ".partial.json"
+
+
+## The route in ~10 km stretches, each with its lat/lon box plus MARGIN.
+static func stretches_for(route: Route, start := 0.0) -> Array:
 	var out := []
-	var from := 0.0
+	var from := start
 	while from < route.length - 1.0:
 		var to := minf(from + STRETCH, route.length)
-		var box := Rect2(Vector2(route.latlon_at(from).y, route.latlon_at(from).x), Vector2.ZERO)
-		var d := from
-		while d <= to:
-			var p := route.latlon_at(d)
-			box = box.expand(Vector2(p.y, p.x))
-			d += 50.0
-		var p_end := route.latlon_at(to)
-		box = box.expand(Vector2(p_end.y, p_end.x))
-		var mid_lat := box.get_center().y
-		var dlat := MARGIN / 111320.0
-		var dlon := MARGIN / (111320.0 * maxf(cos(deg_to_rad(mid_lat)), 0.05))
-		box = box.grow_individual(dlon, dlat, dlon, dlat)
-		out.append({"from": from, "to": to, "bbox": box})
+		out.append(stretch(route, from, to))
 		from = to
 	return out
+
+
+## One stretch of route: its lat/lon box (x lon, y lat) plus MARGIN.
+static func stretch(route: Route, from: float, to: float) -> Dictionary:
+	var box := Rect2(Vector2(route.latlon_at(from).y, route.latlon_at(from).x), Vector2.ZERO)
+	var d := from
+	while d <= to:
+		var p := route.latlon_at(d)
+		box = box.expand(Vector2(p.y, p.x))
+		d += 50.0
+	var p_end := route.latlon_at(to)
+	box = box.expand(Vector2(p_end.y, p_end.x))
+	var mid_lat := box.get_center().y
+	var dlat := MARGIN / 111320.0
+	var dlon := MARGIN / (111320.0 * maxf(cos(deg_to_rad(mid_lat)), 0.05))
+	box = box.grow_individual(dlon, dlat, dlon, dlat)
+	return {"from": from, "to": to, "bbox": box}
 
 
 static func query_for(box: Rect2) -> String:
