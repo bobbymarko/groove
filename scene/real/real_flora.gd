@@ -66,6 +66,7 @@ var _grass: Array[int] = []
 var _flowers: Array[int] = []
 var _rocks: Array[int] = []
 var _clump := FastNoiseLite.new()
+var biome_id := ""
 
 
 static func for_biome(id: String) -> RealFlora:
@@ -73,6 +74,7 @@ static func for_biome(id: String) -> RealFlora:
 		id = "summer"
 	if not _cache.has(id):
 		var f := RealFlora.new()
+		f.biome_id = id
 		f._build(id)
 		_cache[id] = f
 	return _cache[id]
@@ -243,8 +245,11 @@ func _add(m: Mesh, kind: String, far: Mesh = null) -> void:
 ## Worker thread: instance transforms and tints for one chunk, per mesh index.
 ## height: Callable(x, z, trail) -> float.
 ## in_water: Callable(x, z, trail) -> half widths into the river (< 1 is water).
+## own (route rides, R41): func(x, z) -> Vector3(belongs here 0/1, tree
+## density multiplier, tree mix 0 own / 1 conifer / 2 broadleaf), so several
+## biomes share the land along a route; invalid for an ordinary ride.
 func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float, t: Trail, height: Callable,
-		in_water: Callable = Callable()) -> Dictionary:
+		in_water: Callable = Callable(), own: Callable = Callable()) -> Dictionary:
 	var out := {}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(int(z0) * 31 + 7)
@@ -258,14 +263,17 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 			if ad < trail_clear + 2.5:
 				continue
 			var x := t.x_at(z) + lat
+			var o := Vector3(1.0, 1.0, 0.0) if not own.is_valid() else own.call(x, z) as Vector3
+			if o.x <= 0.0:
+				continue
 			var clump := _clump.get_noise_2d(x, z) * 0.5 + 0.5
-			var p := tree_share * (1.25 if lat < 0.0 else 0.8) * smoothstep(0.25, 0.65, clump)
+			var p := tree_share * o.y * (1.25 if lat < 0.0 else 0.8) * smoothstep(0.25, 0.65, clump)
 			if rng.randf() > p:
 				continue
 			if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.4:
 				continue
 			var y := float(height.call(x, z, t))
-			var mi := _pick_tree(rng)
+			var mi := _pick_tree(rng, int(o.z))
 			var s := rng.randf_range(0.7, 1.25)
 			_put(out, mi, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, y - 0.1, z)), _tint(rng, 0.12))
 	# Thinner woods out across the valley and up the far slopes (distant versions do most of the drawing).
@@ -274,13 +282,16 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 			var z := z0 + rng.randf() * chunk_len
 			var lat := rng.randf_range(half_width, 230.0) * (1.0 if rng.randf() < 0.6 else -1.0)
 			var x := t.x_at(z) + lat
-			if rng.randf() > tree_share * 0.6 * smoothstep(0.3, 0.6, _clump.get_noise_2d(x, z) * 0.5 + 0.5):
+			var o := Vector3(1.0, 1.0, 0.0) if not own.is_valid() else own.call(x, z) as Vector3
+			if o.x <= 0.0:
+				continue
+			if rng.randf() > tree_share * minf(o.y, 1.3) * 0.6 * smoothstep(0.3, 0.6, _clump.get_noise_2d(x, z) * 0.5 + 0.5):
 				continue
 			if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.6:
 				continue
 			var y := float(height.call(x, z, t))
 			var s := rng.randf_range(0.75, 1.25)
-			_put(out, _pick_tree(rng), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, y - 0.1, z)), _tint(rng, 0.12))
+			_put(out, _pick_tree(rng, int(o.z)), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, y - 0.1, z)), _tint(rng, 0.12))
 	# Bushes along the trail edges and in clearings.
 	if not _bushes.is_empty():
 		for i in int(40 * float(biome.bush)):
@@ -289,6 +300,8 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 			if absf(lat) < trail_clear + 1.2:
 				continue
 			var x := t.x_at(z) + lat
+			if own.is_valid() and (own.call(x, z) as Vector3).x <= 0.0:
+				continue
 			if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.25:
 				continue
 			var y := float(height.call(x, z, t))
@@ -301,6 +314,8 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 		if absf(lat) < trail_clear + 0.6:
 			continue
 		var x := t.x_at(z) + lat
+		if own.is_valid() and (own.call(x, z) as Vector3).x <= 0.0:
+			continue
 		if in_water.is_valid() and float(in_water.call(x, z, t)) < 0.7:
 			continue
 		var y := float(height.call(x, z, t))
@@ -328,6 +343,8 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 					continue
 				if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.08:
 					continue
+				if own.is_valid() and (own.call(x, z) as Vector3).x <= 0.0:
+					continue
 				var y := float(height.call(x, z, t))
 				var edge := smoothstep(trail_clear * 0.8, trail_clear + 0.8, ad)   # short at the trail's edge
 				var s := rng.randf_range(0.7, 1.3) * lerpf(0.55, 1.0, edge)
@@ -339,7 +356,12 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 	return out
 
 
-func _pick_tree(rng: RandomNumberGenerator) -> int:
+func _pick_tree(rng: RandomNumberGenerator, mix := 0) -> int:
+	# A route's woods can be all conifer or all broadleaf (OpenStreetMap's leaf_type).
+	if mix == 1 and not _spruce.is_empty() and rng.randf() < 0.85:
+		return _spruce[rng.randi() % _spruce.size()]
+	if mix == 2 and not _broad.is_empty() and rng.randf() < 0.85:
+		return _broad[rng.randi() % _broad.size()]
 	var pools := [[float(biome.spruce), _spruce], [float(biome.broad), _broad], [float(biome.bare), _bare],
 		[float(biome.get("saguaro", 0.0)), _saguaro], [float(biome.get("palo", 0.0)), _palo]]
 	var total := 0.0

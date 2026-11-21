@@ -104,6 +104,13 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	add_child(noise)
 
 
+## Route rides: the biome under the rider now (clouds, noon sun, ground glow).
+func set_biome(id: String) -> void:
+	flora = RealFlora.for_biome(id)
+	if sky_mat:
+		sky_mat.set_shader_parameter("ground_albedo", ground_albedo())
+
+
 func ground_type() -> String:
 	return flora.ground_type()
 

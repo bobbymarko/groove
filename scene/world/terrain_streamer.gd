@@ -56,6 +56,15 @@ var _material: Material
 var ahead_chunks := AHEAD           ## more in first person, which sees further down the trail
 var real_ground := false            ## the realistic look: real_ground shader and procedural flora
 var flora: RealFlora                ## the realistic look's plants and rocks (replaces the props)
+## Which biome where along the trail (realistic look). One segment for an
+## ordinary ride; a route ride's looked-up scenery otherwise (R41).
+var biome_map: BiomeMap
+var floras: Dictionary = {}         ## biome id -> RealFlora
+var _ground_materials: Dictionary = {}   ## "a_b" ground ids -> ShaderMaterial
+var _ice_material: Material         ## frozen river / creek where a route's water is in winter
+var _ice_creek_material: Material
+var _far_ridged := FastNoiseLite.new()   ## the desert's jagged ranges, blended in by desert share
+const GROUND_IDS := {"snow": 0, "grass": 1, "sand": 2, "desert": 3}
 const PINE_SCALE := Vector2(0.45, 0.8)   # Quaternius pines are ~7 m tall at scale 1
 
 
@@ -140,6 +149,20 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 	ahead_chunks = 16                 # built ~380 m out, beyond where trees fade in
 	var kind_water := str(plants.biome.get("water", ""))
 	water = kind_water != ""
+	if biome_map == null:
+		biome_map = BiomeMap.single(plants.biome_id)
+	floras.clear()
+	for id in biome_map.ids():
+		floras[id] = RealFlora.for_biome(id)
+	if biome_map.segments.size() > 1:
+		water = biome_map.any_water()
+		kind_water = "river"
+		for sgm in biome_map.segments:
+			if sgm.water and sgm.id != "winter":
+				kind_water = "river"
+				break
+			if sgm.water:
+				kind_water = "ice"
 	# First person sees far: carry the ground out to ~600 m either side, the
 	# columns spreading out with distance (the hills there need no detail),
 	# except across the river valley on the downhill side, kept at 3 m.
@@ -179,20 +202,30 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 		cm.set_shader_parameter("flow_dir", Vector2(1.0, 0.0))
 		cm.set_shader_parameter("rapids_on", true)
 		_creek_material = cm
+		# A route can have open water in one place and ice in another.
+		var im: ShaderMaterial = wm.duplicate()
+		im.shader = load("res://scene/real/real_ice.gdshader")
+		_ice_material = im
+		var icm: ShaderMaterial = im.duplicate()
+		_ice_creek_material = icm
 		var wood := ShaderMaterial.new()
 		wood.shader = load("res://scene/real/real_wood.gdshader")
 		wood.set_shader_parameter("snow", 1.0 if kind_water == "ice" else 0.0)
 		_wood_material = wood
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scene/real/real_ground.gdshader")
-	mat.set_shader_parameter("ground", {"snow": 0, "grass": 1, "sand": 2, "desert": 3}.get(kind, 0))
+	mat.set_shader_parameter("ground_a", GROUND_IDS.get(kind, 0))
+	mat.set_shader_parameter("ground_b", GROUND_IDS.get(kind, 0))
 	# Desert: the far hills become jagged ranges (ridged noise, much taller), like the Catalinas over Tucson.
 	far_relief = float(plants.biome.get("relief", far_relief))
 	relief_from = float(plants.biome.get("relief_from", relief_from))
 	hill_scale = float(plants.biome.get("hills", hill_scale))
-	if plants.biome.has("relief"):
+	if plants.biome.has("relief") and biome_map.segments.size() == 1:
 		_far.fractal_type = FastNoiseLite.FRACTAL_RIDGED
 		_far.frequency = 0.0028
+	_far_ridged.seed = _far.seed
+	_far_ridged.fractal_type = FastNoiseLite.FRACTAL_RIDGED
+	_far_ridged.frequency = 0.0028
 	mat.set_shader_parameter("trail_half_width", TRAIL_HALF_WIDTH)
 	var fn := FastNoiseLite.new()
 	fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -224,6 +257,8 @@ func river(z: float, t: Trail = trail) -> Vector4:
 	var slope := absf(t.river_base(z + 40.0) - t.river_base(z - 40.0)) / 80.0
 	var lake := smoothstep(0.0, 0.3, _lake_noise.get_noise_1d(z)) * (1.0 - smoothstep(0.009, 0.02, slope))
 	var bend := 62.0 + 24.0 * _river_noise.get_noise_1d(z)
+	if biome_map != null and biome_map.segments.size() > 1:
+		bend += (1.0 - biome_map.water_at(z)) * 340.0      # no water here: the river swings away out of sight
 	var half := 13.0 + 4.0 * _river_noise.get_noise_1d(z * 3.0 + 400.0) + lake * 60.0
 	var level := t.river_base(z) - 0.18 * bend - 1.2
 	return Vector4(bend + lake * 62.0, half, level, 2.2 + lake * 4.0)
@@ -279,6 +314,8 @@ func creek_near(z: float) -> Vector2:
 		var zc: float = CREEK_FIRST + k * CREEK_EVERY + (_hash(k) - 0.5) * 400.0 * minf(float(k), 1.0)
 		if absf(z - zc) < absf(z - best.x):
 			best = Vector2(zc, (_hash(k + 77) - 0.5) * 0.6)
+	if biome_map != null and biome_map.segments.size() > 1 and biome_map.water_at(best.x) < 0.99:
+		return Vector2(INF, 0.0)
 	return best
 
 
@@ -315,13 +352,22 @@ func _creek_level(d: float, c: Vector2, t: Trail) -> float:
 		var up := (ad - TRAIL_HALF_WIDTH) * 0.32 + pow(maxf(ad - 25.0, 0.0), 1.3) * 0.18
 		if ad > 70.0:
 			up = minf(up, 70.0 + (ad - 70.0) * 0.25)
-		design = deck - CREEK_CLEAR + maxf(up, 0.0) * hill_scale * 0.9
+		var hsc := hill_scale if biome_map == null or biome_map.segments.size() == 1 else biome_map.param(c.x, "hills", 1.0)
+		design = deck - CREEK_CLEAR + maxf(up, 0.0) * hsc * 0.9
 	else:
 		var r := river(c.x, t)
 		var end := _creek_end(c.x, t)
 		design = lerpf(deck - CREEK_CLEAR, r.z + 0.05, clampf((d - 6.0) / (end - 6.0), 0.0, 1.0))
 	var cz := _creek_z(d, c)
 	return minf(design, _land(t.x_at(cz) + d, cz, t) - 0.5)
+
+
+## Is the water frozen here? A winter stretch of a route (ice biome) or the
+## winter preset itself.
+func _frozen_at(z: float) -> bool:
+	if biome_map == null or biome_map.segments.size() == 1 or _ice_material == null:
+		return false
+	return biome_map.segment_at(z).id == "winter"
 
 
 ## Gully of the side stream: bed under its surface, banks climbing at 60 %.
@@ -379,16 +425,28 @@ func _land(x: float, z: float, t: Trail = trail) -> float:
 		hillside = (ad - TRAIL_HALF_WIDTH) * 0.32 + pow(maxf(ad - 25.0, 0.0), 1.3) * 0.18   # uphill side
 	else:
 		hillside = -(ad - TRAIL_HALF_WIDTH) * 0.18                                          # downhill side
-	hillside *= hill_scale
+	var hs := hill_scale
+	var relief := far_relief
+	var r_from := relief_from
+	var ridged := 0.0
+	if biome_map != null and biome_map.segments.size() > 1:
+		hs = biome_map.param(z, "hills", 1.0)
+		relief = biome_map.param(z, "relief", 70.0)
+		r_from = biome_map.param(z, "relief_from", 70.0)
+		ridged = biome_map.share_of(z, "desert")
+	hillside *= hs
 	if ad > 70.0:
 		# Beyond the near field: the downhill side levels into a valley floor, the
 		# uphill side stops climbing at a ridge, and broad hills roll over both.
-		var far := smoothstep(relief_from, relief_from + 190.0 + far_relief * 0.6, ad)
+		var far := smoothstep(r_from, r_from + 190.0 + relief * 0.6, ad)
 		if d < 0.0:
 			hillside = minf(hillside, 70.0 + (ad - 70.0) * 0.25)
 		else:
 			hillside = -(minf(ad, 150.0) - TRAIL_HALF_WIDTH) * 0.18
-		hillside += (_far.get_noise_2d(x, z) * 0.5 + 0.5) * far_relief * far
+		var fn := _far.get_noise_2d(x, z) * 0.5 + 0.5
+		if ridged > 0.0:
+			fn = lerpf(fn, _far_ridged.get_noise_2d(x, z) * 0.5 + 0.5, ridged)
+		hillside += fn * relief * far
 	var h := base + off * (rough + hillside)
 	if water and d > 20.0:
 		h = _carve_river(h, d, z, t)
@@ -460,23 +518,95 @@ func _build_chunk_arrays(index: int, t: Trail) -> Dictionary:
 	var out := {"index": index, "z0": z0}
 	# Fine strip around the trail (0.2 m columns within 3 m, 0.5 m to 8 m; 0.5 m rows),
 	# coarse field beyond (2 m grid). Heights are sampled once per grid vertex.
-	out["fine"] = _grid_arrays(z0, _fine_columns, 0.5, t)
-	out["coarse_l"] = _grid_arrays(z0, _coarse_columns_l, RES, t)
-	out["coarse_r"] = _grid_arrays(z0, _coarse_columns_r, RES, t)
+	var pair := _ground_pair(z0)
+	out["ground_pair"] = pair
+	out["fine"] = _grid_arrays(z0, _fine_columns, 0.5, t, pair)
+	out["coarse_l"] = _grid_arrays(z0, _coarse_columns_l, RES, t, pair)
+	out["coarse_r"] = _grid_arrays(z0, _coarse_columns_r, RES, t, pair)
 	if flora:
-		out["flora"] = flora.scatter(z0, CHUNK_LEN, HALF_WIDTH, TRAIL_HALF_WIDTH + BANK_WIDTH, t, height, water_depth_u)
+		out["flora"] = _scatter_biomes(z0, t)
 	if water:
 		out["water"] = _water_arrays(z0, t)
 		var c := creek_near(z0 + CHUNK_LEN * 0.5)
 		if c.x >= z0 and c.x < z0 + CHUNK_LEN:
 			out["creek"] = _creek_arrays(c, t)
 			if out.has("flora"):
-				_creek_rocks(c, t, out["flora"])
+				var cid: String = biome_map.segment_at(c.x).id
+				if not out.flora.has(cid):
+					out.flora[cid] = {}
+				_creek_rocks(c, t, out.flora[cid], floras.get(cid, flora))
 			out["bridge"] = BridgeGen.build(c.x, BRIDGE_HALF, DECK_TOP, _creek_half(0.0), t, height)
 	else:
 		out["scatter"] = _scatter_transforms(z0, t)
 	out["usec"] = Time.get_ticks_usec() - t0
 	return out
+
+
+## Plants for one chunk from every biome near it: {biome id: placed}. Across
+## a blend each spot belongs to one side (BiomeMap.owner), so the two mix.
+func _scatter_biomes(z0: float, t: Trail) -> Dictionary:
+	var out := {}
+	if biome_map.segments.size() == 1:
+		out[biome_map.segments[0].id] = flora.scatter(z0, CHUNK_LEN, HALF_WIDTH, TRAIL_HALF_WIDTH + BANK_WIDTH, t, height, water_depth_u)
+		return out
+	var ids: Array[String] = []
+	for zz in [z0, z0 + CHUNK_LEN * 0.5, z0 + CHUNK_LEN]:
+		var w := biome_map.at(zz)
+		for sg in [w.a, w.b]:
+			if not ids.has(sg.id):
+				ids.append(sg.id)
+	var map := biome_map
+	for id in ids:
+		var own := func(x: float, z: float) -> Vector3:
+			var sg := map.owner(x, z)
+			var mix := 1.0 if sg.mix == "conifer" else (2.0 if sg.mix == "broad" else 0.0)
+			return Vector3(1.0 if sg.id == id else 0.0, float(sg.trees), mix)
+		out[id] = (floras[id] as RealFlora).scatter(z0, CHUNK_LEN, HALF_WIDTH, TRAIL_HALF_WIDTH + BANK_WIDTH, t, height, water_depth_u, own)
+	return out
+
+
+## The two ground looks a chunk blends between: Vector2i(a, b) ground ids.
+func _ground_pair(z0: float) -> Vector2i:
+	if biome_map == null or biome_map.segments.size() == 1:
+		return Vector2i(-1, -1)
+	var a := _ground_of(biome_map.segment_at(z0 + CHUNK_LEN * 0.5).id)
+	var b := a
+	for zz in [z0 - 2.0, z0 + CHUNK_LEN * 0.5, z0 + CHUNK_LEN + 2.0]:
+		var w := biome_map.at(zz)
+		for sg in [w.a, w.b]:
+			var g := _ground_of(sg.id)
+			if g != a:
+				b = g
+	return Vector2i(a, b)
+
+
+static func _ground_of(id: String) -> int:
+	return GROUND_IDS.get(str(RealFlora.BIOMES.get(id, {}).get("ground", "grass")), 1)
+
+
+## How much of ground look b a vertex at z shows (UV.y).
+func _ground_b_share(z: float, pair: Vector2i) -> float:
+	if pair.x == pair.y or pair.x < 0:
+		return 0.0
+	var w := biome_map.at(z)
+	var share := 0.0
+	if _ground_of(w.a.id) == pair.y:
+		share += 1.0 - float(w.t)
+	if _ground_of(w.b.id) == pair.y:
+		share += float(w.t)
+	return clampf(share, 0.0, 1.0)
+
+
+func _chunk_ground_material(pair: Vector2i) -> Material:
+	if pair.x < 0:
+		return _material
+	var key := "%d_%d" % [pair.x, pair.y]
+	if not _ground_materials.has(key):
+		var m: ShaderMaterial = _material.duplicate()
+		m.set_shader_parameter("ground_a", pair.x)
+		m.set_shader_parameter("ground_b", pair.y)
+		_ground_materials[key] = m
+	return _ground_materials[key]
 
 
 ## The river's surface for one chunk: a ribbon across its width (a little over,
@@ -550,7 +680,7 @@ func _creek_arrays(c: Vector2, t: Trail) -> Dictionary:
 
 ## Boulders in a stream's bed: thick where it runs steep (breaking the water
 ## into rapids), the odd one in the pool; a few more along the banks.
-func _creek_rocks(c: Vector2, t: Trail, out: Dictionary) -> void:
+func _creek_rocks(c: Vector2, t: Trail, out: Dictionary, fl: RealFlora) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(c.x) * 7 + 3
 	var d := -46.0
@@ -569,16 +699,16 @@ func _creek_rocks(c: Vector2, t: Trail, out: Dictionary) -> void:
 			var z := _creek_z(d, c) + u * half
 			var size := rng.randf_range(0.45, 0.9) + rap * rng.randf_range(0.0, 0.7)
 			var bed := level - CREEK_DEPTH * (1.0 - u * u)
-			flora.add_rock(out, Vector3(t.x_at(z) + d, maxf(bed, level - size * 0.3), z), size, rng)
+			fl.add_rock(out, Vector3(t.x_at(z) + d, maxf(bed, level - size * 0.3), z), size, rng)
 		if rng.randf() < 0.18:
 			var side := 1.0 if rng.randf() < 0.5 else -1.0
 			var z := _creek_z(d, c) + side * half * rng.randf_range(1.0, 1.3)
 			var x := t.x_at(z) + d
-			flora.add_rock(out, Vector3(x, height(x, z, t) - 0.1, z), rng.randf_range(0.5, 1.2), rng)
+			fl.add_rock(out, Vector3(x, height(x, z, t) - 0.1, z), rng.randf_range(0.5, 1.2), rng)
 
 
 ## Vertex/normal/colour arrays for a grid of columns (offsets from the trail centre) × rows.
-func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> Dictionary:
+func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail, pair := Vector2i(-1, -1)) -> Dictionary:
 	var nz := int(CHUNK_LEN / row)
 	var ncols := cols.size()
 	# Sample heights on a (nz+1) × ncols lattice, with one extra ring for normals.
@@ -636,7 +766,7 @@ func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> 
 					var lat: float = tri[k].x - t.x_at(tri[k].z)
 					if water and absf(lat) < 3.0 and tri[k].y < t.h_at(tri[k].z) - 0.6:
 						lat = 40.0      # a stream's gully under the trail is field, not path
-					uvs.append(Vector2(lat, 0.0))
+					uvs.append(Vector2(lat, _ground_b_share(tri[k].z, pair) if pair.x != pair.y else 0.0))
 	return {"verts": verts, "norms": norms, "colors": colors, "uvs": uvs}
 
 
@@ -739,7 +869,7 @@ func _finish_chunk(r: Dictionary) -> void:
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		var mi := MeshInstance3D.new()
 		mi.mesh = mesh
-		mi.material_override = _material
+		mi.material_override = _chunk_ground_material(r.get("ground_pair", Vector2i(-1, -1)))
 		root.add_child(mi)
 	if r.has("water") and not (r.water as Dictionary).verts.is_empty():
 		var wa := []
@@ -752,7 +882,7 @@ func _finish_chunk(r: Dictionary) -> void:
 		wmesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, wa)
 		var wmi := MeshInstance3D.new()
 		wmi.mesh = wmesh
-		wmi.material_override = _water_material
+		wmi.material_override = _ice_material if _frozen_at(float(r.z0) + CHUNK_LEN * 0.5) else _water_material
 		wmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(wmi)
 	if r.has("creek"):
@@ -767,7 +897,7 @@ func _finish_chunk(r: Dictionary) -> void:
 		cmesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, ca)
 		var cmi := MeshInstance3D.new()
 		cmi.mesh = cmesh
-		cmi.material_override = _creek_material
+		cmi.material_override = _ice_creek_material if _frozen_at(float(r.z0) + CHUNK_LEN * 0.5) else _creek_material
 		cmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(cmi)
 	if r.has("bridge"):
@@ -776,7 +906,8 @@ func _finish_chunk(r: Dictionary) -> void:
 		bmi.material_override = _wood_material
 		root.add_child(bmi)
 	if r.has("flora"):
-		_add_flora(root, r.flora, float(r.z0))
+		for id in r.flora:
+			_add_flora(root, r.flora[id], float(r.z0), floras.get(id, flora))
 		add_child(root)
 		_chunks[index] = root
 		return
@@ -801,7 +932,7 @@ func _finish_chunk(r: Dictionary) -> void:
 ## are split into sideways bands (BAND_WIDTH) with a MultiMesh per band, sitting
 ## at the band's middle, so visibility ranges cull it tightly; each plant's
 ## own fade and close-up/distant handover happen per plant in the shaders.
-func _add_flora(root: Node3D, placed: Dictionary, z0: float) -> void:
+func _add_flora(root: Node3D, placed: Dictionary, z0: float, fl: RealFlora) -> void:
 	for mi in placed:
 		var xfs: Array[Transform3D] = placed[mi][0]
 		var tints: Array[Color] = placed[mi][1]
@@ -818,17 +949,17 @@ func _add_flora(root: Node3D, placed: Dictionary, z0: float) -> void:
 			for i in idx:
 				mid += xfs[i].origin
 			mid /= float(idx.size())
-			_flora_band(root, mi, xfs, tints, idx, mid)
+			_flora_band(root, mi, xfs, tints, idx, mid, fl)
 
 
-func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3) -> void:
-	var mm := _band_multimesh(flora.meshes[mi], xfs, tints, idx, mid)
+func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3, fl: RealFlora) -> void:
+	var mm := _band_multimesh(fl.meshes[mi], xfs, tints, idx, mid)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.position = mid
-	if flora.far_meshes.has(mi):
+	if fl.far_meshes.has(mi):
 		# Close-up tree near the camera, its cheaper twin beyond.
-		var fmm := _band_multimesh(flora.far_meshes[mi], xfs, tints, idx, mid)
+		var fmm := _band_multimesh(fl.far_meshes[mi], xfs, tints, idx, mid)
 		var far := MultiMeshInstance3D.new()
 		far.multimesh = fmm
 		far.position = mid
@@ -844,14 +975,14 @@ func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Co
 		shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		shade.visibility_range_end = RealFlora.TREE_DETAIL_RANGE + BAND_PAD
 		root.add_child(shade)
-	match flora.kinds[mi]:
+	match fl.kinds[mi]:
 		"grass":
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			mmi.visibility_range_end = RealFlora.GRASS_VISIBLE
 			mmi.visibility_range_end_margin = 10.0
 			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		"tree":
-			if not flora.far_meshes.has(mi):
+			if not fl.far_meshes.has(mi):
 				mmi.visibility_range_end = RealFlora.TREE_FAR + BAND_PAD
 		"rock", "bush":
 			mmi.visibility_range_end = RealFlora.SMALL_FAR + BAND_PAD

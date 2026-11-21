@@ -54,6 +54,7 @@ var distance := 20.0          ## metres along the trail
 ## trail rolls on gently.
 var route: Route = null
 var route_start := 20.0
+var _biome_here := ""
 var power := 0.0
 var cadence := 0.0
 var riding := false
@@ -94,6 +95,15 @@ func _ready() -> void:
 	if look_override != "":
 		look_mode = look_override
 	fpv = look_mode == "real"
+	# A route ride (R41) takes its scenery from the route: the realistic look
+	# starts in the biome where the route starts; the others use its main one.
+	var app_r := get_node_or_null("/root/App")
+	if app_r and app_r.route != null and route == null:
+		route = app_r.route
+	if route != null:
+		preset_id = route.main_biome()
+		if look_mode == "real" and not route.biomes.is_empty():
+			preset_id = str(route.biomes[0].id)
 	Palette.apply(preset_id)
 	_preset = ScenePreset.get_preset(preset_id)
 	_viewport = SubViewport.new()
@@ -130,11 +140,7 @@ func _ready() -> void:
 
 	trail = Trail.new()
 	trail.grade_provider = _grade_at
-	var app_r := get_node_or_null("/root/App")
-	if app_r and app_r.route != null and route == null:
-		route = app_r.route
 	if route != null:
-		route_start = distance
 		trail.grade_provider = func(z: float) -> Variant:
 			var d := z - route_start
 			return route.grade_at(maxf(d, 0.0)) if d <= route.length else null
@@ -144,6 +150,8 @@ func _ready() -> void:
 			physics.cda = 0.4
 	terrain = TerrainStreamer.new(trail)
 	if real:
+		if route != null:
+			terrain.biome_map = BiomeMap.for_route(route, route_start)
 		terrain.use_real_ground(real.ground_type(), real.flora)
 	_world.add_child(terrain)
 	backdrop = Backdrop.new()
@@ -156,7 +164,8 @@ func _ready() -> void:
 		rider.visible = false     # first person: the rider is the camera
 		backdrop.visible = false  # the real sky, the terrain and FarRange make the horizon
 		far_range = FarRange.new()
-		far_range.build(float(real.flora.biome.get("range", 800.0)), real.flora.biome)
+		var range_biome: Dictionary = real.flora.biome if route == null else RealFlora.for_biome(route.main_biome()).biome
+		far_range.build(float(range_biome.get("range", 800.0)), range_biome)
 		_world.add_child(far_range)
 	dust = WheelDust.new()
 	dust.position = Vector3(0.0, 0.04, -0.62)   # just behind the rear contact patch
@@ -294,6 +303,7 @@ func set_time_mode(mode: String) -> void:
 func _apply_daylight() -> void:
 	if _sun == null or _env == null or _tuning.is_empty():
 		return
+	_follow_biome()
 	var hour := hour_override if hour_override >= 0.0 else Daylight.hour_for_mode(time_mode)
 	var noon := float(_tuning.get("sun_elevation", 25.0)) + float(_preset.get("sun_lift", 0.0))
 	if real:
@@ -433,6 +443,22 @@ func _snap_camera() -> Vector2:
 	e.z = 0.0
 	camera.rotation = e
 	return p_ideal - camera.unproject_position(ref)
+
+
+## Route rides: riding from one biome into the next changes the sky's cloud
+## cover and sun height, the snow in the air, the dust off the wheel and the
+## weather chances to those of the biome under the rider.
+func _follow_biome() -> void:
+	if real == null or terrain == null or terrain.biome_map == null or terrain.biome_map.segments.size() < 2:
+		return
+	var id: String = terrain.biome_map.segment_at(distance).id
+	if id == _biome_here:
+		return
+	_biome_here = id
+	real.set_biome(id)
+	_preset = ScenePreset.get_preset(id)
+	snow.emitting = bool(_preset.get("snow", true))
+	dust.set_ground(bool(_preset.get("snow", true)), bool(_preset.get("dust_dark", false)))
 
 
 func current_grade() -> float:
