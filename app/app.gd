@@ -88,9 +88,12 @@ func _ready() -> void:
 		var path: String = _lookup_queue.pop_front() if not _lookup_queue.is_empty() else ""
 		route_scenery_ready.emit(path)
 		_next_lookup())
-	for path in RouteLibrary.list():
-		if not RouteLibrary.has_scenery(path):
-			look_up_route(path)       # imported but the lookup never finished (the app was closed)
+	# Imported but the lookup never finished (the app was closed): carry on. Not
+	# from headless runs (tests, tools), which would query OpenStreetMap too.
+	if DisplayServer.get_name() != "headless":
+		for path in RouteLibrary.list():
+			if not RouteLibrary.has_scenery(path):
+				look_up_route(path)
 	Sync.configure_intervals.call_deferred(get_secret("intervals_api_key"))
 	Sync.configure_strava.call_deferred(get_secret("strava_client_id"), get_secret("strava_client_secret"))
 	# Dev launch option: `-- summary=latest` (or a journal path) opens that ride's summary.
