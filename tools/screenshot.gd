@@ -59,6 +59,12 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				rs.look_override = "real"
 			if a.begins_with("at="):
 				rs.distance = float(a.trim_prefix("at="))
+			if a.begins_with("eye=") or a.begins_with("target="):
+				var v := a.split("=")[1].split_floats(",")
+				if a.begins_with("eye="):
+					rs.debug_eye = Vector3(v[0], v[1], v[2])
+				else:
+					rs.debug_target = Vector3(v[0], v[1], v[2])
 			if a.begins_with("yaw="):
 				rs.camera_yaw = deg_to_rad(float(a.trim_prefix("yaw=")))
 			if a.begins_with("hour="):

@@ -358,6 +358,14 @@ func _tint(rng: RandomNumberGenerator, spread: float) -> Color:
 	return Color(v * rng.randf_range(0.95, 1.05), v, v * rng.randf_range(0.93, 1.05), 1.0)
 
 
+## A boulder at pos (its middle) for TerrainStreamer's streams.
+func add_rock(out: Dictionary, pos: Vector3, size: float, rng: RandomNumberGenerator) -> void:
+	if _rocks.is_empty():
+		return
+	var basis := Basis(Vector3(rng.randf_range(-0.3, 0.3), 1.0, rng.randf_range(-0.3, 0.3)).normalized(), rng.randf() * TAU)
+	_put(out, _rocks[rng.randi() % _rocks.size()], Transform3D(basis.scaled(Vector3(size, size * rng.randf_range(0.85, 1.25), size)), pos), _tint(rng, 0.1))
+
+
 static func _put(out: Dictionary, mi: int, xf: Transform3D, tint: Color) -> void:
 	if not out.has(mi):
 		out[mi] = [[] as Array[Transform3D], [] as Array[Color]]

@@ -58,6 +58,8 @@ var avg_speed := 5.0         ## slow-moving average of speed, for predicting whe
 var target_fraction_ahead: Callable
 ## Debug: look straight down from above the rider, no post-process.
 var debug_top_down := false
+var debug_eye := Vector3.INF      ## tooling: a free camera here, looking at debug_target
+var debug_target := Vector3.ZERO
 ## Debug: close three-quarter view of the rider, no post-process.
 var debug_closeup := false
 ## Debug: close view of the hands on the bars (with debug_closeup).
@@ -147,7 +149,7 @@ func _ready() -> void:
 		horde = Horde.new()
 		horde.rider = rider
 		horde.trail = trail
-		horde.height_fn = terrain.height
+		horde.height_fn = terrain.surface
 		horde.hit.connect(func(_k: int) -> void:
 			rider.attack()
 			# Swing the camera to the side of the swing (rig-Right hand is -X): a closer look at the hit.
@@ -155,7 +157,7 @@ func _ready() -> void:
 		horde.picked_up.connect(func(t: int) -> void: rider.set_weapon(t))
 		_world.add_child(horde)
 	camera = HandheldCamera.new()
-	camera.ground_height = func(x: float, z: float) -> float: return terrain.height(x, z)
+	camera.ground_height = func(x: float, z: float) -> float: return terrain.surface(x, z)
 	_world.add_child(camera)
 	camera.current = true
 	snow = Snow.new()
@@ -439,15 +441,18 @@ func _process(raw_delta: float) -> void:
 	rider.animate(anim_cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
 	_place_rider()
 	if riding and speed > 0.05:
-		marks.add(rider.to_global(Vector3(0.0, 0.0, -0.55)), rider.global_transform.basis.x, terrain.height)
+		marks.add(rider.to_global(Vector3(0.0, 0.0, -0.55)), rider.global_transform.basis.x, terrain.surface)
 	dust.update(speed if riding else 0.0, _rain)
 	if horde:
 		horde.effort = effort
 		horde.update(raw_delta, rider.global_position, speed, power, distance)
 	terrain.update_around(distance)
 	var anchor := trail.position_at(maxf(distance - camera.follow_distance, 0.0))
-	var ground := terrain.height(anchor.x, anchor.z)
-	if debug_top_down:
+	var ground := terrain.surface(anchor.x, anchor.z)
+	if debug_eye != Vector3.INF:
+		camera.global_position = debug_eye
+		camera.look_at(debug_target, Vector3.UP)
+	elif debug_top_down:
 		_screen.material = null
 		camera.global_position = rider.global_position + Vector3(0.0, 40.0, -10.0)
 		camera.look_at(rider.global_position, Vector3.FORWARD)
@@ -465,10 +470,19 @@ func _process(raw_delta: float) -> void:
 		var flat := trail.heading_at(distance)
 		flat = Vector3(flat.x, 0.0, flat.z).normalized()
 		var eye := rider.global_position + Vector3.UP * 1.48 + flat * 0.3
-		var ahead := trail.position_at(distance + 14.0)
-		ahead.y = terrain.height(ahead.x, ahead.z) + 0.6
+		# Look along the road's average direction over the next 30 m, pitched by
+		# half its average grade: single points ahead swing the view on every
+		# kink of the trail.
+		var here := trail.position_at(distance)
+		var look := Vector3.ZERO
+		for k in [10.0, 20.0, 30.0]:
+			var p := trail.position_at(distance + k) - here
+			look += Vector3(p.x, 0.0, p.z).normalized()
+		look = look.normalized()
+		var climb := (trail.h_at(distance + 30.0) - trail.h_at(distance)) / 30.0
+		look.y = climb * 0.5 - 0.03
 		camera.fpv_yaw = camera_yaw
-		camera.update_fpv(eye, ahead, anim_cadence if riding else 0.0, rider.lean, raw_delta)
+		camera.update_fpv(eye, look.normalized(), raw_delta)
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)
 		if pixel_filter and pixel_stable:
@@ -496,7 +510,7 @@ func _process(raw_delta: float) -> void:
 
 func _place_rider() -> void:
 	var pos := trail.position_at(distance)
-	pos.y = terrain.height(pos.x, pos.z)
+	pos.y = terrain.surface(pos.x, pos.z)
 	rider.global_position = pos
 	var heading := trail.heading_at(distance)
 	var flat := Vector3(heading.x, 0.0, heading.z).normalized()

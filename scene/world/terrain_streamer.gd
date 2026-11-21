@@ -14,6 +14,12 @@ const GROOVE_DEPTH := 0.22
 const BANK_WIDTH := 0.7
 const BAND_WIDTH := 35.0               ## realistic look: plants are grouped in sideways bands this wide
 const BAND_PAD := 25.0                 ## and reach this far from their band's middle
+const CREEK_FIRST := 420.0            ## realistic look with water: the first side stream crosses here (metres)
+const CREEK_EVERY := 1150.0           ## and one roughly every this far after (jittered ±200 m)
+const CREEK_CLEAR := 2.6              ## the stream runs this far under the trail, in a gully, under a bridge
+const CREEK_DEPTH := 0.8
+const BRIDGE_HALF := 9.8              ## the bridge reaches this far either side of the stream's middle
+const DECK_TOP := -0.2                ## the deck's top against the trail's height (the groove is -0.22)
 const SHOULDER := 4.0                 # smooth rideable snow either side before the rough field
 
 var trail: Trail
@@ -29,6 +35,8 @@ var water := false                  ## realistic look: a river (widening into la
 var _river_noise := FastNoiseLite.new()
 var _lake_noise := FastNoiseLite.new()
 var _water_material: Material
+var _creek_material: Material      ## the same water, its ripples running across the trail
+var _wood_material: Material
 var _fine_columns: PackedFloat64Array = []       # |x| <= 8 m: 0.2 m near the groove, then 0.5 m
 var _coarse_columns_l: PackedFloat64Array = []   # -HALF_WIDTH .. -8 m at RES
 var _coarse_columns_r: PackedFloat64Array = []   # 8 m .. HALF_WIDTH at RES
@@ -167,6 +175,14 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 		if plants.biome.has("water_tint"):
 			wm.set_shader_parameter("deep", plants.biome.water_tint)
 		_water_material = wm
+		var cm: ShaderMaterial = wm.duplicate()
+		cm.set_shader_parameter("flow_dir", Vector2(1.0, 0.0))
+		cm.set_shader_parameter("rapids_on", true)
+		_creek_material = cm
+		var wood := ShaderMaterial.new()
+		wood.shader = load("res://scene/real/real_wood.gdshader")
+		wood.set_shader_parameter("snow", 1.0 if kind_water == "ice" else 0.0)
+		_wood_material = wood
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scene/real/real_ground.gdshader")
 	mat.set_shader_parameter("ground", {"snow": 0, "grass": 1, "sand": 2, "desert": 3}.get(kind, 0))
@@ -218,7 +234,7 @@ func water_depth_u(x: float, z: float, t: Trail = trail) -> float:
 	if not water:
 		return 99.0
 	var r := river(z, t)
-	return absf(x - t.x_at(z) - r.x) / r.y
+	return minf(absf(x - t.x_at(z) - r.x) / r.y, _creek_u(x, z, t))
 
 
 ## The water's own ground: the river bed dips under the level, banks climb
@@ -232,9 +248,117 @@ func _carve_river(h: float, d: float, z: float, t: Trail) -> float:
 	return minf(h, target)
 
 
-## Terrain height at any point: the trail's own height on the trail, rising
-## into a hillside on the left and dropping away on the right, with noise.
+## Terrain height at any point, side streams included (the trail itself dips
+## into their gullies: the bridge carries the rider, see surface()).
 func height(x: float, z: float, t: Trail = trail) -> float:
+	var h := _land(x, z, t)
+	if water:
+		h = _carve_creek(h, x, z, t)
+	return h
+
+
+## What the rider rolls on: the ground, or a bridge's deck over a stream.
+func surface(x: float, z: float, t: Trail = trail) -> float:
+	var h := height(x, z, t)
+	if water:
+		var c := creek_near(z)
+		if absf(z - c.x) < BRIDGE_HALF and absf(x - t.x_at(z)) < 1.6:
+			h = maxf(h, t.h_at(z) + DECK_TOP)
+	return h
+
+
+## The side stream nearest distance z: x = where it crosses the trail, y = its
+## skew (metres along the trail per metre sideways). Every CREEK_EVERY metres,
+## jittered so they do not come like clockwork.
+func creek_near(z: float) -> Vector2:
+	var k0 := roundi((z - CREEK_FIRST) / CREEK_EVERY)
+	var best := Vector2(INF, 0.0)
+	for k: int in [k0 - 1, k0, k0 + 1]:
+		if k < 0:
+			continue
+		var zc: float = CREEK_FIRST + k * CREEK_EVERY + (_hash(k) - 0.5) * 400.0 * minf(float(k), 1.0)
+		if absf(z - zc) < absf(z - best.x):
+			best = Vector2(zc, (_hash(k + 77) - 0.5) * 0.6)
+	return best
+
+
+static func _hash(k: int) -> float:
+	return fposmod(sin(k * 127.1 + 311.7) * 43758.5453, 1.0)
+
+
+## Where a stream runs at offset d from the trail (distance along the trail):
+## straight under the bridge, winding further out.
+func _creek_z(d: float, c: Vector2) -> float:
+	var wind := sin(d * 0.07 + c.x) * 4.0 + _river_noise.get_noise_1d(d * 2.0 + c.x) * 5.0
+	return c.x + c.y * d + wind * smoothstep(10.0, 30.0, absf(d))
+
+
+## A stream's half width at offset d from the trail: narrow up the hill, 4.5 m
+## under the bridge, a little wider by the time it meets the river.
+func _creek_half(d: float) -> float:
+	return lerpf(4.5, 1.6, clampf(-d / 50.0, 0.0, 1.0)) if d <= 0.0 else 4.5 + d * 0.02
+
+
+## Where a stream ends: at the river's near edge.
+func _creek_end(zc: float, t: Trail) -> float:
+	var r := river(zc, t)
+	return r.x - r.y * 0.8
+
+
+## A stream's surface at offset d: it comes down the hillside, passes under the
+## trail CREEK_CLEAR below it and drops to the river, never above the land.
+func _creek_level(d: float, c: Vector2, t: Trail) -> float:
+	var deck := t.h_at(c.x)
+	var design: float
+	if d <= 0.0:
+		var ad := maxf(-d - 6.0, 0.0)      # a calm pool under the bridge, then up the hill
+		var up := (ad - TRAIL_HALF_WIDTH) * 0.32 + pow(maxf(ad - 25.0, 0.0), 1.3) * 0.18
+		if ad > 70.0:
+			up = minf(up, 70.0 + (ad - 70.0) * 0.25)
+		design = deck - CREEK_CLEAR + maxf(up, 0.0) * hill_scale * 0.9
+	else:
+		var r := river(c.x, t)
+		var end := _creek_end(c.x, t)
+		design = lerpf(deck - CREEK_CLEAR, r.z + 0.05, clampf((d - 6.0) / (end - 6.0), 0.0, 1.0))
+	var cz := _creek_z(d, c)
+	return minf(design, _land(t.x_at(cz) + d, cz, t) - 0.5)
+
+
+## Gully of the side stream: bed under its surface, banks climbing at 60 %.
+func _carve_creek(h: float, x: float, z: float, t: Trail) -> float:
+	var c := creek_near(z)
+	if absf(z - c.x) > 80.0:
+		return h
+	var d := x - t.x_at(z)
+	if d < -75.0 or d > 160.0:
+		return h
+	var half := _creek_half(d)
+	var s := absf(z - _creek_z(d, c))
+	if s > half + 30.0:
+		return h
+	if d > 0.0 and d > _creek_end(c.x, t) + 4.0:
+		return h
+	var level := _creek_level(d, c, t)
+	var u := s / half
+	var target := level - CREEK_DEPTH * (1.0 - u * u) if u < 1.0 else level + (s - half) * 0.6
+	target += maxf(-d - 48.0, 0.0) * 1.5      # the spring: the gully runs out up the hill
+	return minf(h, target)
+
+
+## How far a point is into a side stream, in half widths; 99 when not near one.
+func _creek_u(x: float, z: float, t: Trail) -> float:
+	var c := creek_near(z)
+	if absf(z - c.x) > 80.0:
+		return 99.0
+	var d := x - t.x_at(z)
+	if d < -50.0 or d > 160.0 or (d > 0.0 and d > _creek_end(c.x, t)):
+		return 99.0
+	return absf(z - _creek_z(d, c)) / _creek_half(d)
+
+
+## Land height before side streams: the trail's own height on the trail, rising
+## into a hillside on the left and dropping away on the right, with noise.
+func _land(x: float, z: float, t: Trail = trail) -> float:
 	var tx := t.x_at(z)
 	var d := x - tx
 	var ad := absf(d)
@@ -343,6 +467,12 @@ func _build_chunk_arrays(index: int, t: Trail) -> Dictionary:
 		out["flora"] = flora.scatter(z0, CHUNK_LEN, HALF_WIDTH, TRAIL_HALF_WIDTH + BANK_WIDTH, t, height, water_depth_u)
 	if water:
 		out["water"] = _water_arrays(z0, t)
+		var c := creek_near(z0 + CHUNK_LEN * 0.5)
+		if c.x >= z0 and c.x < z0 + CHUNK_LEN:
+			out["creek"] = _creek_arrays(c, t)
+			if out.has("flora"):
+				_creek_rocks(c, t, out["flora"])
+			out["bridge"] = BridgeGen.build(c.x, BRIDGE_HALF, DECK_TOP, _creek_half(0.0), t, height)
 	else:
 		out["scatter"] = _scatter_transforms(z0, t)
 	out["usec"] = Time.get_ticks_usec() - t0
@@ -373,6 +503,78 @@ func _water_arrays(z0: float, t: Trail) -> Dictionary:
 			var b := a + cols + 1
 			idx.append_array([a, a + 1, b, a + 1, b + 1, b])
 	return {"verts": verts, "norms": norms, "uvs": uvs, "idx": idx}
+
+
+## How steeply a stream drops at offset d (metres per metre).
+func _creek_slope(d: float, c: Vector2, t: Trail) -> float:
+	return absf(_creek_level(d + 1.5, c, t) - _creek_level(d - 1.5, c, t)) / 3.0
+
+
+## Whitewater from a stream's steepness: none in the pool, full on the hillside.
+static func _rapids(slope: float) -> float:
+	return smoothstep(0.07, 0.22, slope)
+
+
+## A side stream's surface: rows every 2 m from its spring down to the river,
+## each level across. UV in metres: x across, y downstream; COLOR.r = rapids.
+func _creek_arrays(c: Vector2, t: Trail) -> Dictionary:
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var cols_c := PackedColorArray()
+	var idx := PackedInt32Array()
+	var cols := 6
+	var d_end := _creek_end(c.x, t) + 1.0
+	var rows := 0
+	var d := -50.0
+	while d <= d_end:
+		var half := _creek_half(d) * 1.15
+		var level := _creek_level(d, c, t)
+		var rap := _rapids(_creek_slope(d, c, t))
+		for k in cols + 1:
+			var s := lerpf(-half, half, float(k) / cols)
+			var z := _creek_z(d, c) + s
+			verts.append(Vector3(t.x_at(z) + d, level, z))
+			norms.append(Vector3.UP)
+			uvs.append(Vector2(s, d))
+			cols_c.append(Color(rap, 0.0, 0.0, 1.0))
+		rows += 1
+		d += 2.0 if absf(d) > 12.0 else 1.0
+	for i in rows - 1:
+		for k in cols:
+			var a := i * (cols + 1) + k
+			var b := a + cols + 1
+			idx.append_array([a, b, a + 1, a + 1, b, b + 1])
+	return {"verts": verts, "norms": norms, "uvs": uvs, "colors": cols_c, "idx": idx}
+
+
+## Boulders in a stream's bed: thick where it runs steep (breaking the water
+## into rapids), the odd one in the pool; a few more along the banks.
+func _creek_rocks(c: Vector2, t: Trail, out: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(c.x) * 7 + 3
+	var d := -46.0
+	var end := _creek_end(c.x, t)
+	while d < end:
+		d += rng.randf_range(0.8, 1.8)
+		if absf(d) < 2.0:
+			continue                       # not right under the deck
+		var rap := _rapids(_creek_slope(d, c, t))
+		var half := _creek_half(d)
+		var level := _creek_level(d, c, t)
+		for n in 2:
+			if rng.randf() > 0.06 + 0.55 * rap:
+				continue
+			var u := rng.randf_range(-0.95, 0.95)
+			var z := _creek_z(d, c) + u * half
+			var size := rng.randf_range(0.45, 0.9) + rap * rng.randf_range(0.0, 0.7)
+			var bed := level - CREEK_DEPTH * (1.0 - u * u)
+			flora.add_rock(out, Vector3(t.x_at(z) + d, maxf(bed, level - size * 0.3), z), size, rng)
+		if rng.randf() < 0.18:
+			var side := 1.0 if rng.randf() < 0.5 else -1.0
+			var z := _creek_z(d, c) + side * half * rng.randf_range(1.0, 1.3)
+			var x := t.x_at(z) + d
+			flora.add_rock(out, Vector3(x, height(x, z, t) - 0.1, z), rng.randf_range(0.5, 1.2), rng)
 
 
 ## Vertex/normal/colour arrays for a grid of columns (offsets from the trail centre) × rows.
@@ -431,7 +633,10 @@ func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> 
 				var order := [0, 3, 6] if real_ground else [0, 6, 3]
 				for k in order:
 					verts.append(tri[k]); norms.append(tri[k + 1]); colors.append(tri[k + 2])
-					uvs.append(Vector2(tri[k].x - t.x_at(tri[k].z), 0.0))
+					var lat: float = tri[k].x - t.x_at(tri[k].z)
+					if water and absf(lat) < 3.0 and tri[k].y < t.h_at(tri[k].z) - 0.6:
+						lat = 40.0      # a stream's gully under the trail is field, not path
+					uvs.append(Vector2(lat, 0.0))
 	return {"verts": verts, "norms": norms, "colors": colors, "uvs": uvs}
 
 
@@ -550,6 +755,26 @@ func _finish_chunk(r: Dictionary) -> void:
 		wmi.material_override = _water_material
 		wmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(wmi)
+	if r.has("creek"):
+		var ca := []
+		ca.resize(Mesh.ARRAY_MAX)
+		ca[Mesh.ARRAY_VERTEX] = r.creek.verts
+		ca[Mesh.ARRAY_NORMAL] = r.creek.norms
+		ca[Mesh.ARRAY_TEX_UV] = r.creek.uvs
+		ca[Mesh.ARRAY_COLOR] = r.creek.colors
+		ca[Mesh.ARRAY_INDEX] = r.creek.idx
+		var cmesh := ArrayMesh.new()
+		cmesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, ca)
+		var cmi := MeshInstance3D.new()
+		cmi.mesh = cmesh
+		cmi.material_override = _creek_material
+		cmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(cmi)
+	if r.has("bridge"):
+		var bmi := MeshInstance3D.new()
+		bmi.mesh = BridgeGen.mesh(r.bridge)
+		bmi.material_override = _wood_material
+		root.add_child(bmi)
 	if r.has("flora"):
 		_add_flora(root, r.flora, float(r.z0))
 		add_child(root)

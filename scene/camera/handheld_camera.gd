@@ -82,14 +82,17 @@ func punch(side: float = 1.0) -> void:
 ## First person (the realistic look): the rider's eyes over the bars, looking
 ## down the trail, rolling gently into curves. No sway with the pedal strokes:
 ## Bob found it made him motion sick (2026-11-21).
-func update_fpv(eye: Vector3, look_target: Vector3, cadence: float, lean: float, delta: float) -> void:
+## First person: the eye sits on the bike; `forward` is where the road ahead
+## goes (already averaged over the next stretch by the caller). The view turns
+## toward it slowly and never rolls, so bends and bumps do not rock the screen
+## (Bob, 2026-11-21: the swaying made him motion sick).
+func update_fpv(eye: Vector3, forward: Vector3, delta: float) -> void:
 	if not _initialized:
-		_smooth_pos = look_target
+		_smooth_pos = forward
 		_initialized = true
-	_smooth_pos = _smooth_pos.lerp(look_target, clampf(delta * 2.5, 0.0, 1.0))
+	_smooth_pos = _smooth_pos.lerp(forward, 1.0 - exp(-delta * 1.2)).normalized()
 	global_position = eye
-	look_at(_smooth_pos, Vector3.UP)
+	look_at(eye + _smooth_pos, Vector3.UP)
 	if fpv_yaw != 0.0:
 		global_rotate(Vector3.UP, fpv_yaw)
-	rotate_object_local(Vector3.FORWARD, lean * 0.45)
 

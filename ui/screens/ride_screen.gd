@@ -38,6 +38,8 @@ var _erg_l: Button                 # toggles ERG; reads "ERG on" / "ERG off"
 var _message: Label
 var _state_l: Label
 var _graph: WorkoutGraph
+var _hud_parts: Array[CanvasItem] = []   ## everything H hides: panels, coach, groove, fps
+var _hud_hidden := false
 var _start_btn: Button
 var _conn_l: Label
 var _tuning: TuningPanel
@@ -179,10 +181,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_DOWN, KEY_MINUS, KEY_KP_SUBTRACT: _runner.adjust_bias(-5 if event.shift_pressed else -1)
 		KEY_E: _runner.set_erg(not _runner.erg_enabled)
 		KEY_ESCAPE: _runner.end_early()
-		KEY_H:
-			# Home only when not mid-effort, so a stray key cannot abandon a ride.
-			if _runner.state != WorkoutRunner.State.RUNNING:
-				App.go_to("res://ui/screens/home_screen.tscn")
+		KEY_H: toggle_hud()
 		KEY_F:
 			_runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
 			_scene.time_scale = _runner.time_scale
@@ -406,6 +405,15 @@ func _on_finished(completed: bool) -> void:
 	_block_dur_l.text = ""
 
 
+## H: hide every bit of the HUD to just look at the world; H again brings it back.
+## (The Devices sheet and keyboard shortcuts keep working while it is hidden.)
+func toggle_hud() -> void:
+	_hud_hidden = not _hud_hidden
+	_tuning.visible = false
+	for part in _hud_parts:
+		part.visible = not _hud_hidden and (part != _fps_l or App.show_fps)
+
+
 ## Save a clean scene screenshot (HUD hidden for one frame) beside the ride files.
 func _capture_screenshot(tag: String) -> void:
 	if _recorder == null or _recorder.ride_id == "":
@@ -596,6 +604,7 @@ func _build_ui() -> void:
 	_side.width = 740.0
 	_side.z_index = 20
 	add_child(_side)
+	_hud_parts = [fade, margin, centre, _graph, _fps_l]
 
 
 ## Devices sheet mid-ride (R34): same panel as home; the ride keeps running behind it.

@@ -13,13 +13,23 @@ uniform sampler2D ripples : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform vec3 deep = vec3(0.012, 0.045, 0.05);
 uniform vec3 shallow = vec3(0.62, 0.78, 0.72);   // what the water does to the bed's colour
 uniform float flow = 0.35;
+uniform vec2 flow_dir = vec2(0.0, 1.0);   // which way the ripples run (side streams cross the trail)
+uniform bool rapids_on = false;            // side streams: COLOR.r is whitewater where they run steep
 global uniform vec3 water_sky;   // sky colour for reflections that leave the screen (RealLook, by time of day)
 global uniform vec3 sun_dir;     // toward the sun or moon
 
 varying vec3 wp;
+varying float rap;
 
 void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	rap = rapids_on ? COLOR.r : 0.0;
+	if (rap > 0.0) {
+		// Standing waves: the surface heaves over the rocks.
+		float heave = (vnoise(wp.xz * 1.1) - 0.5) * 0.35 * rap;
+		VERTEX.y += heave;
+		wp.y += heave;
+	}
 }
 
 float scene_dist(vec2 uv, mat4 inv_proj) {
@@ -30,9 +40,10 @@ float scene_dist(vec2 uv, mat4 inv_proj) {
 
 void fragment() {
 	vec2 p = wp.xz;
-	vec3 n1 = texture(ripples, p * 0.07 + vec2(0.0, TIME * flow * 0.07)).xyz * 2.0 - 1.0;
-	vec3 n2 = texture(ripples, p * 0.19 + vec2(TIME * 0.012, TIME * flow * 0.19)).xyz * 2.0 - 1.0;
-	vec3 nw = normalize(vec3((n1.x + n2.x) * 0.16, 1.0, (n1.y + n2.y) * 0.16));
+	float speed = flow * (1.0 + 5.0 * rap);
+	vec3 n1 = texture(ripples, p * 0.07 + flow_dir * TIME * speed * 0.07).xyz * 2.0 - 1.0;
+	vec3 n2 = texture(ripples, p * 0.19 + vec2(flow_dir.y, flow_dir.x) * TIME * 0.012 + flow_dir * TIME * speed * 0.19).xyz * 2.0 - 1.0;
+	vec3 nw = normalize(vec3((n1.x + n2.x) * (0.16 + 0.5 * rap), 1.0, (n1.y + n2.y) * (0.16 + 0.5 * rap)));
 	vec3 nv = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
 	vec3 vdir = normalize(VERTEX);
 	float water_d = -VERTEX.z;
@@ -74,8 +85,16 @@ void fragment() {
 	vec3 col = mix(body, refl, clamp(fres, 0.0, 1.0));
 	vec3 lv = normalize((VIEW_MATRIX * vec4(sun_dir, 0.0)).xyz);
 	col += vec3(1.0, 0.95, 0.85) * pow(max(dot(r, lv), 0.0), 700.0) * 5.0 * smoothstep(-0.05, 0.1, sun_dir.y);
-	float foam = (1.0 - smoothstep(0.0, 0.3, thick)) * (0.4 + 0.6 * vnoise(p * 4.0 + vec2(0.0, TIME * flow)));
-	col = mix(col, vec3(0.8, 0.83, 0.82) * length(water_sky), foam * 0.45);
+	float foam = (1.0 - smoothstep(0.0, 0.3 + 0.35 * rap, thick)) * (0.4 + 0.6 * vnoise(p * 4.0 + flow_dir * TIME * speed));
+	col = mix(col, vec3(0.8, 0.83, 0.82) * length(water_sky), foam * (0.45 + 0.25 * rap));
+	if (rap > 0.0) {
+		// Rapids: white water in streaks racing downstream.
+		vec2 fa = vec2(dot(p, flow_dir), dot(p, vec2(-flow_dir.y, flow_dir.x)));
+		float ww = vnoise(vec2(fa.x * 0.9 - TIME * speed * 2.2, fa.y * 2.5)) * 0.6
+				+ vnoise(vec2(fa.x * 2.7 - TIME * speed * 4.0, fa.y * 6.0)) * 0.4;
+		float white = rap * smoothstep(0.56 - 0.12 * rap, 0.8, ww);
+		col = mix(col, vec3(0.86, 0.9, 0.9) * length(water_sky), white * 0.75);
+	}
 	ALBEDO = col;
 	ALPHA = 1.0;
 }
