@@ -43,7 +43,7 @@ var _endpoint := 0
 
 func _ready() -> void:
 	_http = HTTPRequest.new()
-	_http.timeout = 200.0
+	_http.timeout = 300.0      # busy public servers can queue a request for minutes
 	_http.request_completed.connect(_on_completed)
 	add_child(_http)
 
