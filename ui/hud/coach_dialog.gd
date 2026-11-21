@@ -1,5 +1,5 @@
 class_name CoachDialog
-extends PanelContainer
+extends GlassPanel
 ## Coach notes as a centred dialog box with a portrait on the left, the way
 ## characters talk in Star Fox: text types in, holds, then fades. Uses
 ## assets/images/coach-avatar.png as the portrait when present, else a drawn placeholder.
@@ -18,6 +18,10 @@ var _full_text := ""
 
 
 func _ready() -> void:
+	if HudStyle.glass:
+		_glass_layout()
+		return
+	material = null     # the pixel HUD's box, not glass
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = HudStyle.PANEL
 	sb.corner_detail = 1
@@ -34,25 +38,41 @@ func _ready() -> void:
 	sb.border_color = Color(HudStyle.CYAN, 0.7)
 	add_theme_stylebox_override("panel", sb)
 	custom_minimum_size = Vector2(880, 0)
+	_layout(150, 30)
+
+
+## Glass mode: the HUD's glass with room around the text, a smaller portrait.
+func _glass_layout() -> void:
+	var sb := StyleBoxEmpty.new()
+	sb.content_margin_left = 16
+	sb.content_margin_right = 28
+	sb.content_margin_top = 16
+	sb.content_margin_bottom = 16
+	add_theme_stylebox_override("panel", sb)
+	custom_minimum_size = Vector2(840, 0)
+	_layout(112, 28)
+
+
+func _layout(portrait: int, text_size: int) -> void:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 20)
 	add_child(h)
 	if ResourceLoader.exists(PORTRAIT_PATH):
 		var tr := TextureRect.new()
 		tr.texture = load(PORTRAIT_PATH)
-		tr.custom_minimum_size = Vector2(150, 150)
+		tr.custom_minimum_size = Vector2(portrait, portrait)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		_portrait = tr
 	else:
 		_portrait = CoachPortrait.new()
-		_portrait.custom_minimum_size = Vector2(150, 150)
+		_portrait.custom_minimum_size = Vector2(portrait, portrait)
 	h.add_child(_portrait)
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_child(v)
-	label = HudStyle.label(v, "", 30, 700)
+	label = HudStyle.label(v, "", text_size, 600 if HudStyle.glass else 700)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING

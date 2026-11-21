@@ -82,6 +82,7 @@ const PAUSE_NOTE := "Paused. Pedal to carry on."
 
 
 func _ready() -> void:
+	HudStyle.glass = true   # the ride HUD's own look: glass panels, DM Sans, line icons
 	_build_ui()
 	_runner = WorkoutRunner.new()
 	_runner.name = "WorkoutRunner"
@@ -303,11 +304,11 @@ func _on_segment(i: int, s: WorkoutSegment) -> void:
 	if _scene.horde and _prev_segment_kind == WorkoutSegment.Kind.INTERVAL_ON and s.kind != WorkoutSegment.Kind.INTERVAL_ON:
 		_scene.horde.drop_pickup(_scene.distance)
 	_prev_segment_kind = s.kind
-	_block_name_l.text = _block_title(s)
-	_block_dur_l.text = "FOR %s" % HudStyle.duration(s.duration)
+	_block_name_l.text = HudStyle.caps(_block_title(s))
+	_block_dur_l.text = HudStyle.caps("FOR %s" % HudStyle.duration(s.duration))
 	_segment.text = s.label() + ("  ·  %d rpm" % s.cadence if s.cadence > 0 else "")
 	_cadence_target = s.cadence
-	_block_rpm_l.text = "AT %d RPM" % s.cadence if s.cadence > 0 else ""
+	_block_rpm_l.text = HudStyle.caps("AT %d RPM" % s.cadence) if s.cadence > 0 else ""
 	_block_rpm_l.visible = s.cadence > 0
 	_cadence_l.add_theme_color_override("font_color", HudStyle.cadence_color(_cadence, _cadence_target))
 	if _trainer is SimulatedTrainer:
@@ -371,11 +372,13 @@ func _on_state(s: WorkoutRunner.State) -> void:
 		WorkoutRunner.State.READY: "Start",
 		WorkoutRunner.State.RUNNING: "Pause",
 		WorkoutRunner.State.PAUSED: "Resume",
-	}.get(s, "Done").to_upper()
+	}.get(s, "Done")
+	if not HudStyle.glass:
+		_start_btn.text = _start_btn.text.to_upper()
 
 
 func _on_erg(enabled: bool) -> void:
-	_erg_l.text = "ERG ON" if enabled else "ERG OFF"
+	_erg_l.text = ("ERG on" if enabled else "ERG off") if HudStyle.glass else ("ERG ON" if enabled else "ERG OFF")
 	if _trainer:
 		if enabled:
 			_trainer.set_target_power(_runner.current_target)
@@ -399,7 +402,7 @@ func _on_finished(completed: bool) -> void:
 	_coach.say("%s  ·  avg %d W  ·  %d kJ" % [
 		"Workout complete" if completed else "Ended early", avg, int(_total_kj)], 0.0)
 	_start_btn.disabled = true
-	_block_name_l.text = "DONE"
+	_block_name_l.text = HudStyle.caps("DONE")
 	_block_dur_l.text = ""
 
 
@@ -698,7 +701,7 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	bv.alignment = BoxContainer.ALIGNMENT_CENTER
 	bv.add_theme_constant_override("separation", 0)
 	block.add_child(bv)
-	_block_name_l = HudStyle.label(bv, "READY", 20, 700)
+	_block_name_l = HudStyle.label(bv, HudStyle.caps("READY"), 20, 700)
 	_block_name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_target = HudStyle.label(bv, "—", 44, 900)
 	_target.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -780,7 +783,7 @@ func _metric(parent: Control, value: String, unit: String, icon_name := "", icon
 	var val := HudStyle.label(h, value, 40, 900)
 	if slot:
 		_sit_on_baseline(slot, val)
-	var u := HudStyle.label(h, unit, 17, 700, HudStyle.TEXT_DIM)
+	var u := HudStyle.label(h, HudStyle.unit(unit), 17, 700, HudStyle.TEXT_DIM)
 	HudStyle.share_baseline(h, val, u)
 	return val
 
@@ -818,3 +821,8 @@ func _button(parent: Control, text: String, on_pressed: Callable) -> Button:
 	b.pressed.connect(on_pressed)
 	parent.add_child(b)
 	return b
+
+
+func _exit_tree() -> void:
+	HudStyle.glass = false   # menus and the home screen keep their own look
+

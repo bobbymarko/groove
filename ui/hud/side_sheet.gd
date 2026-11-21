@@ -24,8 +24,10 @@ func _ready() -> void:
 			close())
 	add_child(_scrim)
 	_panel = HudStyle.panel(self, Color(0.004, 0.09, 0.2, 0.98), 0, 22, false)
-	_panel.get_theme_stylebox("panel").border_width_left = 1
-	_panel.get_theme_stylebox("panel").border_color = HudStyle.BORDER
+	var sb := _panel.get_theme_stylebox("panel")
+	if sb is StyleBoxFlat:          # glass panels (the ride HUD) draw their own rim
+		sb.border_width_left = 1
+		sb.border_color = HudStyle.BORDER
 	_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
 	_panel.custom_minimum_size.x = width
 	_panel.offset_top = 0.0

@@ -13,4 +13,5 @@ The pixel art (wordmark, coach portrait, icon sprite sheet, menu background) is 
 - Departure Mono by Helena Zhang — SIL Open Font License 1.1. https://departuremono.com
 - Pixel Operator by Jayvee Enaguas — CC0 1.0. https://www.dafont.com/pixel-operator.font
 - Outfit by The Outfit Project Authors — SIL Open Font License 1.1. Camp's interface font. https://github.com/Outfitio/Outfit-Fonts
+- DM Sans by The DM Sans Project Authors — SIL Open Font License 1.1 (assets/fonts/DMSans-LICENSE.txt). The ride HUD's font. https://github.com/googlefonts/dm-fonts
 - Quaternius, Universal Base Characters (Superhero male, Standard tier) — CC0 1.0. The rider. https://quaternius.com

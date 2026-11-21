@@ -5,6 +5,7 @@ extends RefCounted
 
 # Type (Design.md): Pixel Operator for display sizes, Departure Mono for UI text.
 const FONT_UI := "res://assets/fonts/DepartureMono-Regular.otf"
+const FONT_SANS := "res://assets/fonts/DMSans-Variable.ttf"   ## glass mode (SIL OFL)
 const FONT_DISPLAY := "res://assets/fonts/PixelOperator.ttf"
 const FONT_DISPLAY_BOLD := "res://assets/fonts/PixelOperator-Bold.ttf"
 const DISPLAY_FROM := 20        # labels this size and up use the display face
@@ -77,9 +78,16 @@ const RADIUS := 6   # the size of the corner step
 
 static var _fonts: Dictionary = {}
 
+## Glass mode (the ride HUD on the graphics branch): DM Sans at real weights,
+## "liquid glass" panels, pill buttons, line icons, sentence case. The ride
+## screen turns it on while it builds and keeps it until it leaves.
+static var glass := false
+
 
 ## UI face for everything small; display face (bold at 700+) from DISPLAY_FROM up.
 static func font(weight: int = 500, size: int = 0) -> Font:
+	if glass:
+		return _sans(weight)
 	var path := FONT_UI
 	if size >= DISPLAY_FROM:
 		path = FONT_DISPLAY_BOLD if weight >= 700 else FONT_DISPLAY
@@ -99,13 +107,41 @@ const UI_FLOOR := 22
 const DISPLAY_FLOOR := 32
 
 static func snap_size(size: int) -> int:
+	if glass:
+		return size
 	if size < DISPLAY_FROM:
 		return maxi(UI_FLOOR, int(ceil(size / 11.0)) * 11)
 	return maxi(DISPLAY_FLOOR, int(ceil(size / 16.0)) * 16)
 
 
-## Icon texture: a cell of the sprite sheet, or the SVG of that name.
+## DM Sans at a weight (the variable font's wght axis), smooth and subpixel-placed.
+static func _sans(weight: int) -> Font:
+	var key := "sans:%d" % weight
+	if not _fonts.has(key):
+		var fv := FontVariation.new()
+		fv.base_font = load(FONT_SANS)
+		fv.variation_opentype = {"wght": clampi(weight, 300, 800), "opsz": 14}
+		_fonts[key] = fv
+	return _fonts[key]
+
+
+## Sentence case in glass mode ("REP 2 OF 6" -> "Rep 2 of 6"); unchanged otherwise.
+static func caps(text: String) -> String:
+	if not glass or text.is_empty():
+		return text
+	return text.substr(0, 1).to_upper() + text.substr(1).to_lower()
+
+
+## Units read lower case in glass mode ("KM/H" -> "km/h").
+static func unit(text: String) -> String:
+	return text.to_lower() if glass and text != "ET" else text
+
+
+## Icon texture: a cell of the sprite sheet, or the SVG of that name (the line
+## set in glass mode, when it has one).
 static func icon_texture(icon_name: String) -> Texture2D:
+	if glass and ResourceLoader.exists("res://assets/icons/line/%s.svg" % icon_name):
+		return load("res://assets/icons/line/%s.svg" % icon_name)
 	if SPRITES.has(icon_name):
 		if _sheet == null:
 			_sheet = load(SPRITE_SHEET)
@@ -127,7 +163,7 @@ static func label(parent: Control, text: String, size: int, weight: int = 500, c
 	l.add_theme_font_override("font", font(weight, size))
 	l.add_theme_font_size_override("font_size", size)
 	# Pixel faces carry generous line height; pull wrapped lines together a little.
-	l.add_theme_constant_override("line_spacing", -4 if size >= DISPLAY_FROM else -3)
+	l.add_theme_constant_override("line_spacing", 0 if glass else (-4 if size >= DISPLAY_FROM else -3))
 	l.add_theme_color_override("font_color", color)
 	parent.add_child(l)
 	return l
@@ -156,6 +192,10 @@ static func share_baseline(row: BoxContainer, big: Label, small: Label) -> void:
 
 
 static func panel(parent: Control, color := PANEL, radius := RADIUS, pad := 12, border := true) -> PanelContainer:
+	if glass:
+		var g := GlassPanel.new(Color(color.r, color.g, color.b, clampf(color.a * 0.45, 0.18, 0.5)), 24.0 if radius >= RADIUS else 16.0, pad + 4)
+		parent.add_child(g)
+		return g
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = color
@@ -195,7 +235,7 @@ static func bar(parent: Control, height := 12, radius := 6, fg := BAR_FG) -> Pro
 ## ink text), "secondary" (cyan outline). Button text is uppercase per Design.md.
 static func button(parent: Control, text: String, size: int, on_pressed: Callable, kind := "ghost") -> Button:
 	var b := Button.new()
-	b.text = text.to_upper()
+	b.text = text if glass else text.to_upper()
 	b.focus_mode = Control.FOCUS_NONE   # keys go to the screen's shortcuts, never to a lingering focused button
 	b.add_theme_font_override("font", font(700, size))
 	b.add_theme_font_size_override("font_size", snap_size(size))
@@ -206,6 +246,9 @@ static func button(parent: Control, text: String, size: int, on_pressed: Callabl
 
 
 static func style_button(b: Button, kind := "ghost", pad_x := 14, pad_y := 7) -> void:
+	if glass:
+		_glass_button(b, kind, pad_x + 6, pad_y + 2)
+		return
 	match kind:
 		"primary":
 			b.add_theme_stylebox_override("normal", flat(CYAN, RADIUS, pad_x, pad_y))
@@ -232,6 +275,36 @@ static func style_button(b: Button, kind := "ghost", pad_x := 14, pad_y := 7) ->
 				b.add_theme_color_override(st, TEXT)
 			b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.35))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+## Frosted pill buttons: white glass, a brighter rim, cyan glass for primary.
+static func _glass_button(b: Button, kind: String, pad_x: int, pad_y: int) -> void:
+	var base := Color(CYAN, 0.8) if kind == "primary" else Color(1, 1, 1, 0.14)
+	var rim := Color(1, 1, 1, 0.45) if kind == "primary" else Color(1, 1, 1, 0.3)
+	b.add_theme_stylebox_override("normal", _pill(base, rim, pad_x, pad_y))
+	b.add_theme_stylebox_override("hover", _pill(Color(base, base.a + 0.1).lightened(0.1), rim, pad_x, pad_y))
+	b.add_theme_stylebox_override("pressed", _pill(Color(base, base.a + 0.18), Color(1, 1, 1, 0.6), pad_x, pad_y))
+	b.add_theme_stylebox_override("disabled", _pill(Color(base, base.a * 0.4), Color(rim, rim.a * 0.4), pad_x, pad_y))
+	var text := INK_TEXT if kind == "primary" else TEXT
+	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(st, text)
+	b.add_theme_color_override("font_disabled_color", Color(text, 0.45))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+static func _pill(fill: Color, rim: Color, pad_x: int, pad_y: int) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fill
+	sb.set_corner_radius_all(999)
+	sb.corner_detail = 12
+	sb.anti_aliasing = true
+	sb.set_border_width_all(1)
+	sb.border_color = rim
+	sb.content_margin_left = pad_x
+	sb.content_margin_right = pad_x
+	sb.content_margin_top = pad_y
+	sb.content_margin_bottom = pad_y
+	return sb
 
 
 ## Icon-only button (24-unit SVG from assets/icons), tinted ice.
@@ -314,6 +387,11 @@ static func section_label(parent: Control, text: String, size := 12, color := CY
 
 ## Corners are a single 45° step (corner_detail 1), not a curve: blocky like the type.
 static func pixel_corners(sb: StyleBoxFlat, radius: int) -> void:
+	if glass:
+		sb.set_corner_radius_all(radius * 3)
+		sb.corner_detail = 8
+		sb.anti_aliasing = true
+		return
 	sb.set_corner_radius_all(radius)
 	sb.corner_detail = 1
 	sb.anti_aliasing = false
