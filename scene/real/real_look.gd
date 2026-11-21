@@ -51,6 +51,9 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	env.glow_bloom = 0.05
 	env.glow_hdr_threshold = 1.2
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	env.ssr_max_steps = 48
+	env.ssr_fade_in = 0.1
+	env.ssr_fade_out = 2.0
 	env.ssao_enabled = true
 	env.ssao_radius = 1.2
 	env.ssao_intensity = 1.6
@@ -125,9 +128,9 @@ func apply_daylight(st: Dictionary, rain: float) -> void:
 	sky_mat.set_shader_parameter("stars", clampf(1.0 - daylight * 1.5, 0.0, 1.0) * (1.0 - rain))
 	var illum := Vector3.ONE * (0.012 if night else 1.0)
 	sky_mat.set_shader_parameter("light_illum", illum)
-	sky_mat.set_shader_parameter("coverage", lerpf(float(_preset.get("real_clouds", 0.5)), 0.95, rain))
+	sky_mat.set_shader_parameter("coverage", lerpf(float(_preset.get("real_clouds", 0.5)), 1.0, rain))
 	sky_mat.set_shader_parameter("cloud_type", lerpf(1.0, 0.25, rain))
-	sky_mat.set_shader_parameter("cloud_density", lerpf(0.19, 0.5, rain))
+	sky_mat.set_shader_parameter("cloud_density", lerpf(0.19, 0.8, rain))
 	sky_mat.set_shader_parameter("haze", 0.78 + 2.0 * rain)
 	# The light's own colour comes from the air it crosses: warm and weak near the horizon.
 	var elev := deg_to_rad(maxf(float(st.elev), 0.5))
@@ -145,7 +148,9 @@ func apply_daylight(st: Dictionary, rain: float) -> void:
 
 
 ## Every frame: where the eye is, how far the clouds have drifted, the TAA jitter.
-func update(cam_pos: Vector3, delta: float) -> void:
+func update(cam_pos: Vector3, delta: float, wet := 0.0) -> void:
+	# Puddles reflect: screen-space reflections only while the ground is wet.
+	env.ssr_enabled = wet > 0.08
 	_wind += Vector3(1.0, 0.0, 0.35).normalized() * WIND_KMPS * delta
 	_frame = (_frame + 1) % 64
 	sky_mat.set_shader_parameter("cam_km", Vector3(cam_pos.x / 1000.0, 0.25 + cam_pos.y / 1000.0, cam_pos.z / 1000.0))

@@ -3,6 +3,7 @@
 // The phase comes from where the plant stands, so neighbours move out of step.
 // After Abyssal Garden (MIT, Noniv/abyssal-garden).
 uniform float wind_strength = 1.0;
+global uniform float rain_wet;   // 0 dry .. 1 soaked, eased by RealRain
 
 vec3 wind_offset(vec3 origin, float h, float flutter, float t) {
 	float ph = dot(origin.xz, vec2(0.31, 0.17));

@@ -33,6 +33,7 @@ var dust: WheelDust
 var horde: Horde                 ## only in presets with "zombies": true
 var effort := 0.5                ## current target as a fraction of FTP (drives the horde)
 var rain: Rain
+var real_rain: RealRain          ## the realistic look's rain (the pixel streaks stay off)
 var rain_override := -1.0        ## tooling: fixed rain intensity
 var _rain := 0.0                 ## current rain intensity 0..1, eased toward the schedule
 var time_mode := "live"          ## Daylight.MODES key; "live" follows the clock at 4x
@@ -170,6 +171,9 @@ func _ready() -> void:
 		camera.add_child(_lamp)
 	rain = Rain.new()
 	_world.add_child(rain)
+	if real:
+		real_rain = RealRain.new()
+		_world.add_child(real_rain)
 
 	clip_contents = true   # the presentation overhangs by PIXEL_MARGIN texels on every side
 	_screen = TextureRect.new()
@@ -281,7 +285,11 @@ func _apply_daylight() -> void:
 		st.fog = (st.fog as Color).lerp(grey, 0.6 * _rain)
 		st.tint = (st.tint as Color).lerp(grey, 0.5 * _rain)
 		st.shadow_mult = float(st.shadow_mult) * (1.0 - 0.6 * _rain)
-	rain.set_intensity(_rain)
+	if real_rain:
+		real_rain.set_intensity(_rain)
+		real_rain.set_light(float(st.daylight) * (1.0 - 0.4 * _rain))
+	else:
+		rain.set_intensity(_rain)
 	rider.set_headlight(1.0 - float(st.daylight))
 	if _lamp:
 		var k := clampf((1.0 - float(st.daylight)) * 1.4, 0.0, 1.0)
@@ -464,7 +472,8 @@ func _process(raw_delta: float) -> void:
 			_layout_screen()
 	snow.follow(camera.global_position)
 	if real:
-		real.update(camera.global_position, raw_delta)
+		real_rain.follow(camera, raw_delta)
+		real.update(camera.global_position, raw_delta, real_rain.wetness())
 	rain.follow(camera.global_position)
 	backdrop.follow(rider.global_position)
 	_rain = move_toward(_rain, _rain_target(), raw_delta / 25.0)   # showers arrive and pass over ~25 s

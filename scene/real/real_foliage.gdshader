@@ -42,7 +42,8 @@ void fragment() {
 	ALBEDO = alb * mix(0.3, 1.0, ao);
 	AO = ao;
 	AO_LIGHT_AFFECT = 0.5;
-	ROUGHNESS = mix(0.72, 0.6, s);
+	ALBEDO *= mix(1.0, 0.82, rain_wet);
+	ROUGHNESS = mix(mix(0.72, 0.6, s), 0.32, rain_wet);
 	SPECULAR = 0.35;
 	BACKLIGHT = alb * translucency * (1.0 - s) * mix(0.4, 1.0, ao);
 }

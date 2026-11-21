@@ -27,7 +27,8 @@ void fragment() {
 	float s = snow * smoothstep(0.45, 0.85, wn.y);
 	alb = mix(alb, vec3(0.88, 0.9, 0.95), s);
 	ALBEDO = alb * mix(0.35, 1.0, COLOR.a);
-	ROUGHNESS = 0.92;
+	ALBEDO *= mix(1.0, 0.62, rain_wet);
+	ROUGHNESS = mix(0.92, 0.4, rain_wet);
 	SPECULAR = 0.25;
 	NORMAL_MAP = normalize(vec3(0.5 + (furrow - 0.5) * 0.6, 0.5, 1.0));
 	NORMAL_MAP_DEPTH = 1.5;

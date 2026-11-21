@@ -27,7 +27,8 @@ void fragment() {
 	alb = mix(alb, moss * (0.7 + 0.6 * n2), moss_amount * up * smoothstep(0.4, 0.6, n1));
 	alb = mix(alb, vec3(0.88, 0.9, 0.95), snow * smoothstep(0.35, 0.7, wn.y + (n2 - 0.5) * 0.4));
 	ALBEDO = alb * mix(0.3, 1.0, COLOR.a);
-	ROUGHNESS = 0.85;
+	ALBEDO *= mix(1.0, 0.65, rain_wet);
+	ROUGHNESS = mix(0.85, 0.25, rain_wet);
 	SPECULAR = 0.3;
 	NORMAL_MAP = normalize(vec3(0.5 + (n2 - 0.5) * 0.5, 0.5 + (n1 - 0.5) * 0.3, 1.0));
 	NORMAL_MAP_DEPTH = 2.0;

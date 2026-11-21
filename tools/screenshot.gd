@@ -69,6 +69,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				rs.debug_material = opt
 		scene = rs
 		root.add_child(scene)
+		if rs.real_rain and rs.rain_override >= 0.0:
+			rs.real_rain.soak(rs.rain_override)
 		if OS.get_cmdline_user_args().has("nofilter"):
 			rs.set_look_mode("off")
 		for a in OS.get_cmdline_user_args():
