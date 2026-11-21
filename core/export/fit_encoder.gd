@@ -17,6 +17,10 @@ const T_UINT8 := 0x02
 const T_UINT16 := 0x84
 const T_UINT32 := 0x86
 const T_UINT32Z := 0x8C
+const T_SINT32 := 0x85
+## A record with position and altitude (route rides, R41): message 20 again,
+## under its own local number and field layout.
+const RECORD_GPS := 1020
 
 # Global message numbers
 const MSG_FILE_ID := 0
@@ -42,6 +46,7 @@ const FIELDS := {
 	MSG_DEVICE_INFO: [[253, 4, T_UINT32], [0, 1, T_UINT8], [2, 2, T_UINT16], [4, 2, T_UINT16], [3, 4, T_UINT32Z], [5, 2, T_UINT16]],
 	MSG_EVENT: [[253, 4, T_UINT32], [0, 1, T_ENUM], [1, 1, T_ENUM], [4, 1, T_UINT8]],
 	MSG_RECORD: [[253, 4, T_UINT32], [7, 2, T_UINT16], [4, 1, T_UINT8], [3, 1, T_UINT8], [6, 2, T_UINT16], [5, 4, T_UINT32]],
+	RECORD_GPS: [[253, 4, T_UINT32], [0, 4, T_SINT32], [1, 4, T_SINT32], [2, 2, T_UINT16], [7, 2, T_UINT16], [4, 1, T_UINT8], [3, 1, T_UINT8], [6, 2, T_UINT16], [5, 4, T_UINT32]],
 	MSG_LAP: [[254, 2, T_UINT16], [253, 4, T_UINT32], [0, 1, T_ENUM], [1, 1, T_ENUM], [2, 4, T_UINT32],
 		[7, 4, T_UINT32], [8, 4, T_UINT32], [9, 4, T_UINT32], [15, 1, T_UINT8], [16, 1, T_UINT8],
 		[17, 1, T_UINT8], [19, 2, T_UINT16], [20, 2, T_UINT16], [24, 1, T_ENUM], [25, 1, T_ENUM]],
@@ -52,7 +57,7 @@ const FIELDS := {
 		[35, 2, T_UINT16], [36, 2, T_UINT16], [101, 2, T_UINT16]],
 	MSG_ACTIVITY: [[253, 4, T_UINT32], [0, 4, T_UINT32], [1, 2, T_UINT16], [2, 1, T_ENUM], [3, 1, T_ENUM], [4, 1, T_ENUM], [5, 4, T_UINT32]],
 }
-const LOCAL := {MSG_FILE_ID: 0, MSG_FILE_CREATOR: 1, MSG_DEVICE_INFO: 2, MSG_EVENT: 3, MSG_RECORD: 4, MSG_LAP: 5, MSG_SESSION: 6, MSG_ACTIVITY: 7}
+const LOCAL := {MSG_FILE_ID: 0, MSG_FILE_CREATOR: 1, MSG_DEVICE_INFO: 2, MSG_EVENT: 3, MSG_RECORD: 4, MSG_LAP: 5, MSG_SESSION: 6, MSG_ACTIVITY: 7, RECORD_GPS: 8}
 
 
 static func fit_time(unix: int) -> int:
@@ -79,7 +84,22 @@ static func encode(meta: Dictionary, samples: Array, metrics: Dictionary, virtua
 	var dist_m := 0.0
 	for s in samples:
 		dist_m += float(s.get("v", 0.0)) / 3.6
+		if s.has("d"):
+			dist_m = float(s.d)      # a route ride: distance along the real route
 		var hr := int(s.get("h", 0))
+		if s.has("lat"):
+			_msg(b, defined, RECORD_GPS, [
+				fit_time(int(s.t)),
+				semicircles(float(s.lat)),
+				semicircles(float(s.lon)),
+				int(round((float(s.get("alt", 0.0)) + 500.0) * 5.0)),
+				int(s.get("p", 0)),
+				int(s.get("c", 0)),
+				hr if hr > 0 else 0xFF,
+				int(round(float(s.get("v", 0.0)) / 3.6 * 1000.0)),
+				int(round(dist_m * 100.0)),
+			])
+			continue
 		_msg(b, defined, MSG_RECORD, [
 			fit_time(int(s.t)),
 			int(s.get("p", 0)),
@@ -140,7 +160,7 @@ static func _msg(b: StreamPeerBuffer, defined: Dictionary, global_num: int, valu
 		b.put_u8(0x40 | local)
 		b.put_u8(0)            # reserved
 		b.put_u8(0)            # little endian
-		b.put_u16(global_num)
+		b.put_u16(MSG_RECORD if global_num == RECORD_GPS else global_num)
 		b.put_u8(fields.size())
 		for f in fields:
 			b.put_u8(f[0])
@@ -153,6 +173,11 @@ static func _msg(b: StreamPeerBuffer, defined: Dictionary, global_num: int, valu
 			1: b.put_u8(clampi(v, 0, 0xFF))
 			2: b.put_u16(clampi(v, 0, 0xFFFF))
 			4: b.put_u32(v & 0xFFFFFFFF)
+
+
+## Degrees to FIT semicircles (2^31 per 180°).
+static func semicircles(deg: float) -> int:
+	return int(round(deg * 2147483648.0 / 180.0))
 
 
 static func crc16(data: PackedByteArray) -> int:

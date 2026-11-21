@@ -103,6 +103,11 @@ func _on_tick(snap: Dictionary) -> void:
 		record_sample(snap.elapsed, int(Time.get_unix_time_from_system()))
 
 
+## Route rides (R41): func() -> {lat, lon, alt, d} for where the rider is on
+## the real route, added to every sample (the FIT then carries the map).
+var position_fn: Callable
+
+
 ## Append one sample. Public so tests can drive it without a runner.
 func record_sample(elapsed: float, now_unix: int) -> Dictionary:
 	var s := {
@@ -112,6 +117,10 @@ func record_sample(elapsed: float, now_unix: int) -> Dictionary:
 	}
 	if _cadence_target > 0:
 		s["ct"] = _cadence_target
+	if position_fn.is_valid():
+		var pos: Dictionary = position_fn.call()
+		for k in pos:
+			s[k] = pos[k]
 	samples.append(s)
 	if _file:
 		_file.store_line(JSON.stringify({"s": s}))

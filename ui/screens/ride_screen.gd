@@ -108,6 +108,12 @@ func _ready() -> void:
 	_recorder.name = "RideRecorder"
 	add_child(_recorder)
 	_recorder.attach_runner(_runner)
+	if App.route != null:
+		var r := App.route
+		_recorder.position_fn = func() -> Dictionary:
+			var d := clampf(_scene.distance - _scene.route_start, 0.0, r.length)
+			var ll := r.latlon_at(d)
+			return {"lat": snappedf(ll.x, 0.0000001), "lon": snappedf(ll.y, 0.0000001), "alt": snappedf(r.ele_at(d), 0.1), "d": snappedf(d, 0.1)}
 
 	_bind_trainer(Devices.trainer)
 	_bind_heart_rate(Devices.heart_rate)

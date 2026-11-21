@@ -74,3 +74,24 @@ func test_indoor_flag() -> void:
 	var samples := _ride(5)
 	var d := FitReader.read(FitEncoder.encode({"started_at": 1756800000, "ftp": 200}, samples, RideMetrics.compute(samples, 200), false))
 	assert_eq(FitReader.of_type(d, FitEncoder.MSG_SESSION)[0][6], 6)
+
+
+func test_route_rides_carry_position_altitude_and_route_distance() -> void:
+	var samples := _ride(30)
+	for i in samples.size():
+		samples[i]["lat"] = 45.0 + i * 0.0001
+		samples[i]["lon"] = 7.0
+		samples[i]["alt"] = 120.0 + i
+		samples[i]["d"] = i * 11.0
+	var d := FitReader.read(FitEncoder.encode({"started_at": 1756800000, "ftp": 250}, samples, RideMetrics.compute(samples, 250), true))
+	assert_true(d.crc_ok)
+	var recs := FitReader.of_type(d, FitEncoder.MSG_RECORD)
+	assert_eq(recs.size(), 30)
+	var r: Dictionary = recs[10]
+	assert_eq(r[0], FitEncoder.semicircles(45.001))            # position_lat
+	assert_eq(r[1], FitEncoder.semicircles(7.0))               # position_long
+	assert_eq(r[2], int(round((130.0 + 500.0) * 5.0)))         # altitude, scale 5 offset 500
+	assert_eq(r[5], 11000)                                     # distance from the route (cm)
+	assert_eq(r[7], samples[10].p)
+	var session: Dictionary = FitReader.of_type(d, FitEncoder.MSG_SESSION)[0]
+	assert_eq(session[9], 31900)                               # total distance = the route distance ridden

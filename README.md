@@ -23,6 +23,7 @@ A Windows x86_64 zip is on the same page: unzip, run `Groove.exe` with the `.pck
 - Controls a Bluetooth FTMS trainer (tested on a Wahoo KICKR CORE) and reads a heart-rate strap, reconnecting after dropouts.
 - Ride HUD with the plan drawn as a single coloured "groove", live metrics, a coach who reads the workout's text cues, and keyboard shortcuts.
 - A procedural world with seven scenes (Winter, Summer, Autumn, Spring, Desert, Birchwood, and an Apocalypse where zombies come for you on the hard reps), a day/night cycle that runs at four times real time, weather, tyre marks and dust.
+- Imports GPX routes and rides them in the realistic look: a free ride where the trainer follows the real grade (hill feel adjustable, 50 % by default), or any workout on the route's hills. The scenery along the way (woods, fields, scrub, desert, snow, lakes and rivers) comes from OpenStreetMap land cover, looked up once at import, and the season of the day you ride.
 - Records rides to FIT with power, cadence, heart rate and speed; summary with NP, IF, TSS, kcal and pizza slices; sharing to intervals.icu and Strava with a confirmation step; screenshots saved for manual posting.
 
 ## Running it
@@ -54,6 +55,7 @@ Manual hardware test procedures are in `tests/manual.md`.
 ## Assets and licences
 - Quaternius Stylized Nature MegaKit and Ultimate Nature Pack: CC0.
 - "Animated Zombie" by Quaternius (via Poly Pizza): CC BY 3.0, attribution required and given here.
+- Route scenery: map data © OpenStreetMap contributors, available under the Open Database Licence (openstreetmap.org/copyright), fetched through the public Overpass API.
 - Fonts: Departure Mono, Outfit and DM Sans (SIL Open Font License), and Pixel Operator (CC0).
 - Icon sprite sheet, wordmark, coach portrait and menu background are Bob's.
 - Rider: Quaternius Universal Base Characters (Superhero male), CC0, imported with `tools/import_character.py`.
