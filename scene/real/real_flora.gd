@@ -40,7 +40,10 @@ const BIOMES := {
 
 const GRASS_REACH := 22.0        ## metres either side of the trail that get grass
 const GRASS_VISIBLE := 65.0      ## grass stops drawing past this (fog hides the edge)
-const TREE_DETAIL_RANGE := 70.0  ## trees switch to their distant version past this
+const TREE_DETAIL_RANGE := 80.0  ## each tree crossfades to its distant version around here (in the shaders)
+const TREE_FADE := 20.0
+const TREE_FAR := 300.0          ## and dithers away by here; new chunks are built further out
+const SMALL_FAR := 180.0         ## bushes and rocks
 
 static var _cache: Dictionary = {}   # biome id -> RealFlora
 
@@ -100,31 +103,72 @@ func _build(id: String) -> void:
 	rock_mat.shader = load("res://scene/real/real_rock.gdshader")
 	rock_mat.set_shader_parameter("snow", snow)
 	rock_mat.set_shader_parameter("moss_amount", float(biome.get("moss", 0.0)))
+	# Trees fade out at TREE_FAR; their close-up materials hand over at TREE_DETAIL_RANGE.
+	for m: ShaderMaterial in [needle_mat, leaf_mat, bark_mat, birch_mat]:
+		var near := m.duplicate() as ShaderMaterial
+		_lod(near, 0, TREE_FAR)
+		_tree_near[m] = near
+	_lod(rock_mat, 2, SMALL_FAR)
 	var bark_col: Color = biome.get("bark", Color(0.26, 0.21, 0.16))
 	var birch := bool(biome.get("birch", false))
 	if float(biome.trees) > 0.0:
 		if float(biome.spruce) > 0.0:
 			for i in 4:
-				_add(PlantGen.spruce(100 + i, bark_mat, needle_mat, biome.needle), "spruce",
-						PlantGen.spruce(100 + i, bark_mat, needle_mat, biome.needle, 0.4))
+				_add(PlantGen.spruce(100 + i, _near(bark_mat), _near(needle_mat), biome.needle), "spruce",
+						PlantGen.spruce(100 + i, _far(bark_mat), _far(needle_mat), biome.needle, 0.55))
 		if float(biome.broad) > 0.0:
 			var cols: Array = biome.get("leaves", [Color(0.12, 0.24, 0.05)])
 			for i in 4:
-				_add(PlantGen.broadleaf(200 + i, birch_mat if birch else bark_mat, leaf_mat, cols[i % cols.size()], bark_col, birch), "broad",
-						PlantGen.broadleaf(200 + i, birch_mat if birch else bark_mat, leaf_mat, cols[i % cols.size()], bark_col, birch, false, 0.35))
+				_add(PlantGen.broadleaf(200 + i, _near(birch_mat if birch else bark_mat), _near(leaf_mat), cols[i % cols.size()], bark_col, birch), "broad",
+						PlantGen.broadleaf(200 + i, _far(birch_mat if birch else bark_mat), _far(leaf_mat), cols[i % cols.size()], bark_col, birch, false, 0.35))
 		if float(biome.bare) > 0.0:
 			for i in 2:
-				_add(PlantGen.broadleaf(300 + i, bark_mat, leaf_mat, Color.BLACK, bark_col.darkened(0.2), false, true), "bare")
+				_add(PlantGen.broadleaf(300 + i, _single(bark_mat, TREE_FAR), leaf_mat, Color.BLACK, bark_col.darkened(0.2), false, true), "bare")
 	if float(biome.bush) > 0.0:
 		var bc: Color = biome.get("bush_leaves", biome.get("leaves", [Color(0.12, 0.22, 0.05)])[0])
 		for i in 3:
-			_add(PlantGen.bush(400 + i, bark_mat, leaf_mat, bc), "bush")
+			_add(PlantGen.bush(400 + i, _single(bark_mat, SMALL_FAR), _single(leaf_mat, SMALL_FAR), bc), "bush")
 	for i in 3:
 		_add(PlantGen.grass(500 + i, grass_mat, biome.grass, float(biome.grass_h), int(biome.grass_blades)), "grass")
 	for fc in biome.get("flowers", []):
 		_add(PlantGen.grass(600 + _flowers.size(), grass_mat, biome.grass, float(biome.grass_h) * 0.9, 10, fc), "flower")
 	for i in 4:
 		_add(PlantGen.rock(700 + i, rock_mat, biome.rock), "rock")
+
+
+var _tree_near: Dictionary = {}     # base material -> its close-up copy
+var _singles: Dictionary = {}       # base material and role -> its copy
+
+
+static func _lod(m: ShaderMaterial, role: int, end: float) -> void:
+	m.set_shader_parameter("lod_role", role)
+	m.set_shader_parameter("lod_range", TREE_DETAIL_RANGE)
+	m.set_shader_parameter("lod_fade", TREE_FADE)
+	m.set_shader_parameter("far_end", end)
+
+
+func _near(m: ShaderMaterial) -> ShaderMaterial:
+	return _tree_near[m]
+
+
+## The distant version's material: role 1, fading out at TREE_FAR.
+func _far(m: ShaderMaterial) -> ShaderMaterial:
+	var key := "%d:far" % m.get_instance_id()
+	if not _singles.has(key):
+		var f := m.duplicate() as ShaderMaterial
+		_lod(f, 1, TREE_FAR)
+		_singles[key] = f
+	return _singles[key]
+
+
+## A plant with one version, fading out at `end`.
+func _single(m: ShaderMaterial, end: float) -> ShaderMaterial:
+	var key := "%d:%d" % [m.get_instance_id(), int(end)]
+	if not _singles.has(key):
+		var f := m.duplicate() as ShaderMaterial
+		_lod(f, 2, end)
+		_singles[key] = f
+	return _singles[key]
 
 
 func _add(m: Mesh, kind: String, far: Mesh = null) -> void:

@@ -313,8 +313,8 @@ static func _branch(bark: Builder, leaf: Builder, rng: RandomNumberGenerator, st
 ## Leaves along a twig: small diamonds, normals bent away from the crown centre.
 static func _leaves(leaf: Builder, rng: RandomNumberGenerator, twig: PackedVector3Array, crown_c: Vector3, H: float,
 		leaf_col: Color, birch: bool, detail := 1.0) -> void:
-	var count := int((55 if birch else 70) * detail * detail)
-	var size := (0.2 if birch else 0.3) / maxf(detail, 0.3)
+	var count := int((36 if birch else 44) * detail * detail)
+	var size := (0.25 if birch else 0.38) / maxf(detail, 0.3)
 	for i in count:
 		var k := rng.randf_range(0.25, 1.0)
 		var f := k * float(twig.size() - 1)

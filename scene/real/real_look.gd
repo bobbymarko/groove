@@ -153,6 +153,7 @@ func update(cam_pos: Vector3, delta: float, wet := 0.0) -> void:
 	env.ssr_enabled = wet > 0.08
 	_wind += Vector3(1.0, 0.0, 0.35).normalized() * WIND_KMPS * delta
 	_frame = (_frame + 1) % 64
+	RenderingServer.global_shader_parameter_set("eye_pos", cam_pos)
 	sky_mat.set_shader_parameter("cam_km", Vector3(cam_pos.x / 1000.0, 0.25 + cam_pos.y / 1000.0, cam_pos.z / 1000.0))
 	sky_mat.set_shader_parameter("wind", _wind)
 	sky_mat.set_shader_parameter("frame", float(_frame))

@@ -7,14 +7,19 @@ uniform float birch = 0.0;
 uniform float snow = 0.0;
 
 varying vec3 wn;
+varying float plant_d;
 
 void vertex() {
+	plant_d = plant_distance(MODEL_MATRIX);
 	vec3 origin = MODEL_MATRIX[3].xyz;
 	VERTEX += wind_offset(origin, UV2.x, UV2.y, TIME);
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
 void fragment() {
+	if (lod_drop(plant_d, FRAGCOORD.xy)) {
+		discard;
+	}
 	vec2 p = UV;
 	float furrow = vnoise(vec2(p.x * 14.0, p.y * 1.6));
 	float fine = vnoise(p * vec2(40.0, 9.0));

@@ -79,17 +79,14 @@ func punch(side: float = 1.0) -> void:
 
 
 ## First person (the realistic look): the rider's eyes over the bars, looking
-## down the trail, with a little sway from each pedal stroke and roll into curves.
+## down the trail, rolling gently into curves. No sway with the pedal strokes:
+## Bob found it made him motion sick (2026-11-21).
 func update_fpv(eye: Vector3, look_target: Vector3, cadence: float, lean: float, delta: float) -> void:
-	_t += delta * cadence / 60.0 * TAU            # one sway cycle per crank turn
-	var k := clampf(cadence / 90.0, 0.0, 1.0)
 	if not _initialized:
 		_smooth_pos = look_target
 		_initialized = true
 	_smooth_pos = _smooth_pos.lerp(look_target, clampf(delta * 2.5, 0.0, 1.0))
 	global_position = eye
 	look_at(_smooth_pos, Vector3.UP)
-	var sway := Vector3(sin(_t) * 0.014, absf(cos(_t)) * 0.012, 0.0) * k
-	global_position += global_transform.basis * sway
-	rotate_object_local(Vector3.FORWARD, lean * 0.45 + sin(_t) * 0.004 * k)
+	rotate_object_local(Vector3.FORWARD, lean * 0.45)
 

@@ -13,9 +13,11 @@ uniform float fringe = 0.0;   // needles: the blade's edge is cut into a serrate
 varying float ao;
 varying vec3 tint;
 varying vec3 wn;
+varying float plant_d;
 varying vec3 wp;
 
 void vertex() {
+	plant_d = plant_distance(MODEL_MATRIX);
 	vec3 origin = MODEL_MATRIX[3].xyz;
 	VERTEX += wind_offset(origin, UV2.x, UV2.y, TIME) * sway;
 	ao = COLOR.a;
@@ -25,6 +27,9 @@ void vertex() {
 }
 
 void fragment() {
+	if (lod_drop(plant_d, FRAGCOORD.xy)) {
+		discard;
+	}
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;
 	}

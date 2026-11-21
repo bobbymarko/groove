@@ -4,6 +4,32 @@
 // After Abyssal Garden (MIT, Noniv/abyssal-garden).
 uniform float wind_strength = 1.0;
 global uniform float rain_wet;   // 0 dry .. 1 soaked, eased by RealRain
+global uniform vec3 eye_pos;     // the rider's eye, for per-plant level of detail (same in shadow passes)
+
+// Level of detail, per plant: a tree's close-up and distant versions crossfade
+// by dithering (each keeps the pixels the other drops, so nothing doubles or
+// gaps), and everything dithers away toward its far end instead of popping.
+uniform int lod_role = 2;          // 0 close-up version, 1 distant version, 2 the only version
+uniform float lod_range = 80.0;    // where close-up hands over to distant
+uniform float lod_fade = 20.0;     // metres the handover takes
+uniform float far_end = 300.0;     // beyond this the plant is gone
+uniform float far_fade = 60.0;
+
+float plant_distance(mat4 model) {
+	return distance(model[3].xyz, eye_pos);
+}
+
+bool lod_drop(float d, vec2 frag) {
+	float h = fract(52.9829189 * fract(dot(floor(frag), vec2(0.06711056, 0.00583715))));
+	float k = clamp((d - (lod_range - lod_fade * 0.5)) / lod_fade, 0.0, 1.0);
+	if (lod_role == 0) {
+		return h < k;
+	}
+	if (lod_role == 1 && h >= k) {
+		return true;
+	}
+	return h < clamp((d - (far_end - far_fade)) / far_fade, 0.0, 1.0);
+}
 
 vec3 wind_offset(vec3 origin, float h, float flutter, float t) {
 	float ph = dot(origin.xz, vec2(0.31, 0.17));

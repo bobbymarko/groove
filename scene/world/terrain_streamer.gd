@@ -12,6 +12,8 @@ const BEHIND := 2
 const TRAIL_HALF_WIDTH := 0.75      # groomed fat-bike track, about 1.5 m wide
 const GROOVE_DEPTH := 0.22
 const BANK_WIDTH := 0.7
+const BAND_WIDTH := 35.0               ## realistic look: plants are grouped in sideways bands this wide
+const BAND_PAD := 25.0                 ## and reach this far from their band's middle
 const SHOULDER := 4.0                 # smooth rideable snow either side before the rough field
 
 var trail: Trail
@@ -114,7 +116,7 @@ func _init(t: Trail) -> void:
 func use_real_ground(kind: String, plants: RealFlora) -> void:
 	real_ground = true
 	flora = plants
-	ahead_chunks = 14
+	ahead_chunks = 16                 # built ~380 m out, beyond where trees fade in
 	# First person sees far: carry the ground out to ~600 m either side, the
 	# columns spreading out with distance (the hills there need no detail).
 	var x := HALF_WIDTH
@@ -445,63 +447,79 @@ func _finish_chunk(r: Dictionary) -> void:
 
 
 
-## The realistic look's plants for one chunk: a MultiMesh per plant variant,
-## with a tint per instance. Each sits at the chunk's middle so visibility
-## ranges (grass stops drawing past GRASS_VISIBLE) measure from there.
+## The realistic look's plants for one chunk. Each plant variant's instances
+## are split into sideways bands (BAND_WIDTH) with a MultiMesh per band, sitting
+## at the band's middle, so visibility ranges cull it tightly; each plant's
+## own fade and close-up/distant handover happen per plant in the shaders.
 func _add_flora(root: Node3D, placed: Dictionary, z0: float) -> void:
-	var mid := Vector3(trail.x_at(z0 + CHUNK_LEN * 0.5), trail.h_at(z0 + CHUNK_LEN * 0.5), z0 + CHUNK_LEN * 0.5)
 	for mi in placed:
 		var xfs: Array[Transform3D] = placed[mi][0]
 		var tints: Array[Color] = placed[mi][1]
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.mesh = flora.meshes[mi]
-		mm.instance_count = xfs.size()
+		var bands: Dictionary = {}
 		for i in xfs.size():
-			var xf := xfs[i]
-			xf.origin -= mid
-			mm.set_instance_transform(i, xf)
-			mm.set_instance_custom_data(i, tints[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = mid
-		if flora.far_meshes.has(mi):
-			# Close-up tree near the camera, its cheaper twin beyond.
-			var far := MultiMeshInstance3D.new()
-			var fmm := MultiMesh.new()
-			fmm.transform_format = MultiMesh.TRANSFORM_3D
-			fmm.use_custom_data = true
-			fmm.mesh = flora.far_meshes[mi]
-			fmm.instance_count = mm.instance_count
-			for i in mm.instance_count:
-				fmm.set_instance_transform(i, mm.get_instance_transform(i))
-				fmm.set_instance_custom_data(i, mm.get_instance_custom_data(i))
-			far.multimesh = fmm
-			far.position = mid
-			far.visibility_range_begin = RealFlora.TREE_DETAIL_RANGE
-			far.visibility_range_begin_margin = 8.0
-			root.add_child(far)
-			mmi.visibility_range_end = RealFlora.TREE_DETAIL_RANGE
-			mmi.visibility_range_end_margin = 8.0
-			# Up close the shadow comes from the cheaper twin too: soft shadows hide the difference.
+			var o := xfs[i].origin
+			var band := int(floor((o.x - trail.x_at(o.z)) / BAND_WIDTH))
+			if not bands.has(band):
+				bands[band] = []
+			bands[band].append(i)
+		for band in bands:
+			var idx: Array = bands[band]
+			var mid := Vector3.ZERO
+			for i in idx:
+				mid += xfs[i].origin
+			mid /= float(idx.size())
+			_flora_band(root, mi, xfs, tints, idx, mid)
+
+
+func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3) -> void:
+	var mm := _band_multimesh(flora.meshes[mi], xfs, tints, idx, mid)
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.position = mid
+	if flora.far_meshes.has(mi):
+		# Close-up tree near the camera, its cheaper twin beyond.
+		var fmm := _band_multimesh(flora.far_meshes[mi], xfs, tints, idx, mid)
+		var far := MultiMeshInstance3D.new()
+		far.multimesh = fmm
+		far.position = mid
+		far.visibility_range_begin = maxf(RealFlora.TREE_DETAIL_RANGE - BAND_PAD, 0.0)
+		far.visibility_range_end = RealFlora.TREE_FAR + BAND_PAD
+		root.add_child(far)
+		mmi.visibility_range_end = RealFlora.TREE_DETAIL_RANGE + BAND_PAD
+		# Up close the shadow comes from the cheaper twin too: soft shadows hide the difference.
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var shade := MultiMeshInstance3D.new()
+		shade.multimesh = fmm
+		shade.position = mid
+		shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		shade.visibility_range_end = RealFlora.TREE_DETAIL_RANGE + BAND_PAD
+		root.add_child(shade)
+	match flora.kinds[mi]:
+		"grass":
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var shade := MultiMeshInstance3D.new()
-			shade.multimesh = fmm
-			shade.position = mid
-			shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-			shade.visibility_range_end = RealFlora.TREE_DETAIL_RANGE
-			shade.visibility_range_end_margin = 8.0
-			root.add_child(shade)
-		match flora.kinds[mi]:
-			"grass":
-				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				mmi.visibility_range_end = RealFlora.GRASS_VISIBLE
-				mmi.visibility_range_end_margin = 10.0
-				mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-			"rock", "bush":
-				mmi.visibility_range_end = 220.0
-		root.add_child(mmi)
+			mmi.visibility_range_end = RealFlora.GRASS_VISIBLE
+			mmi.visibility_range_end_margin = 10.0
+			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		"tree":
+			if not flora.far_meshes.has(mi):
+				mmi.visibility_range_end = RealFlora.TREE_FAR + BAND_PAD
+		"rock", "bush":
+			mmi.visibility_range_end = RealFlora.SMALL_FAR + BAND_PAD
+	root.add_child(mmi)
+
+
+func _band_multimesh(mesh: Mesh, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3) -> MultiMesh:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	mm.mesh = mesh
+	mm.instance_count = idx.size()
+	for k in idx.size():
+		var xf := xfs[idx[k]]
+		xf.origin -= mid
+		mm.set_instance_transform(k, xf)
+		mm.set_instance_custom_data(k, tints[idx[k]])
+	return mm
 
 
 func _add_multimesh(root: Node3D, mesh: Mesh, transforms: Array[Transform3D]) -> void:
