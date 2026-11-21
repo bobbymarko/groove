@@ -22,7 +22,8 @@ const SAMPLE := 100.0
 const MARGIN := 400.0          ## metres added around each stretch's box
 const PROBE := 40.0            ## metres either side of the route
 const WATER_NEAR := 250.0
-const MIN_RUN := 400.0         ## shorter land-cover runs merge into a neighbour
+const MIN_RUN := 400.0
+const MIN_LAKE := 30000.0      ## m²: smaller ponds (stormwater, farm ponds) do not count as water to ride beside         ## shorter land-cover runs merge into a neighbour
 
 const NATURAL := "wood|scrub|heath|grassland|bare_rock|scree|sand|glacier|water|wetland|beach"
 ## Residential areas are left out: suburbs have hundreds, they only ever mean
@@ -226,6 +227,18 @@ static func classify(route: Route, elements: Array, from: float, to: float) -> A
 			if votes[k] > best or (votes[k] == best and _rank(k) > _rank(kind)):
 				best = votes[k]
 				kind = k
+		if kind == "unknown":
+			# The road itself is rarely mapped: take the land around it.
+			var around := {}
+			for a in 8:
+				var k := _kind_at(shapes, p + Vector2.from_angle(a * TAU / 8.0) * 150.0)
+				if k != "unknown":
+					around[k] = int(around.get(k, 0)) + 1
+			var most := 1                 # at least two of the eight points agree
+			for k in around:
+				if around[k] > most:
+					most = around[k]
+					kind = k
 		out.append({"d": d, "kind": kind, "water": _water_near(shapes, p)})
 		d += SAMPLE
 	return out
@@ -362,7 +375,7 @@ static func _shapes(elements: Array, origin: Vector2) -> Array:
 		for v in edges:
 			bounds = bounds.expand(v)
 		out.append({"kind": kind, "area": not river, "river": river, "edges": edges, "bounds": bounds,
-			"water": kind == "water"})
+			"water": kind == "water" and (e.get("type") == "relation" or _area(edges) >= MIN_LAKE)})
 	return out
 
 
@@ -386,7 +399,9 @@ static func _kind_for_tags(tags: Dictionary) -> String:
 	var l := str(tags.get("landuse", ""))
 	if n == "glacier":
 		return "snow"
-	if n == "water" or n == "wetland":
+	if n == "wetland":
+		return "open"          # marsh: open ground, not a lake to ride beside
+	if n == "water":
 		return "water"
 	if n == "wood" or l == "forest":
 		var leaf := str(tags.get("leaf_type", ""))
@@ -426,6 +441,14 @@ static func _inside(edges: PackedVector2Array, p: Vector2) -> bool:
 			if x > p.x:
 				inside = not inside
 	return inside
+
+
+## Area of a closed outline given as edge pairs (shoelace), m².
+static func _area(edges: PackedVector2Array) -> float:
+	var a := 0.0
+	for i in range(0, edges.size(), 2):
+		a += edges[i].x * edges[i + 1].y - edges[i + 1].x * edges[i].y
+	return absf(a) * 0.5
 
 
 static func _water_near(shapes: Array, p: Vector2) -> bool:

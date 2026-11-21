@@ -62,3 +62,28 @@ func test_a_timed_out_answer_is_not_empty_land() -> void:
 	assert_eq(RouteLandCover.answer_problem({"elements": []}), "")
 	assert_true(RouteLandCover.answer_problem({"elements": [], "remark": "runtime error: Query timed out in \"query\" at line 1 after 61 seconds."}) != "")
 	assert_true(RouteLandCover.answer_problem("<html>502</html>") != "")
+
+
+func test_ponds_and_marshes_are_not_water_to_ride_beside() -> void:
+	var pond := {"type": "way", "tags": {"natural": "water"}, "geometry": [
+		{"lat": 45.005, "lon": 7.0015}, {"lat": 45.005, "lon": 7.0021}, {"lat": 45.0055, "lon": 7.0021},
+		{"lat": 45.0055, "lon": 7.0015}, {"lat": 45.005, "lon": 7.0015}]}          # ~47 x 55 m, 120 m off the route
+	var marsh := {"type": "way", "tags": {"natural": "wetland"}, "geometry": [
+		{"lat": 45.010, "lon": 6.999}, {"lat": 45.010, "lon": 7.001}, {"lat": 45.012, "lon": 7.001},
+		{"lat": 45.012, "lon": 6.999}, {"lat": 45.010, "lon": 6.999}]}
+	var samples := RouteLandCover.classify(route, [pond, marsh], 0.0, route.length)
+	for x in samples:
+		assert_false(x.water, "water at %.0f m" % x.d)
+	assert_eq(samples[11].kind, "open")                                           # the marsh is open ground
+
+
+func test_an_unmapped_road_takes_the_land_around_it() -> void:
+	# Woods either side of a 400 m-wide unmapped strip along the route.
+	var west := {"type": "way", "tags": {"natural": "wood"}, "geometry": [
+		{"lat": 44.99, "lon": 6.990}, {"lat": 44.99, "lon": 6.9985}, {"lat": 45.03, "lon": 6.9985},
+		{"lat": 45.03, "lon": 6.990}, {"lat": 44.99, "lon": 6.990}]}
+	var east := {"type": "way", "tags": {"natural": "wood"}, "geometry": [
+		{"lat": 44.99, "lon": 7.0015}, {"lat": 44.99, "lon": 7.010}, {"lat": 45.03, "lon": 7.010},
+		{"lat": 45.03, "lon": 7.0015}, {"lat": 44.99, "lon": 7.0015}]}
+	var samples := RouteLandCover.classify(route, [west, east], 0.0, route.length)
+	assert_eq(samples[5].kind, "forest_mixed")
