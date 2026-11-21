@@ -35,6 +35,8 @@ var _tree_scale := ScenePreset.DEFAULT_TREE_SCALE
 var _density_mult := 1.0            # preset factor: open desert scatters far fewer "trees"
 var _shrub_mesh: ArrayMesh
 var _material: Material
+var ahead_chunks := AHEAD           ## more in first person, which sees further down the trail
+var real_ground := false            ## the realistic look: real_ground shader, props unchanged for now
 const PINE_SCALE := Vector2(0.45, 0.8)   # Quaternius pines are ~7 m tall at scale 1
 
 
@@ -101,6 +103,38 @@ func _init(t: Trail) -> void:
 	_material.set_shader_parameter("smooth_lighting", true)
 
 
+## The realistic look's ground: one shader for field, trail and rock, fed the
+## distance from the trail centre through UV.x. Call before the first update.
+func use_real_ground(kind: String) -> void:
+	real_ground = true
+	ahead_chunks = 12
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://scene/real/real_ground.gdshader")
+	mat.set_shader_parameter("ground", {"snow": 0, "grass": 1, "sand": 2}.get(kind, 0))
+	mat.set_shader_parameter("trail_half_width", TRAIL_HALF_WIDTH)
+	var fn := FastNoiseLite.new()
+	fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	fn.fractal_octaves = 4
+	fn.frequency = 0.01
+	var tex := NoiseTexture2D.new()
+	tex.width = 512
+	tex.height = 512
+	tex.seamless = true
+	tex.noise = fn
+	tex.generate_mipmaps = true
+	var nrm := NoiseTexture2D.new()
+	nrm.width = 512
+	nrm.height = 512
+	nrm.seamless = true
+	nrm.as_normal_map = true
+	nrm.bump_strength = 4.0
+	nrm.noise = fn
+	nrm.generate_mipmaps = true
+	mat.set_shader_parameter("noise_tex", tex)
+	mat.set_shader_parameter("noise_nrm", nrm)
+	_material = mat
+
+
 ## Terrain height at any point: the trail's own height on the trail, rising
 ## into a hillside on the left and dropping away on the right, with noise.
 func height(x: float, z: float, t: Trail = trail) -> float:
@@ -144,11 +178,11 @@ func update_around(z: float) -> void:
 			_pending.erase(i)
 			trail.h_at((i + 2) * CHUNK_LEN + 4.0)
 			_finish_chunk(_build_chunk_arrays(i, trail.snapshot()))
-	for i in range(center - BEHIND, center + AHEAD + 1):
+	for i in range(center - BEHIND, center + ahead_chunks + 1):
 		if not _chunks.has(i) and not _pending.has(i):
 			_pending.append(i)
 	for key in _chunks.keys():
-		if key < center - BEHIND or key > center + AHEAD:
+		if key < center - BEHIND or key > center + ahead_chunks:
 			_chunks[key].queue_free()
 			_chunks.erase(key)
 	_pump()
@@ -232,6 +266,7 @@ func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> 
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
 	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()       # x: offset from the trail centre (the realistic ground uses it)
 	var W := ncols + 2
 	for iz in range(1, nz + 1):
 		for ic in range(1, ncols):
@@ -251,10 +286,12 @@ func _grid_arrays(z0: float, cols: PackedFloat64Array, row: float, t: Trail) -> 
 			var c11 := _color_for_slope(p11, n11, t)
 			# Clockwise front faces (see MeshLib.tri).
 			for tri in [[p00, n00, c00, p10, n10, c10, p11, n11, c11], [p00, n00, c00, p11, n11, c11, p01, n01, c01]]:
-				verts.append(tri[0]); norms.append(tri[1]); colors.append(tri[2])
-				verts.append(tri[6]); norms.append(tri[7]); colors.append(tri[8])
-				verts.append(tri[3]); norms.append(tri[4]); colors.append(tri[5])
-	return {"verts": verts, "norms": norms, "colors": colors}
+				# The realistic ground culls back faces, so it needs Godot's own front-face winding.
+				var order := [0, 3, 6] if real_ground else [0, 6, 3]
+				for k in order:
+					verts.append(tri[k]); norms.append(tri[k + 1]); colors.append(tri[k + 2])
+					uvs.append(Vector2(tri[k].x - t.x_at(tri[k].z), 0.0))
+	return {"verts": verts, "norms": norms, "colors": colors, "uvs": uvs}
 
 
 func _grid_normal(hs: PackedFloat64Array, xs: PackedFloat64Array, W: int, iz: int, ic: int, row: float) -> Vector3:
@@ -351,6 +388,7 @@ func _finish_chunk(r: Dictionary) -> void:
 		arrays[Mesh.ARRAY_VERTEX] = g.verts
 		arrays[Mesh.ARRAY_NORMAL] = g.norms
 		arrays[Mesh.ARRAY_COLOR] = g.colors
+		arrays[Mesh.ARRAY_TEX_UV] = g.uvs
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		var mi := MeshInstance3D.new()

@@ -16,7 +16,10 @@ var pixel_filter := true
 var pixel_stable := true     ## camera snapping and compensated presentation
 var _factor := 4             ## screen pixels per texel
 var _shift := Vector2.ZERO   ## texels the frame is displaced by, from the snapped camera to the ideal one
-var look_mode := "16bit"         ## "16bit" (pixel look) or "off" (native); "8bit" is accepted and mapped to 16bit
+var look_mode := "16bit"         ## "16bit" (pixel look), "off" (native) or "real" (realistic, first person); "8bit" maps to 16bit
+var look_override := ""          ## tooling: force a look regardless of settings (must be set before _ready)
+var real: RealLook               ## the realistic look's sky and lighting, only in look "real"
+var fpv := false                 ## first-person camera (the realistic look)
 
 var trail: Trail
 var terrain: TerrainStreamer
@@ -76,6 +79,10 @@ func _ready() -> void:
 			preset_id = str(app0.scene_preset)
 			time_mode = str(app0.time_of_day)
 			physics.mass = float(app0.weight_kg) + float(app0.BIKE_KG)
+			look_mode = str(app0.look_mode)
+	if look_override != "":
+		look_mode = look_override
+	fpv = look_mode == "real"
 	Palette.apply(preset_id)
 	_preset = ScenePreset.get_preset(preset_id)
 	_viewport = SubViewport.new()
@@ -105,10 +112,16 @@ func _ready() -> void:
 	sun.shadow_normal_bias = 4.0
 	sun.directional_shadow_max_distance = 120.0
 	_world.add_child(sun)
+	if look_mode == "real":
+		real = RealLook.new()
+		_world.add_child(real)
+		real.setup(_env, sun, _viewport, _preset)
 
 	trail = Trail.new()
 	trail.grade_provider = _grade_at
 	terrain = TerrainStreamer.new(trail)
+	if real:
+		terrain.use_real_ground(real.ground_type())
 	_world.add_child(terrain)
 	backdrop = Backdrop.new()
 	_world.add_child(backdrop)
@@ -116,6 +129,9 @@ func _ready() -> void:
 	_world.add_child(marks)
 	rider = Rider.new()
 	_world.add_child(rider)
+	if fpv:
+		rider.visible = false     # first person: the rider is the camera
+		backdrop.visible = false  # the real sky and the terrain itself make the horizon
 	dust = WheelDust.new()
 	dust.position = Vector3(0.0, 0.04, -0.62)   # just behind the rear contact patch
 	dust.set_ground(bool(_preset.get("snow", true)), bool(_preset.get("dust_dark", false)))
@@ -159,7 +175,6 @@ func _ready() -> void:
 	_fit_viewport()
 	var app := get_node_or_null("/root/App")
 	if app:
-		look_mode = app.look_mode
 		apply_tuning(app.scene_tuning)
 	set_look_mode(look_mode)
 	_place_rider()
@@ -198,8 +213,12 @@ func _apply_debug_material() -> void:
 func set_look_mode(mode: String) -> void:
 	if mode == "8bit":
 		mode = "16bit"
+	if real != null:
+		mode = "real"      # the realistic look is chosen when the scene is built
+	elif mode == "real":
+		mode = "off"
 	look_mode = mode
-	pixel_filter = mode != "off"
+	pixel_filter = mode != "off" and mode != "real"
 	_screen.material = _post if pixel_filter else null
 	_screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if pixel_filter else CanvasItem.TEXTURE_FILTER_LINEAR
 	_post.set_shader_parameter("mode", 1 if mode == "16bit" else 0)
@@ -235,6 +254,8 @@ func _apply_daylight() -> void:
 		return
 	var hour := hour_override if hour_override >= 0.0 else Daylight.hour_for_mode(time_mode)
 	var noon := float(_tuning.get("sun_elevation", 25.0)) + float(_preset.get("sun_lift", 0.0))
+	if real:
+		noon = float(_preset.get("real_noon", 42.0))   # a real sun climbs higher than the pixel look's low key light
 	var st := Daylight.state(hour, noon, float(_tuning.get("sun_azimuth", 40.0)))
 	if _rain > 0.0:
 		# Overcast: dimmer, greyer, thicker air.
@@ -264,6 +285,8 @@ func _apply_daylight() -> void:
 		backdrop.set_tint(st.tint)
 	if snow:
 		snow.set_tint(st.tint)
+	if real:
+		real.apply_daylight(st, _rain)
 
 
 ## Kept for callers that only know the on/off toggle.
@@ -277,7 +300,8 @@ func apply_tuning(t: Dictionary) -> void:
 	RenderingServer.global_shader_parameter_set("cel_dark_band", float(t.get("shade_band", 0.66)) * 0.76)
 	_tuning = t
 	_apply_daylight()
-	_env.fog_density = float(t.get("fog_density", 0.0028)) * (1.0 + 1.5 * _rain)
+	if real == null:
+		_env.fog_density = float(t.get("fog_density", 0.0028)) * (1.0 + 1.5 * _rain)
 	_post.set_shader_parameter("dither_strength", float(t.get("dither", 0.0)))
 	_post.set_shader_parameter("sharpen", float(t.get("sharpen", 0.4)))
 	# Banding: fewer colour steps and fewer light bands read more retro; more read smoother.
@@ -405,6 +429,13 @@ func _process(raw_delta: float) -> void:
 		else:
 			camera.global_position = rider.global_position + Vector3(2.4, 1.3, -2.6)
 			camera.look_at(rider.global_position + Vector3(0.0, 0.9, 0.0), Vector3.UP)
+	elif fpv:
+		var flat := trail.heading_at(distance)
+		flat = Vector3(flat.x, 0.0, flat.z).normalized()
+		var eye := rider.global_position + Vector3.UP * 1.48 + flat * 0.3
+		var ahead := trail.position_at(distance + 14.0)
+		ahead.y = terrain.height(ahead.x, ahead.z) + 0.6
+		camera.update_fpv(eye, ahead, anim_cadence if riding else 0.0, rider.lean, raw_delta)
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)
 		if pixel_filter and pixel_stable:
@@ -414,6 +445,8 @@ func _process(raw_delta: float) -> void:
 			_shift = Vector2.ZERO
 			_layout_screen()
 	snow.follow(camera.global_position)
+	if real:
+		real.update(camera.global_position, raw_delta)
 	rain.follow(camera.global_position)
 	backdrop.follow(rider.global_position)
 	_rain = move_toward(_rain, _rain_target(), raw_delta / 25.0)   # showers arrive and pass over ~25 s
