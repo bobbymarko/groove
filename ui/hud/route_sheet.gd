@@ -193,7 +193,7 @@ func _go(simulator: bool) -> void:
 	App.route = route
 	App.route_free = _free
 	if _free:
-		App.workout = free_ride_workout(route)
+		App.workout = route.free_ride_workout()
 	else:
 		var i := _workout_pick.selected
 		if i < 0 or i >= _workout_files.size():
@@ -202,19 +202,6 @@ func _go(simulator: bool) -> void:
 	if simulator:
 		Devices.use_simulated_devices()
 	App.go_to("res://ui/screens/ride_screen.tscn")
-
-
-## A free ride is one open segment; the ride ends at the route's distance
-## (RideScreen), long before this runs out.
-static func free_ride_workout(r: Route) -> Workout:
-	var w := Workout.new()
-	w.name = r.name
-	var seg := WorkoutSegment.new()
-	seg.kind = WorkoutSegment.Kind.FREE_RIDE
-	seg.duration = 12.0 * 3600.0
-	w.segments.append(seg)
-	w.rebuild_index()
-	return w
 
 
 func _stat(parent: Control, value: String, unit: String) -> void:

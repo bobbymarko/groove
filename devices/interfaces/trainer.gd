@@ -37,5 +37,11 @@ func set_resistance(_level: float) -> void:
 	pass
 
 
+## Simulation mode on a real route (R41): the trainer feels this grade (percent;
+## negative is downhill). Power then follows the rider's gear and cadence.
+func set_grade(_percent: float) -> void:
+	pass
+
+
 func supported_power_range() -> Vector2i:
 	return Vector2i(0, 0)

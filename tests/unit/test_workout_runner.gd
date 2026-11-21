@@ -230,3 +230,13 @@ func test_no_auto_start_with_auto_pause_off() -> void:
 	r.auto_pause = false
 	r.report_power(140)
 	assert_eq(r.state, WorkoutRunner.State.READY)
+
+
+func test_complete_finishes_as_completed() -> void:
+	r.start()
+	r.advance(10.0)
+	r.complete()
+	assert_eq(r.state, WorkoutRunner.State.FINISHED)
+	assert_eq(finished_with, [true])
+	r.complete()
+	assert_eq(finished_with, [true])                 # only once

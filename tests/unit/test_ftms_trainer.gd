@@ -214,3 +214,12 @@ func test_hung_connect_attempt_is_retried() -> void:
 	t.tick(FtmsTrainer.CONNECT_TIMEOUT + 0.1)       # no connected/failed ever arrives
 	t.tick(FtmsTrainer.RECONNECT_DELAY + 0.1)
 	assert_eq(p.connect_calls, 2)
+
+
+func test_route_grade_goes_out_as_sim_grade() -> void:
+	_bring_up()
+	p.ack_last_write()   # request control
+	p.ack_last_write()   # start
+	t.set_grade(-3.5)
+	assert_eq(p.writes[-1][0], Gatt.FtmsOp.SET_SIM_PARAMS)
+	assert_eq(p.writes[-1].decode_s16(3), -350)     # 0.01 % units, downhill negative

@@ -61,3 +61,14 @@ func test_resistance_mode_depends_on_cadence() -> void:
 	for i in 30:
 		t.step(1.0)
 	assert_true(powers[-1] > 150 and powers[-1] < 300, "power %d" % powers[-1])
+
+
+func test_route_grade_moves_simulated_power() -> void:
+	t.set_grade(8.0)
+	for i in 30:
+		t.step(1.0)
+	var up := powers[-1]
+	t.set_grade(-4.0)
+	for i in 30:
+		t.step(1.0)
+	assert_true(up > powers[-1] + 100, "up %d, down %d" % [up, powers[-1]])

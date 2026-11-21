@@ -143,3 +143,16 @@ func main_biome() -> String:
 			most = by[id]
 			best = id
 	return best
+
+
+## A free ride is one open segment; the ride ends at the route's distance
+## (RideScreen), long before this runs out.
+func free_ride_workout() -> Workout:
+	var w := Workout.new()
+	w.name = name
+	var seg := WorkoutSegment.new()
+	seg.kind = WorkoutSegment.Kind.FREE_RIDE
+	seg.duration = 12.0 * 3600.0
+	w.segments.append(seg)
+	w.rebuild_index()
+	return w

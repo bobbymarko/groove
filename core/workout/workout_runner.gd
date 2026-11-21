@@ -147,6 +147,14 @@ func set_erg(enabled: bool) -> void:
 	erg_changed.emit(enabled)
 
 
+## A free ride on a route is done when the route is: finish as completed.
+func complete() -> void:
+	if state == State.FINISHED or state == State.IDLE:
+		return
+	_set_state(State.FINISHED)
+	finished.emit(true)
+
+
 func end_early() -> void:
 	if state == State.FINISHED or state == State.IDLE:
 		return

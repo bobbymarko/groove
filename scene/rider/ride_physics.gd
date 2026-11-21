@@ -17,14 +17,19 @@ const MAX_SPEED := 18.0
 const GRADE_EFFECT := 0.0
 
 var speed := 0.0            # m/s; nobody rolls until they pedal
+## Per ride: a free ride on a real route (R41) feels its hills (grade_effect 1)
+## on a gravel bike's tyres and position instead of the fat bike on snow.
+var grade_effect := GRADE_EFFECT
+var crr := CRR
+var cda := CDA
 var mass := MASS            # rider weight + bike, set from Settings
 
 
 func step(power_w: float, grade_percent: float, delta: float, riding := true) -> float:
 	var v := maxf(speed, 0.5)
-	var f_drag := 0.5 * RHO * CDA * v * v
-	var f_roll := CRR * mass * G
-	var f_grade := mass * G * (grade_percent * GRADE_EFFECT / 100.0)
+	var f_drag := 0.5 * RHO * cda * v * v
+	var f_roll := crr * mass * G
+	var f_grade := mass * G * (grade_percent * grade_effect / 100.0)
 	var f_prop := power_w / v
 	var accel := (f_prop - f_drag - f_roll - f_grade) / mass
 	speed = clampf(speed + accel * delta, MIN_SPEED if riding else 0.0, MAX_SPEED)

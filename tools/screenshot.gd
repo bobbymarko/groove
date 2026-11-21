@@ -25,6 +25,11 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			if a.begins_with("workout="):
 				wpath = a.trim_prefix("workout=")
 		app.workout = ZwoParser.parse_file(wpath)
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("route="):           # a free ride on that route (R41)
+				app.route = RouteLibrary.load_route(a.trim_prefix("route="))
+				app.route_free = true
+				app.workout = app.route.free_ride_workout()
 		app.dry_run = true   # never record preview rides into the real library
 		app.auto_pause = false   # at 60x a frame hitch reads as seconds of zero watts
 		devices.use_simulated_devices()
@@ -57,6 +62,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				rs.preset_override = a.trim_prefix("preset=")
 			if a == "look=real":
 				rs.look_override = "real"
+			if a.begins_with("route="):
+				rs.route = RouteLibrary.load_route(a.trim_prefix("route="))
 			if a.begins_with("at="):
 				rs.distance = float(a.trim_prefix("at="))
 			if a.begins_with("eye=") or a.begins_with("target="):

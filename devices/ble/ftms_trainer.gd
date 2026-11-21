@@ -101,6 +101,14 @@ func set_resistance(level: float) -> void:
 		_enqueue(Gatt.ftms_set_sim_grade(_grade))
 
 
+## Free ride on a route: the real grade (scaled by the hill feel) as an FTMS sim grade.
+func set_grade(percent: float) -> void:
+	_grade = clampf(percent, -40.0, 40.0)
+	_target = -1
+	if _setup_done:
+		_enqueue(Gatt.ftms_set_sim_grade(_grade))
+
+
 func supported_power_range() -> Vector2i:
 	return _power_range
 

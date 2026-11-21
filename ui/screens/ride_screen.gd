@@ -38,6 +38,10 @@ var _erg_l: Button                 # toggles ERG; reads "ERG on" / "ERG off"
 var _message: Label
 var _state_l: Label
 var _graph: WorkoutGraph
+var _free := false                 ## a free ride on a route (R41): the trainer follows the real grade
+var _route_profile: RouteProfile   ## replaces the workout groove in a free ride
+var _sent_grade := NAN
+var _grade_clock := 0.0
 var _hud_parts: Array[CanvasItem] = []   ## everything H hides: panels, coach, groove, fps
 var _hud_hidden := false
 var _start_btn: Button
@@ -123,6 +127,8 @@ func _ready() -> void:
 			_hardest_index = i
 	_title.text = App.workout.name
 	_graph.set_workout(App.workout)
+	if App.route != null and App.route_free:
+		_setup_free_ride()
 	if _scene.horde:
 		_kills_icon.visible = true
 		_kills_l.visible = true
@@ -235,6 +241,10 @@ func _on_bpm(b: int) -> void:
 
 ## A trainer that (re)connects mid-ride gets the current target straight away.
 func _on_trainer_connected() -> void:
+	if _free:
+		_sent_grade = NAN       # send the grade again on the next tick
+		_refresh_connection()
+		return
 	if _trainer != null and _trainer.is_device_connected() and _runner != null and _runner.current_index >= 0:
 		if _runner.erg_enabled and _runner.current_target > 0:
 			_trainer.set_target_power(_runner.current_target)
@@ -275,6 +285,8 @@ func _on_tick(snap: Dictionary) -> void:
 	var seg := _runner.current_segment()
 	_seg_bar.value = (snap.segment_elapsed / maxf(seg.duration, 1.0)) if seg else 0.0
 	_graph.set_progress(snap.elapsed, snap.bias)
+	if _free:
+		_free_ride_tick(snap)
 	if not _effort_shot_done and snap.segment_index == _hardest_index and seg and snap.segment_elapsed >= seg.duration * 0.5:
 		_effort_shot_done = true
 		_capture_screenshot("effort")
@@ -350,6 +362,8 @@ func _update_reps(current_index: int) -> void:
 func _on_target(w: int) -> void:
 	_scene.effort = float(w) / maxf(float(App.ftp), 1.0)
 	_target.text = ("%dw" % w) if w > 0 else "free"
+	if _free:
+		return              # the route's grade drives the trainer, not targets
 	if _trainer and _runner.erg_enabled and w > 0:
 		_trainer.set_target_power(w)
 	elif _trainer and w == 0:
@@ -378,6 +392,8 @@ func _on_state(s: WorkoutRunner.State) -> void:
 
 func _on_erg(enabled: bool) -> void:
 	_erg_l.text = ("ERG on" if enabled else "ERG off") if HudStyle.glass else ("ERG ON" if enabled else "ERG OFF")
+	if _free:
+		return
 	if _trainer:
 		if enabled:
 			_trainer.set_target_power(_runner.current_target)
@@ -403,6 +419,52 @@ func _on_finished(completed: bool) -> void:
 	_start_btn.disabled = true
 	_block_name_l.text = HudStyle.caps("DONE")
 	_block_dur_l.text = ""
+
+
+## Free ride on a route: the route's profile replaces the workout groove, the
+## block list and ERG give way, and the trip shows distance to go.
+func _setup_free_ride() -> void:
+	_free = true
+	_graph.visible = false
+	_route_profile = RouteProfile.new()
+	_route_profile.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_route_profile.offset_top = -GROOVE_HEIGHT + 14.0
+	_route_profile.offset_bottom = -4.0
+	_route_profile.offset_left = 12.0
+	_route_profile.offset_right = -12.0
+	_route_profile.band_height = 8.0
+	_route_profile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_route_profile.set_route(App.route)
+	_route_profile.set_progress(0.0)
+	add_child(_route_profile)
+	_hud_parts[_hud_parts.find(_graph)] = _route_profile
+	_rows_scroll.visible = false
+	_erg_l.visible = false
+	_finish_l.text = "%s %s" % [App.distance_text(App.route.length), App.distance_unit().to_lower()]
+
+
+## Each tick of a free ride: where on the route, the grade for the trainer
+## (scaled by the hill feel; sent when it moves 0.3 % or every 5 s), and the
+## finish when the route is done.
+func _free_ride_tick(snap: Dictionary) -> void:
+	var d := clampf(_scene.distance - _scene.route_start, 0.0, App.route.length)
+	_route_profile.set_progress(d)
+	var frac := d / maxf(App.route.length, 1.0)
+	_overall_bar.value = frac
+	_overall_bar2.value = frac
+	_countdown.text = "%s %s" % [App.distance_text(App.route.length - d), App.distance_unit().to_lower()]
+	_finish_l.text = "%s %s" % [App.distance_text(App.route.length - d), App.distance_unit().to_lower()]
+	var ahead := App.route.grade_at(d + 200.0)
+	_block_dur_l.text = "%s%d%% ahead" % ["−" if ahead < -0.5 else "", int(round(absf(ahead)))]
+	_grade_clock += get_process_delta_time()
+	if _trainer and _trainer.is_device_connected():
+		var g := _scene.trail.grade_at(_scene.distance) * App.route_difficulty
+		if is_nan(_sent_grade) or absf(g - _sent_grade) >= 0.3 or _grade_clock > 5.0:
+			_trainer.set_grade(g)
+			_sent_grade = g
+			_grade_clock = 0.0
+	if d >= App.route.length - 0.5 and snap.state == WorkoutRunner.State.RUNNING:
+		_runner.complete()
 
 
 ## H: hide every bit of the HUD to just look at the world; H again brings it back.

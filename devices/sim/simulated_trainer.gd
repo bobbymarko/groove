@@ -12,6 +12,7 @@ var target_cadence := 0          ## when set, the simulated rider pedals at this
 
 var _connected := false
 var _erg := true
+var _grade := NAN            ## sim grade while riding a route freely, NAN otherwise
 var _target := 0
 var _resistance := 0.3
 var _power := 0.0
@@ -61,7 +62,14 @@ func set_target_power(watts: int) -> void:
 
 func set_resistance(level: float) -> void:
 	_erg = false
+	_grade = NAN
 	_resistance = clampf(level, 0.0, 1.0)
+
+
+## The simulated rider pushes harder up a grade and eases off down one.
+func set_grade(percent: float) -> void:
+	_erg = false
+	_grade = percent
 
 
 func supported_power_range() -> Vector2i:
@@ -76,6 +84,8 @@ func step(dt: float) -> void:
 		goal_cadence = float(target_cadence) if target_cadence > 0 else base_cadence + (6.0 if _target > 0 and _erg and _target > 250 else 0.0)
 		if _erg:
 			goal_power = float(_target)
+		elif not is_nan(_grade):
+			goal_power = clampf(170.0 + _grade * 22.0, 40.0, 450.0) * (_cadence / 90.0)
 		else:
 			goal_power = _resistance * 450.0 * (_cadence / 90.0)
 	var k := 1.0 - exp(-dt / lag_seconds)

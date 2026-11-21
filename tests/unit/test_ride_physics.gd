@@ -29,3 +29,22 @@ func test_not_riding_can_stop() -> void:
 	for i in 200:
 		p.step(0.0, 0.0, 1.0, false)
 	assert_near(p.speed, 0.0, 0.01)
+
+
+func test_free_ride_feels_the_hill() -> void:
+	var p := RidePhysics.new()
+	p.grade_effect = 1.0
+	p.crr = 0.008
+	p.cda = 0.4
+	for i in 600:
+		p.step(220.0, 0.0, 0.1)
+	var flat := p.speed
+	for i in 600:
+		p.step(220.0, 8.0, 0.1)
+	var climb := p.speed
+	assert_true(flat > 8.0 and flat < 11.0, "flat %.1f m/s" % flat)     # ~30-38 km/h on gravel
+	assert_true(climb < flat * 0.5, "climb %.1f vs %.1f" % [climb, flat])
+	var q := RidePhysics.new()
+	for i in 600:
+		q.step(220.0, 8.0, 0.1)
+	assert_near(q.speed, RidePhysics.steady_speed(220.0, 0.0), 0.2)    # workouts: hills are scenery

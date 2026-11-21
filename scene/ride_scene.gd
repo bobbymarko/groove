@@ -49,6 +49,11 @@ var _preset: Dictionary = {}
 var backdrop: Backdrop
 
 var distance := 20.0          ## metres along the trail
+## Route rides (R41): the real route (null otherwise). Its metre 0 is at
+## route_start on the trail; its grades shape the hills, and past its end the
+## trail rolls on gently.
+var route: Route = null
+var route_start := 20.0
 var power := 0.0
 var cadence := 0.0
 var riding := false
@@ -125,6 +130,18 @@ func _ready() -> void:
 
 	trail = Trail.new()
 	trail.grade_provider = _grade_at
+	var app_r := get_node_or_null("/root/App")
+	if app_r and app_r.route != null and route == null:
+		route = app_r.route
+	if route != null:
+		route_start = distance
+		trail.grade_provider = func(z: float) -> Variant:
+			var d := z - route_start
+			return route.grade_at(maxf(d, 0.0)) if d <= route.length else null
+		if app_r and app_r.route_free:
+			physics.grade_effect = 1.0
+			physics.crr = 0.008       # gravel tyres
+			physics.cda = 0.4
 	terrain = TerrainStreamer.new(trail)
 	if real:
 		terrain.use_real_ground(real.ground_type(), real.flora)
