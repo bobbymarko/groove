@@ -212,11 +212,19 @@ func _build_ui() -> void:
 	preview.riding = true
 	preview.power = 200.0
 	preview.cadence = 88.0
-	HudStyle.segmented(HudStyle.row(l, "Pixel look"), ["On", "Off"], 1 if App.look_mode == "off" else 0,
+	var looks := ["16bit", "off", "real"]
+	var look_note := HudStyle.label(l, "", 12, 500, HudStyle.TEXT_DIM)
+	look_note.visible = false
+	HudStyle.segmented(HudStyle.row(l, "Look"), ["Pixel", "Smooth", "Realistic"], maxi(looks.find(App.look_mode), 0),
 		func(i: int) -> void:
-			App.look_mode = "off" if i == 1 else "16bit"
+			var was_real: bool = App.look_mode == "real"
+			App.look_mode = looks[i]
 			App.save_settings()
-			preview.set_look_mode(App.look_mode))
+			preview.set_look_mode(App.look_mode)
+			# The realistic look (first person, its own sky and plants) is built with the world.
+			look_note.text = "Realistic shows from the next ride." if (App.look_mode == "real") != was_real else ""
+			look_note.visible = look_note.text != "")
+	l.move_child(look_note, l.get_child_count() - 1)
 	var times := ["live", "morning", "noon", "sunset", "night"]
 	HudStyle.segmented(HudStyle.row(l, "Time of day"), ["Live", "Morning", "Noon", "Sunset", "Night"], maxi(times.find(App.time_of_day), 0),
 		func(i: int) -> void:

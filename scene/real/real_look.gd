@@ -22,7 +22,7 @@ var flora: RealFlora
 const GROUND_ALBEDO := {
 	"snow": Color(0.8, 0.82, 0.86),
 	"grass": Color(0.16, 0.2, 0.1),
-	"sand": Color(0.55, 0.45, 0.32),
+	"sand": Color(0.5, 0.33, 0.2),
 }
 
 

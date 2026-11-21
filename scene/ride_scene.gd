@@ -20,6 +20,7 @@ var look_mode := "16bit"         ## "16bit" (pixel look), "off" (native) or "rea
 var look_override := ""          ## tooling: force a look regardless of settings (must be set before _ready)
 var real: RealLook               ## the realistic look's sky and lighting, only in look "real"
 var fpv := false                 ## first-person camera (the realistic look)
+var _lamp: SpotLight3D           ## first person: the bar light, carried by the camera
 
 var trail: Trail
 var terrain: TerrainStreamer
@@ -154,6 +155,19 @@ func _ready() -> void:
 	snow = Snow.new()
 	snow.emitting = bool(_preset.get("snow", true))
 	_world.add_child(snow)
+	if real:
+		snow.soften()
+	if fpv:
+		_lamp = SpotLight3D.new()
+		_lamp.position = Vector3(0.0, -0.45, -0.3)     # the bars, below and ahead of the eyes
+		_lamp.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+		_lamp.spot_range = 45.0
+		_lamp.spot_angle = 26.0
+		_lamp.spot_attenuation = 1.2
+		_lamp.light_color = Color(1.0, 0.95, 0.88)
+		_lamp.shadow_enabled = true
+		_lamp.visible = false
+		camera.add_child(_lamp)
 	rain = Rain.new()
 	_world.add_child(rain)
 
@@ -269,6 +283,10 @@ func _apply_daylight() -> void:
 		st.shadow_mult = float(st.shadow_mult) * (1.0 - 0.6 * _rain)
 	rain.set_intensity(_rain)
 	rider.set_headlight(1.0 - float(st.daylight))
+	if _lamp:
+		var k := clampf((1.0 - float(st.daylight)) * 1.4, 0.0, 1.0)
+		_lamp.light_energy = 6.0 * k
+		_lamp.visible = k > 0.01
 	_sun.rotation_degrees = Vector3(-float(st.elev), float(st.az), 0.0)
 	_sun.light_color = st.color
 	_sun.light_energy = float(_tuning.get("sun_energy", 0.8)) * float(st.energy_mult)

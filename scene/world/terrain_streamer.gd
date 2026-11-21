@@ -19,6 +19,7 @@ var _chunks: Dictionary = {}     # chunk index -> Node3D
 var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
 var _drift := FastNoiseLite.new()
+var _far := FastNoiseLite.new()     # broad hills beyond the near field (only the realistic look reaches them)
 var _fine_columns: PackedFloat64Array = []       # |x| <= 8 m: 0.2 m near the groove, then 0.5 m
 var _coarse_columns_l: PackedFloat64Array = []   # -HALF_WIDTH .. -8 m at RES
 var _coarse_columns_r: PackedFloat64Array = []   # 8 m .. HALF_WIDTH at RES
@@ -51,6 +52,10 @@ func _init(t: Trail) -> void:
 	_drift.seed = 13
 	_drift.frequency = 0.07
 	_drift.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_far.seed = 14
+	_far.frequency = 0.0035
+	_far.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_far.fractal_octaves = 4
 	var x := -8.0
 	while x < 8.0 - 0.001:
 		_fine_columns.append(x)
@@ -109,7 +114,16 @@ func _init(t: Trail) -> void:
 func use_real_ground(kind: String, plants: RealFlora) -> void:
 	real_ground = true
 	flora = plants
-	ahead_chunks = 12
+	ahead_chunks = 14
+	# First person sees far: carry the ground out to ~600 m either side, the
+	# columns spreading out with distance (the hills there need no detail).
+	var x := HALF_WIDTH
+	var step := 4.0
+	while x < 600.0:
+		x += step
+		step *= 1.22
+		_coarse_columns_r.append(x)
+		_coarse_columns_l.insert(0, -x)
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scene/real/real_ground.gdshader")
 	mat.set_shader_parameter("ground", {"snow": 0, "grass": 1, "sand": 2}.get(kind, 0))
@@ -160,6 +174,15 @@ func height(x: float, z: float, t: Trail = trail) -> float:
 		hillside = (ad - TRAIL_HALF_WIDTH) * 0.32 + pow(maxf(ad - 25.0, 0.0), 1.3) * 0.18   # uphill side
 	else:
 		hillside = -(ad - TRAIL_HALF_WIDTH) * 0.18                                          # downhill side
+	if ad > 70.0:
+		# Beyond the near field: the downhill side levels into a valley floor, the
+		# uphill side stops climbing at a ridge, and broad hills roll over both.
+		var far := smoothstep(70.0, 260.0, ad)
+		if d < 0.0:
+			hillside = minf(hillside, 70.0 + (ad - 70.0) * 0.25)
+		else:
+			hillside = -(minf(ad, 150.0) - TRAIL_HALF_WIDTH) * 0.18
+		hillside += (_far.get_noise_2d(x, z) * 0.5 + 0.5) * 70.0 * far
 	return base + off * (rough + hillside)
 
 
