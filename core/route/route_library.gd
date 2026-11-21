@@ -1,7 +1,7 @@
 class_name RouteLibrary
 extends RefCounted
 ## The user's imported routes: each GPX is copied into user://routes beside a
-## sidecar (<name>.route.json) holding its looked-up scenery, so the lookup
+## sidecar (<name>.route.json) holding its looked-up land cover, so the lookup
 ## happens once. Deleting moves both into routes/deleted, never destroying them.
 
 const DIR := "user://routes"
@@ -66,17 +66,16 @@ static func has_scenery(gpx_path: String) -> bool:
 	return FileAccess.file_exists(sidecar_path(gpx_path))
 
 
-static func apply_sidecar(r: Route, data: Dictionary) -> void:
-	r.biomes.clear()
-	for b in data.get("biomes", []):
-		if b is Dictionary:
-			r.biomes.append({"from": float(b.from), "to": float(b.to), "id": str(b.id),
-				"trees": float(b.get("trees", 1.0)), "water": bool(b.get("water", false))})
+## Turn saved land cover into scenery for the given month (today's by default).
+static func apply_sidecar(r: Route, data: Dictionary, month: int = 0) -> void:
+	if month <= 0:
+		month = int(Time.get_date_dict_from_system().month)
+	r.biomes = RouteLandCover.biomes_from_cover(r, data.get("cover", []), month)
 	r.estimated = bool(data.get("estimated", false))
 
 
-static func save_scenery(gpx_path: String, r: Route) -> void:
-	var data := {"version": 1, "looked_up": Time.get_datetime_string_from_system(true), "estimated": r.estimated, "biomes": r.biomes}
+static func save_cover(gpx_path: String, cover: Array, estimated: bool) -> void:
+	var data := {"version": 1, "looked_up": Time.get_datetime_string_from_system(true), "estimated": estimated, "cover": cover}
 	var f := FileAccess.open(sidecar_path(gpx_path), FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data, "  "))

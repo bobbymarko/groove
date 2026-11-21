@@ -19,6 +19,18 @@ var time_of_day := "live"      # Daylight.MODES key: live (¼-speed real day), m
 var last_ride_journal := ""
 var prompt_upload := false   # the summary screen asks about sharing the ride just finished
 var dry_run := false         # tooling: ride without recording, screenshots or uploads
+## Route rides (R41): the route being ridden (null for an ordinary workout ride),
+## whether it is a free ride (the trainer follows the real grade) or a workout on
+## the route, and how much of the real grade the trainer applies (Zwift's
+## "trainer difficulty"; 0.5 by default).
+var route: Route = null
+var route_free := false
+var route_difficulty := 0.5
+## One scenery lookup at a time, for routes imported but not yet looked up;
+## lives here so leaving the home screen (or starting a ride) does not cut it off.
+var route_lookup: RouteLandCover
+var _lookup_queue: Array[String] = []
+signal route_scenery_ready(path: String)
 
 ## Scene look, adjustable in Settings and on the ride screen (T). Applied by RideScene.apply_tuning().
 const TUNING_SPEC := [
@@ -59,6 +71,7 @@ func _ready() -> void:
 		weight_kg = float(_cfg.get_value("rider", "weight_kg", weight_kg))
 		units = str(_cfg.get_value("rider", "units", units))
 		auto_pause = bool(_cfg.get_value("rider", "auto_pause", auto_pause))
+		route_difficulty = float(_cfg.get_value("rider", "route_difficulty", route_difficulty))
 		look_mode = str(_cfg.get_value("scene", "look_mode", look_mode))
 		if look_mode == "8bit":
 			look_mode = "16bit"
@@ -68,6 +81,16 @@ func _ready() -> void:
 		for key in scene_tuning:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
+	route_lookup = RouteLandCover.new()
+	route_lookup.name = "RouteLookup"
+	add_child(route_lookup)
+	route_lookup.done.connect(func(_ok: bool, _m: String) -> void:
+		var path: String = _lookup_queue.pop_front() if not _lookup_queue.is_empty() else ""
+		route_scenery_ready.emit(path)
+		_next_lookup())
+	for path in RouteLibrary.list():
+		if not RouteLibrary.has_scenery(path):
+			look_up_route(path)       # imported but the lookup never finished (the app was closed)
 	Sync.configure_intervals.call_deferred(get_secret("intervals_api_key"))
 	Sync.configure_strava.call_deferred(get_secret("strava_client_id"), get_secret("strava_client_secret"))
 	# Dev launch option: `-- summary=latest` (or a journal path) opens that ride's summary.
@@ -132,6 +155,7 @@ func save_settings() -> void:
 	_cfg.set_value("rider", "weight_kg", weight_kg)
 	_cfg.set_value("rider", "units", units)
 	_cfg.set_value("rider", "auto_pause", auto_pause)
+	_cfg.set_value("rider", "route_difficulty", route_difficulty)
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)
@@ -178,6 +202,30 @@ func list_workout_files() -> Array[String]:
 				out.append(dir_path.path_join(f))
 	out.sort()
 	return out
+
+
+## Queue a route's scenery lookup (OpenStreetMap, once per route).
+func look_up_route(path: String) -> void:
+	if _lookup_queue.has(path):
+		return
+	_lookup_queue.append(path)
+	if _lookup_queue.size() == 1:
+		_next_lookup()
+
+
+func _next_lookup() -> void:
+	if _lookup_queue.is_empty() or route_lookup.busy:
+		return
+	var r := RouteLibrary.load_route(_lookup_queue[0])
+	if r == null:
+		_lookup_queue.pop_front()
+		_next_lookup()
+		return
+	route_lookup.look_up(r, _lookup_queue[0])
+
+
+func is_looking_up(path: String) -> bool:
+	return _lookup_queue.has(path)
 
 
 ## macOS app menu → "About Groove". Home answers it with Settings at the

@@ -250,6 +250,19 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			devices.heart_rate.step(1.0)
 		# The recorder must be hearing the devices, or rides save as zeros.
 		print("[dbg] recorder hears %s" % str(scene.get_node("RideRecorder").live_values()))
+	# "scroll": the screen's first scroll area scrolled to the bottom (home: the Routes section).
+	if OS.get_cmdline_user_args().has("scroll"):
+		var sc := scene.find_children("*", "ScrollContainer", true, false)
+		if not sc.is_empty():
+			for i in 90:
+				await process_frame          # the cards cascade in first
+			(sc[0] as ScrollContainer).scroll_vertical = 100000
+	# "route=<path>": open that route's sheet (home).
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("route=") and scene.has_node("RouteSheet"):
+			scene.get_node("RouteSheet").open(a.trim_prefix("route="))
+			for i in 30:
+				await process_frame
 	for i in 5:
 		await process_frame
 	var img := root.get_viewport().get_texture().get_image()

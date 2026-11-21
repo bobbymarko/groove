@@ -61,13 +61,16 @@ func test_biome_lookup_and_main_biome() -> void:
 	assert_eq(r.main_biome(), "winter")
 
 
-func test_sidecar_round_trip() -> void:
-	r.biomes = [{"from": 0.0, "to": 2300.0, "id": "autumn", "trees": 1.4, "water": true}]
-	r.estimated = true
-	var data: Dictionary = JSON.parse_string(JSON.stringify({"biomes": r.biomes, "estimated": true}))
+func test_sidecar_cover_becomes_seasonal_scenery() -> void:
+	var data: Dictionary = JSON.parse_string(JSON.stringify({"estimated": true, "cover": [
+		{"from": 0.0, "to": 1000.0, "kind": "forest_broad", "water": false},
+		{"from": 1000.0, "to": 2300.0, "kind": "open", "water": true}]}))
 	var r2 := GpxParser.parse_file(FIXTURE)
-	RouteLibrary.apply_sidecar(r2, data)
-	assert_eq(r2.biomes.size(), 1)
-	assert_eq(r2.biomes[0].id, "autumn")
-	assert_near(float(r2.biomes[0].trees), 1.4)
+	RouteLibrary.apply_sidecar(r2, data, 7)          # July at 45° N
+	assert_eq(r2.biomes.size(), 2)
+	assert_eq(r2.biomes[0].id, "summer")
+	assert_true(float(r2.biomes[0].trees) > 1.0)
+	assert_true(r2.biomes[1].water)
 	assert_true(r2.estimated)
+	RouteLibrary.apply_sidecar(r2, data, 10)         # October: the same woods in autumn
+	assert_eq(r2.biomes[0].id, "autumn")

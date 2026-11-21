@@ -15,6 +15,7 @@ var _devices_l: Label
 var _error: Label
 var _dialog: FileDialog
 var _sheet: WorkoutSheet
+var _route_sheet: RouteSheet
 var _side: SideSheet          # settings / devices / rides
 var _update_link: LinkButton  # footer: "Update to x.y.z", shown when a newer release exists
 
@@ -28,6 +29,7 @@ func _ready() -> void:
 	_refresh_devices()
 	_recover_unfinished()
 	Sync.calendar.updated.connect(_refresh_cards)
+	App.route_scenery_ready.connect(func(_p: String) -> void: _refresh_cards())
 	Sync.calendar.refresh_if_stale()
 
 
@@ -51,6 +53,10 @@ func _refresh_cards() -> void:
 		if w == null or not _passes_filter(w, f):
 			continue
 		_add_card(lib, w, f, false, true)   # flexible: shares the five-column grid with the plan
+	var routes := _section("Routes", false)
+	_add_import_route_card(routes)
+	for rp in RouteLibrary.list():
+		_add_route_card(routes, rp)
 	_cal_status.text = Sync.calendar.status if linked else ""
 	_cal_status.visible = _cal_status.text != ""
 	_relayout()
@@ -164,19 +170,28 @@ func _add_card_menu(card: PanelContainer, w: Workout, path: String) -> void:
 	menu.add_theme_font_override("font", HudStyle.font(500, 22))
 	menu.add_theme_font_size_override("font_size", 22)
 	card.add_child(menu)
-	var btn := HudStyle.icon_button(card, "more", func() -> void: pass, 18)
-	btn.pressed.connect(func() -> void: HudStyle.popup_below(menu, btn, true))
-	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	btn.offset_left = -44.0
-	btn.offset_right = -10.0
-	btn.offset_top = 10.0
-	btn.offset_bottom = 40.0
+	_corner_menu_button(card, menu)
 	menu.id_pressed.connect(func(id: int) -> void:
 		if id == 0:
 			_sheet.open(w)
 			_sheet.choose_scene(false)
 		else:
 			_confirm_delete(w, path))
+
+
+## The "…" button in a card's top-right corner. A PanelContainer stretches
+## every child over the whole card, so the button sits in a pass-through layer.
+func _corner_menu_button(card: PanelContainer, menu: PopupMenu) -> void:
+	var layer := Control.new()
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(layer)
+	var btn := HudStyle.icon_button(layer, "more", func() -> void: pass, 18)
+	btn.pressed.connect(func() -> void: HudStyle.popup_below(menu, btn, true))
+	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	btn.offset_left = -36.0
+	btn.offset_right = 0.0
+	btn.offset_top = -6.0
+	btn.offset_bottom = 22.0
 
 
 func _confirm_delete(w: Workout, path: String) -> void:
@@ -367,11 +382,95 @@ func _recover_unfinished() -> void:
 		_error.text = "Recovered an unfinished ride: %s" % str(meta.get("workout", path.get_file()))
 
 
+func _add_import_route_card(grid: GridContainer) -> void:
+	var card := HudStyle.panel(grid, Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16)
+	card.add_theme_stylebox_override("panel", HudStyle.flat(Color(HudStyle.CARD, 0.5), HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
+	card.custom_minimum_size = Vector2(0, CARD_HEIGHT)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_cards.append(card)
+	var c := CenterContainer.new()
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(c)
+	var l := HudStyle.label(c, "+  IMPORT GPX ROUTE", 14, 700, HudStyle.CYAN)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_on_open_pressed())
+	card.mouse_entered.connect(func() -> void: card.modulate = Color(1.2, 1.2, 1.25))
+	card.mouse_exited.connect(func() -> void: card.modulate = Color.WHITE)
+
+
+## A route's card: height profile over its scenery band, name, distance and climb.
+func _add_route_card(grid: GridContainer, path: String) -> void:
+	var r := RouteLibrary.load_route(path)
+	if r == null:
+		return
+	var card := HudStyle.panel(grid, HudStyle.CARD, HudStyle.RADIUS, 16)
+	card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 16, 16, HudStyle.BORDER))
+	card.custom_minimum_size = Vector2(0.0, CARD_HEIGHT)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_cards.append(card)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	card.add_child(v)
+	var prof := RouteProfile.new()
+	prof.custom_minimum_size = Vector2(0.0, 96)
+	prof.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	prof.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	prof.set_route(r)
+	v.add_child(prof)
+	var name_l := HudStyle.label(v, r.name, 16, 700, HudStyle.CYAN)
+	name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var meta := "%s %s   %d m climb" % [App.distance_text(r.length), App.distance_unit().to_lower(), int(round(r.climb))]
+	if App.is_looking_up(path):
+		meta = "%s %s   looking up the scenery…" % [App.distance_text(r.length), App.distance_unit().to_lower()]
+	var meta_l := HudStyle.label(v, meta, 13, 500, HudStyle.TEXT_DIM)
+	meta_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var menu := PopupMenu.new()
+	menu.add_item("Ride", 0)
+	menu.add_item("Delete", 1)
+	menu.add_theme_font_override("font", HudStyle.font(500, 22))
+	menu.add_theme_font_size_override("font_size", 22)
+	card.add_child(menu)
+	_corner_menu_button(card, menu)
+	menu.id_pressed.connect(func(id: int) -> void:
+		if id == 0:
+			_route_sheet.open(path)
+		else:
+			var dlg := ConfirmationDialog.new()
+			dlg.title = "Delete route?"
+			dlg.dialog_text = "%s will move to the deleted folder. Nothing is erased." % r.name
+			dlg.ok_button_text = "Delete"
+			dlg.cancel_button_text = "Keep"
+			dlg.confirmed.connect(func() -> void:
+				RouteLibrary.delete(path)
+				_refresh_cards())
+			add_child(dlg)
+			dlg.popup_centered())
+	card.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			_route_sheet.open(path))
+	card.mouse_entered.connect(func() -> void: card.modulate = Color(1.15, 1.15, 1.2))
+	card.mouse_exited.connect(func() -> void: card.modulate = Color.WHITE)
+
+
 func _on_open_pressed() -> void:
 	_dialog.popup_centered_ratio(0.7)
 
 
 func _on_file_chosen(path: String) -> void:
+	if RouteLibrary.supported(path):
+		var dest := RouteLibrary.import(path)
+		if dest == "":
+			_error.text = "Could not load %s: %s" % [path.get_file(), RouteLibrary.last_error]
+			return
+		App.look_up_route(dest)
+		_refresh_cards()
+		_route_sheet.open(dest)
+		return
 	var w := WorkoutLoader.load_file(path, App.ftp)
 	if w == null:
 		_error.text = "Could not load %s: %s" % [path.get_file(), WorkoutLoader.last_error]
@@ -464,13 +563,16 @@ func _build_ui() -> void:
 	_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	_dialog.use_native_dialog = true
-	_dialog.filters = PackedStringArray([WorkoutLoader.FILTER])
+	_dialog.filters = PackedStringArray([WorkoutLoader.FILTER, RouteLibrary.FILTER])
 	_dialog.file_selected.connect(_on_file_chosen)
 	add_child(_dialog)
 
 	_sheet = WorkoutSheet.new()
 	_sheet.name = "WorkoutSheet"
 	add_child(_sheet)
+	_route_sheet = RouteSheet.new()
+	_route_sheet.name = "RouteSheet"
+	add_child(_route_sheet)
 	_side = SideSheet.new()
 	_side.name = "SideSheet"
 	_side.width = 740.0   # pixel type is wide; settings rows need the room

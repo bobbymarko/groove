@@ -94,6 +94,7 @@ func choose_scene(simulator: bool) -> void:
 	_mark_scene_cards(cards)
 	var go := HudStyle.button(v, "Ride", 18, func() -> void:
 		App.workout = workout
+		App.route = null          # an ordinary workout ride
 		if simulator:
 			Devices.use_simulated_devices()
 		App.go_to("res://ui/screens/ride_screen.tscn"))
