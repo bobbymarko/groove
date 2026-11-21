@@ -17,7 +17,8 @@ signal finished(completed: bool)
 
 const BIAS_MIN := 50
 const BIAS_MAX := 150
-## Auto-pause (R33): the workout stops when the rider stops. Zero watts for this
+## Auto-pause (R33): the workout stops when the rider stops, and (R38) a
+## ready workout starts by itself when the pedals turn. Zero watts for this
 ## long pauses it; the first watts after that resume it. A trainer that goes
 ## quiet for STALE_POWER_AFTER seconds counts as zero watts.
 const AUTO_PAUSE_AFTER := 3.0
@@ -79,12 +80,15 @@ func resume() -> void:
 		_set_state(State.RUNNING)
 
 
-## Feed every power reading here; drives auto-pause and auto-resume.
+## Feed every power reading here; drives auto-start, auto-pause and auto-resume.
 func report_power(watts: int) -> void:
 	_last_power = maxi(watts, 0)
 	_since_report = 0.0
 	if _last_power > 0:
 		_zero_for = 0.0
+		# Auto-start: on the bike and pedalling without having pressed Start (as Zwift does).
+		if auto_pause and state == State.READY:
+			start()
 		if auto_paused and state == State.PAUSED:
 			auto_paused = false
 			_set_state(State.RUNNING)

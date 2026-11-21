@@ -149,7 +149,7 @@ func _build_ui() -> void:
 		_weight.text = _weight_text())
 
 	var ride := HudStyle.section(rider, "Ride",
-		"Auto-pause stops the workout clock when you stop pedalling and starts it again when you do, as Zwift does. Off: only the Pause button pauses.")
+		"With auto-pause on, the workout starts when you start pedalling, stops the clock when you stop and carries on when you pedal again, as Zwift does. Off: only the Start and Pause buttons do.")
 	HudStyle.segmented(HudStyle.row(ride, "Auto-pause"), ["On", "Off"], 0 if App.auto_pause else 1,
 		func(i: int) -> void:
 			App.auto_pause = i == 0

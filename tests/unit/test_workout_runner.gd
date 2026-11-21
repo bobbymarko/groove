@@ -217,3 +217,16 @@ func test_auto_pause_off_never_pauses() -> void:
 	assert_eq(r.state, WorkoutRunner.State.RUNNING)
 	r.check_auto_pause(30.0)
 	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+
+
+func test_pedalling_starts_a_ready_workout() -> void:
+	r.report_power(0)
+	assert_eq(r.state, WorkoutRunner.State.READY)
+	r.report_power(140)
+	assert_eq(r.state, WorkoutRunner.State.RUNNING)
+
+
+func test_no_auto_start_with_auto_pause_off() -> void:
+	r.auto_pause = false
+	r.report_power(140)
+	assert_eq(r.state, WorkoutRunner.State.READY)

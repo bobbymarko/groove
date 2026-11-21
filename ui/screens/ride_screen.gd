@@ -362,7 +362,8 @@ func _on_text(msg: String) -> void:
 
 func _on_state(s: WorkoutRunner.State) -> void:
 	_state_l.text = "" if s == WorkoutRunner.State.RUNNING else WorkoutRunner.State.keys()[s].capitalize()
-	if s == WorkoutRunner.State.PAUSED and _runner.auto_paused:
+	if s == WorkoutRunner.State.PAUSED and _runner.auto_paused \
+			or s == WorkoutRunner.State.READY and _runner.auto_pause:   # it starts by itself (R38)
 		_coach.say(PAUSE_NOTE_START if _runner.elapsed < 0.5 else PAUSE_NOTE, 0.0)
 	elif s == WorkoutRunner.State.RUNNING and _coach.label.text in [PAUSE_NOTE_START, PAUSE_NOTE]:
 		_coach.dismiss()
