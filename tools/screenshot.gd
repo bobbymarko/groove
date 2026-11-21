@@ -106,6 +106,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				for a in OS.get_cmdline_user_args():
 					if a.begins_with("punch="):
 						rs.camera.punch(float(a.trim_prefix("punch=")))   # ~0.6 s before capture: mid-swing
+		print("[dbg] fps %d (%.1f ms/frame), %.1fM triangles, %d draw calls" % [Engine.get_frames_per_second(), 1000.0 / maxf(Engine.get_frames_per_second(), 1.0),
+				Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1e6, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
 		var rp: Vector3 = rs.rider.global_position
 		print("[dbg] rider %s heading %s grade %.1f speed %.1f" % [rp, rs.trail.heading_at(rs.distance), rs.trail.grade_at(rs.distance), rs.physics.speed])
 		print("[dbg] camera %s fov %.1f dist %.1f height %.1f" % [rs.camera.global_position, rs.camera.fov, rs.camera.follow_distance, rs.camera.follow_height])

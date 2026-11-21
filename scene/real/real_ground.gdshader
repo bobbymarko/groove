@@ -46,8 +46,8 @@ void fragment() {
 		path_rough = 0.75;
 		bump = mix(0.35, 0.8, trail);
 	} else if (ground == 1) {
-		vec3 lush = vec3(0.09, 0.15, 0.04);
-		vec3 dry = vec3(0.22, 0.21, 0.08);
+		vec3 lush = vec3(0.07, 0.13, 0.035);
+		vec3 dry = vec3(0.15, 0.16, 0.06);
 		field = mix(lush, dry, smoothstep(0.35, 0.75, n1)) * (0.75 + 0.45 * n3) * (0.85 + 0.3 * n4);
 		path = mix(vec3(0.27, 0.2, 0.13), vec3(0.2, 0.15, 0.1), rut * 0.7) * (0.75 + 0.45 * n4);
 		field_rough = 0.95;

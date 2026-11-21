@@ -16,6 +16,7 @@ var sky_mat: ShaderMaterial
 var _wind := Vector3.ZERO
 var _frame := 0
 var _preset: Dictionary = {}
+var flora: RealFlora
 
 ## Ground colour seen by the sky (light bounced up into clouds and ambient), per ground type.
 const GROUND_ALBEDO := {
@@ -25,10 +26,11 @@ const GROUND_ALBEDO := {
 }
 
 
-func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset: Dictionary) -> void:
+func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_id: String) -> void:
 	env = e
 	sun = s
-	_preset = preset
+	_preset = ScenePreset.get_preset(preset_id)
+	flora = RealFlora.for_biome(preset_id)
 	sky_mat = ShaderMaterial.new()
 	sky_mat.shader = load("res://scene/real/real_sky.gdshader")
 	sky_mat.set_shader_parameter("ground_albedo", ground_albedo())
@@ -66,7 +68,7 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset:
 	env.volumetric_fog_sky_affect = 0.0
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	sun.directional_shadow_max_distance = 220.0
+	sun.directional_shadow_max_distance = 140.0
 	sun.directional_shadow_split_1 = 0.06
 	sun.directional_shadow_split_2 = 0.18
 	sun.directional_shadow_split_3 = 0.45
@@ -80,18 +82,26 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset:
 	# (MetalFX on Macs, FSR 2 elsewhere), which also antialiases and settles the
 	# sky's jittered clouds.
 	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_METALFX_TEMPORAL if OS.get_name() == "macOS" else Viewport.SCALING_3D_MODE_FSR2
-	viewport.scaling_3d_scale = 0.6
+	viewport.scaling_3d_scale = 0.5
 	viewport.msaa_3d = Viewport.MSAA_DISABLED
 	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	viewport.use_debanding = true
 	viewport.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR
+	# Profiling switches for the preview tool.
+	var args := OS.get_cmdline_user_args()
+	if args.has("noclouds"):
+		sky_mat.set_shader_parameter("cloud_steps", 0)
+	if args.has("noshadows"):
+		sun.shadow_enabled = false
+	if args.has("nossao"):
+		env.ssao_enabled = false
 	var noise := CloudNoise.new()
 	noise.baked.connect(_on_noise)
 	add_child(noise)
 
 
 func ground_type() -> String:
-	return str(_preset.get("real_ground", "snow" if bool(_preset.get("snow", true)) else "grass"))
+	return flora.ground_type()
 
 
 func ground_albedo() -> Color:

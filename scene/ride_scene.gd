@@ -115,13 +115,13 @@ func _ready() -> void:
 	if look_mode == "real":
 		real = RealLook.new()
 		_world.add_child(real)
-		real.setup(_env, sun, _viewport, _preset)
+		real.setup(_env, sun, _viewport, preset_id)
 
 	trail = Trail.new()
 	trail.grade_provider = _grade_at
 	terrain = TerrainStreamer.new(trail)
 	if real:
-		terrain.use_real_ground(real.ground_type())
+		terrain.use_real_ground(real.ground_type(), real.flora)
 	_world.add_child(terrain)
 	backdrop = Backdrop.new()
 	_world.add_child(backdrop)

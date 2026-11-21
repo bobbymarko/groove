@@ -1,5 +1,5 @@
 shader_type sky;
-render_mode use_quarter_res_pass;
+render_mode use_half_res_pass;
 // Physically based sky with raymarched volumetric clouds, ported from
 // Cloudscape (MIT, Fishypants/cloudscape): Hillaire-style single scattering
 // (multiple scattering approximated), Schneider / Nubis cloud shapes and light.
@@ -302,12 +302,12 @@ float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00
 vec4 sky_color(vec3 rd, vec2 px, bool cheap) {
 	vec3 W0 = cam_km;
 	vec3 P0 = W0 + vec3(0.0, Rg, 0.0);
-	float jit = cheap ? 0.5 : ign(px + 5.588238 * frame);
+	float jit = cheap ? 0.5 : ign(px);
 	float t_planet = ray_sphere(P0, rd, Rg);
 	float D = t_planet > 0.0 ? t_planet : max(ray_sphere(P0, rd, Rt), 0.0);
 	vec3 L;
 	vec3 T;
-	atmosphere(P0, rd, D, cheap ? 0.5 : fract(jit + 0.618034), cheap ? 8 : atmo_steps, L, T);
+	atmosphere(P0, rd, D, 0.5, cheap ? 8 : atmo_steps, L, T);
 	vec3 col = L;
 	if (t_planet > 0.0) {
 		vec3 Pg = P0 + rd * t_planet;
@@ -356,13 +356,13 @@ float star_field(vec3 rd) {
 void sky() {
 	if (AT_CUBEMAP_PASS) {
 		COLOR = sky_color(EYEDIR, vec2(0.0), true).rgb;
-	} else if (AT_QUARTER_RES_PASS) {
+	} else if (AT_HALF_RES_PASS) {
 		vec4 s = sky_color(EYEDIR, FRAGCOORD.xy, false);
 		COLOR = s.rgb;
 		ALPHA = s.a;
 	} else {
-		vec3 col = QUARTER_RES_COLOR.rgb;
-		float clear = QUARTER_RES_COLOR.a;
+		vec3 col = HALF_RES_COLOR.rgb;
+		float clear = HALF_RES_COLOR.a;
 		float c = dot(EYEDIR, light_dir);
 		vec3 P0 = cam_km + vec3(0.0, Rg, 0.0);
 		if (EYEDIR.y > -0.02) {

@@ -36,7 +36,8 @@ var _density_mult := 1.0            # preset factor: open desert scatters far fe
 var _shrub_mesh: ArrayMesh
 var _material: Material
 var ahead_chunks := AHEAD           ## more in first person, which sees further down the trail
-var real_ground := false            ## the realistic look: real_ground shader, props unchanged for now
+var real_ground := false            ## the realistic look: real_ground shader and procedural flora
+var flora: RealFlora                ## the realistic look's plants and rocks (replaces the props)
 const PINE_SCALE := Vector2(0.45, 0.8)   # Quaternius pines are ~7 m tall at scale 1
 
 
@@ -105,8 +106,9 @@ func _init(t: Trail) -> void:
 
 ## The realistic look's ground: one shader for field, trail and rock, fed the
 ## distance from the trail centre through UV.x. Call before the first update.
-func use_real_ground(kind: String) -> void:
+func use_real_ground(kind: String, plants: RealFlora) -> void:
 	real_ground = true
+	flora = plants
 	ahead_chunks = 12
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scene/real/real_ground.gdshader")
@@ -229,7 +231,10 @@ func _build_chunk_arrays(index: int, t: Trail) -> Dictionary:
 	out["fine"] = _grid_arrays(z0, _fine_columns, 0.5, t)
 	out["coarse_l"] = _grid_arrays(z0, _coarse_columns_l, RES, t)
 	out["coarse_r"] = _grid_arrays(z0, _coarse_columns_r, RES, t)
-	out["scatter"] = _scatter_transforms(z0, t)
+	if flora:
+		out["flora"] = flora.scatter(z0, CHUNK_LEN, HALF_WIDTH, TRAIL_HALF_WIDTH + BANK_WIDTH, t, height)
+	else:
+		out["scatter"] = _scatter_transforms(z0, t)
 	out["usec"] = Time.get_ticks_usec() - t0
 	return out
 
@@ -395,6 +400,11 @@ func _finish_chunk(r: Dictionary) -> void:
 		mi.mesh = mesh
 		mi.material_override = _material
 		root.add_child(mi)
+	if r.has("flora"):
+		_add_flora(root, r.flora, float(r.z0))
+		add_child(root)
+		_chunks[index] = root
+		return
 	var sc: Dictionary = r.scatter
 	for i in _pines.size():
 		_add_multimesh(root, _pines[i], sc.pines[i])
@@ -410,6 +420,65 @@ func _finish_chunk(r: Dictionary) -> void:
 		print("[terrain] chunk %d built in %d ms (worker)" % [index, r.usec / 1000])
 
 
+
+
+## The realistic look's plants for one chunk: a MultiMesh per plant variant,
+## with a tint per instance. Each sits at the chunk's middle so visibility
+## ranges (grass stops drawing past GRASS_VISIBLE) measure from there.
+func _add_flora(root: Node3D, placed: Dictionary, z0: float) -> void:
+	var mid := Vector3(trail.x_at(z0 + CHUNK_LEN * 0.5), trail.h_at(z0 + CHUNK_LEN * 0.5), z0 + CHUNK_LEN * 0.5)
+	for mi in placed:
+		var xfs: Array[Transform3D] = placed[mi][0]
+		var tints: Array[Color] = placed[mi][1]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = flora.meshes[mi]
+		mm.instance_count = xfs.size()
+		for i in xfs.size():
+			var xf := xfs[i]
+			xf.origin -= mid
+			mm.set_instance_transform(i, xf)
+			mm.set_instance_custom_data(i, tints[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.position = mid
+		if flora.far_meshes.has(mi):
+			# Close-up tree near the camera, its cheaper twin beyond.
+			var far := MultiMeshInstance3D.new()
+			var fmm := MultiMesh.new()
+			fmm.transform_format = MultiMesh.TRANSFORM_3D
+			fmm.use_custom_data = true
+			fmm.mesh = flora.far_meshes[mi]
+			fmm.instance_count = mm.instance_count
+			for i in mm.instance_count:
+				fmm.set_instance_transform(i, mm.get_instance_transform(i))
+				fmm.set_instance_custom_data(i, mm.get_instance_custom_data(i))
+			far.multimesh = fmm
+			far.position = mid
+			far.visibility_range_begin = RealFlora.TREE_DETAIL_RANGE
+			far.visibility_range_begin_margin = 8.0
+			root.add_child(far)
+			mmi.visibility_range_end = RealFlora.TREE_DETAIL_RANGE
+			mmi.visibility_range_end_margin = 8.0
+			# Up close the shadow comes from the cheaper twin too: soft shadows hide the difference.
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var shade := MultiMeshInstance3D.new()
+			shade.multimesh = fmm
+			shade.position = mid
+			shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+			shade.visibility_range_end = RealFlora.TREE_DETAIL_RANGE
+			shade.visibility_range_end_margin = 8.0
+			root.add_child(shade)
+		match flora.kinds[mi]:
+			"grass":
+				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				mmi.visibility_range_end = RealFlora.GRASS_VISIBLE
+				mmi.visibility_range_end_margin = 10.0
+				mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+			"rock", "bush":
+				mmi.visibility_range_end = 220.0
+		root.add_child(mmi)
 
 
 func _add_multimesh(root: Node3D, mesh: Mesh, transforms: Array[Transform3D]) -> void:
