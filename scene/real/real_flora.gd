@@ -6,34 +6,38 @@ extends RefCounted
 ## worker thread, so it touches no nodes.
 
 const BIOMES := {
-	"winter": {"water": "ice", "ground": "snow", "snow": 0.5, "spruce": 0.92, "broad": 0.0, "bare": 0.08, "trees": 0.55,
+	"winter": {"range": 1300.0, "snow_line": 250.0, "range_rock": Color(0.3, 0.3, 0.32), "range_scrub": Color(0.12, 0.16, 0.12), "water": "ice", "ground": "snow", "snow": 0.5, "spruce": 0.92, "broad": 0.0, "bare": 0.08, "trees": 0.55,
 		"needle": Color(0.06, 0.14, 0.08), "bark": Color(0.24, 0.19, 0.15),
 		"grass": Color(0.42, 0.36, 0.2), "grass_h": 0.5, "grass_blades": 7, "grass_density": 0.1,
 		"bush": 0.0, "rock": Color(0.42, 0.41, 0.4), "rocks": 1.0},
-	"summer": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.25, "broad": 0.75, "bare": 0.0, "trees": 0.5,
+	"summer": {"range": 700.0, "range_scrub": Color(0.16, 0.22, 0.1), "water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.25, "broad": 0.75, "bare": 0.0, "trees": 0.5,
 		"needle": Color(0.06, 0.15, 0.07), "bark": Color(0.27, 0.22, 0.17), "leaves": [Color(0.1, 0.22, 0.05), Color(0.13, 0.25, 0.05)],
 		"grass": Color(0.13, 0.24, 0.06), "grass_h": 0.5, "grass_blades": 15, "grass_density": 1.0,
 		"flowers": [Color(0.95, 0.93, 0.85), Color(0.95, 0.78, 0.15)], "flower_share": 0.06,
 		"bush": 0.6, "rock": Color(0.4, 0.39, 0.37), "rocks": 0.6, "moss": 0.6},
-	"autumn": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.05, "trees": 0.5,
+	"autumn": {"range": 800.0, "range_scrub": Color(0.3, 0.22, 0.1), "water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.05, "trees": 0.5,
 		"needle": Color(0.06, 0.14, 0.07), "bark": Color(0.25, 0.2, 0.16),
 		"leaves": [Color(0.75, 0.32, 0.05), Color(0.8, 0.55, 0.08), Color(0.55, 0.12, 0.04), Color(0.45, 0.45, 0.08)],
 		"grass": Color(0.24, 0.22, 0.08), "grass_h": 0.45, "grass_blades": 14, "grass_density": 0.8,
 		"bush": 0.5, "rock": Color(0.4, 0.38, 0.35), "rocks": 0.7, "moss": 0.4},
-	"spring": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.0, "trees": 0.45,
+	"spring": {"range": 650.0, "range_scrub": Color(0.18, 0.26, 0.1), "water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.0, "trees": 0.45,
 		"needle": Color(0.07, 0.17, 0.08), "bark": Color(0.28, 0.23, 0.18), "leaves": [Color(0.2, 0.36, 0.06), Color(0.85, 0.75, 0.8)],
 		"grass": Color(0.15, 0.3, 0.06), "grass_h": 0.4, "grass_blades": 15, "grass_density": 1.0,
 		"flowers": [Color(0.95, 0.93, 0.85), Color(0.95, 0.8, 0.12), Color(0.55, 0.35, 0.8), Color(0.85, 0.2, 0.15)], "flower_share": 0.25,
 		"bush": 0.6, "rock": Color(0.42, 0.41, 0.39), "rocks": 0.5, "moss": 0.7},
-	"desert": {"ground": "sand", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 0.0, "trees": 0.0,
-		"grass": Color(0.45, 0.38, 0.2), "grass_h": 0.35, "grass_blades": 9, "grass_density": 0.12,
-		"bush": 0.5, "bush_leaves": Color(0.28, 0.28, 0.14), "rock": Color(0.55, 0.3, 0.19), "rocks": 2.5},
-	"birchwood": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 1.0, "bare": 0.0, "trees": 0.55, "birch": true,
+	# Sonoran desert, after Tucson: saguaros over palo verde, ocotillo, cholla,
+	# prickly pear, barrel cactus and creosote on decomposed-granite gravel,
+	# granite boulders, rugged mountains behind, a big clear sky and a high sun.
+	"desert": {"range": 1500.0, "range_rock": Color(0.46, 0.3, 0.24), "range_scrub": Color(0.3, 0.28, 0.17), "ground": "desert", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 0.0, "saguaro": 0.6, "palo": 0.4, "trees": 0.32,
+		"grass": Color(0.5, 0.44, 0.27), "grass_h": 0.32, "grass_blades": 9, "grass_density": 0.14,
+		"bush": 1.6, "rock": Color(0.56, 0.47, 0.4), "rocks": 2.2, "clouds": 0.22, "noon": 62.0,
+		"relief": 320.0, "relief_from": 280.0, "hills": 0.3},
+	"birchwood": {"range": 700.0, "range_scrub": Color(0.18, 0.24, 0.1), "water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 1.0, "bare": 0.0, "trees": 0.55, "birch": true,
 		"bark": Color(0.8, 0.78, 0.74), "leaves": [Color(0.3, 0.42, 0.08), Color(0.24, 0.38, 0.07)],
 		"grass": Color(0.16, 0.28, 0.07), "grass_h": 0.5, "grass_blades": 15, "grass_density": 1.0,
 		"flowers": [Color(0.95, 0.93, 0.85)], "flower_share": 0.05,
 		"bush": 0.4, "rock": Color(0.42, 0.41, 0.39), "rocks": 0.4, "moss": 0.6},
-	"apocalypse": {"water": "river", "water_tint": Color(0.05, 0.05, 0.03), "ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 1.0, "trees": 0.35,
+	"apocalypse": {"range": 900.0, "range_rock": Color(0.22, 0.2, 0.19), "range_scrub": Color(0.2, 0.19, 0.16), "water": "river", "water_tint": Color(0.05, 0.05, 0.03), "ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 1.0, "trees": 0.35,
 		"bark": Color(0.18, 0.16, 0.14), "grass": Color(0.3, 0.27, 0.16), "grass_h": 0.4, "grass_blades": 8, "grass_density": 0.3,
 		"bush": 0.0, "rock": Color(0.3, 0.29, 0.28), "rocks": 1.0},
 }
@@ -55,6 +59,8 @@ var _trees: Array[int] = []
 var _spruce: Array[int] = []
 var _broad: Array[int] = []
 var _bare: Array[int] = []
+var _saguaro: Array[int] = []
+var _palo: Array[int] = []
 var _bushes: Array[int] = []
 var _grass: Array[int] = []
 var _flowers: Array[int] = []
@@ -110,6 +116,9 @@ func _build(id: String) -> void:
 		_tree_near[m] = near
 	_lod(rock_mat, 2, SMALL_FAR)
 	var bark_col: Color = biome.get("bark", Color(0.26, 0.21, 0.16))
+	if biome.get("ground", "") == "desert":
+		_build_desert(bark_mat, leaf_mat, rock_mat)
+		return
 	var birch := bool(biome.get("birch", false))
 	if float(biome.trees) > 0.0:
 		if float(biome.spruce) > 0.0:
@@ -171,16 +180,52 @@ func _single(m: ShaderMaterial, end: float) -> ShaderMaterial:
 	return _singles[key]
 
 
+## The Sonoran desert's plants (they replace trees, bushes and grass).
+func _build_desert(bark_mat: ShaderMaterial, leaf_mat: ShaderMaterial, rock_mat: ShaderMaterial) -> void:
+	var skin := ShaderMaterial.new()
+	skin.shader = load("res://scene/real/real_cactus.gdshader")
+	_lod(skin, 2, TREE_FAR)
+	var spines := skin.duplicate() as ShaderMaterial
+	spines.set_shader_parameter("fuzz", 0.3)
+	spines.set_shader_parameter("fuzz_color", Vector3(0.78, 0.72, 0.48))
+	_lod(spines, 2, SMALL_FAR)
+	var small_skin := skin.duplicate() as ShaderMaterial
+	_lod(small_skin, 2, SMALL_FAR)
+	for i in 6:
+		_add(PlantGen.saguaro(800 + i, skin), "saguaro")
+	for i in 3:
+		_add(PlantGen.palo_verde(850 + i, _near(bark_mat), _near(leaf_mat)), "palo",
+				PlantGen.palo_verde(850 + i, _far(bark_mat), _far(leaf_mat), 0.4))
+	var stems := _single(bark_mat, SMALL_FAR)
+	var leaves := _single(leaf_mat, SMALL_FAR)
+	for i in 3:
+		_add(PlantGen.ocotillo(870 + i, stems, leaves), "bush")
+	for i in 3:
+		_add(PlantGen.cholla(880 + i, spines), "bush")
+	for i in 3:
+		_add(PlantGen.prickly_pear(890 + i, small_skin), "bush")
+	for i in 2:
+		_add(PlantGen.barrel(900 + i, small_skin, leaves), "bush")
+	for i in 5:
+		_add(PlantGen.creosote(910 + i, stems, leaves), "bush")
+	var grass_mat := leaf_mat.duplicate() as ShaderMaterial
+	grass_mat.set_shader_parameter("translucency", 0.35)
+	for i in 2:
+		_add(PlantGen.grass(500 + i, grass_mat, biome.grass, float(biome.grass_h), int(biome.grass_blades)), "grass")
+	for i in 5:
+		_add(PlantGen.rock(700 + i, rock_mat, biome.rock), "rock")
+
+
 func _add(m: Mesh, kind: String, far: Mesh = null) -> void:
 	var i := meshes.size()
 	meshes.append(m)
 	if far:
 		far_meshes[i] = far
 	match kind:
-		"spruce", "broad", "bare":
+		"spruce", "broad", "bare", "saguaro", "palo":
 			kinds.append("tree")
 			_trees.append(i)
-			({"spruce": _spruce, "broad": _broad, "bare": _bare}[kind] as Array[int]).append(i)
+			({"spruce": _spruce, "broad": _broad, "bare": _bare, "saguaro": _saguaro, "palo": _palo}[kind] as Array[int]).append(i)
 		"bush":
 			kinds.append("bush")
 			_bushes.append(i)
@@ -295,15 +340,17 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 
 
 func _pick_tree(rng: RandomNumberGenerator) -> int:
-	var r := rng.randf() * (float(biome.spruce) + float(biome.broad) + float(biome.bare))
-	var pool := _bare
-	if r < float(biome.spruce) and not _spruce.is_empty():
-		pool = _spruce
-	elif r < float(biome.spruce) + float(biome.broad) and not _broad.is_empty():
-		pool = _broad
-	if pool.is_empty():
-		pool = _trees
-	return pool[rng.randi() % pool.size()]
+	var pools := [[float(biome.spruce), _spruce], [float(biome.broad), _broad], [float(biome.bare), _bare],
+		[float(biome.get("saguaro", 0.0)), _saguaro], [float(biome.get("palo", 0.0)), _palo]]
+	var total := 0.0
+	for p in pools:
+		total += float(p[0])
+	var r := rng.randf() * total
+	for p in pools:
+		r -= float(p[0])
+		if r <= 0.0 and not (p[1] as Array).is_empty():
+			return p[1][rng.randi() % (p[1] as Array).size()]
+	return _trees[rng.randi() % _trees.size()]
 
 
 func _tint(rng: RandomNumberGenerator, spread: float) -> Color:

@@ -70,7 +70,7 @@ const PRESETS := {
 		"snow": false, "prop_snow": false, "sun_lift": 22.0, "dead_share": 0.0, "rain_chance": 0.4,
 	},
 	"desert": {
-		"name": "Desert", "description": "Red rock, sand and cactus under a hard sun",
+		"name": "Desert", "description": "Sonoran desert: saguaros, cholla and granite",
 		"colors": {
 			"SKY_TOP": "6fa8e6", "SKY_MID": "a8cbee", "SKY_LOW": "e6d7c0", "SKY_HORIZON": "f4e3c8", "FOG": "eadbc4",
 			"SNOW": "d8b77c", "SNOW_MID": "cba86a", "SNOW_SHADE": "b8935a", "SNOW_SHADOW": "8f7a5a", "SNOW_BRIGHT": "e8cd92",

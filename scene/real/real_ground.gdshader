@@ -7,7 +7,7 @@ render_mode cull_back;
 
 #include "res://scene/real/wind.gdshaderinc"
 
-uniform int ground = 0;      // 0 snow, 1 grass, 2 sand
+uniform int ground = 0;      // 0 snow, 1 grass, 2 sand, 3 Sonoran desert (decomposed granite)
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 uniform sampler2D noise_nrm : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform float trail_half_width = 0.75;
@@ -76,6 +76,19 @@ void fragment() {
 		field_rough = 0.95;
 		path_rough = 0.9;
 		bump = 1.0;
+	} else if (ground == 3) {
+		// Decomposed granite: tan to rusty gravel, darker and lighter pebbles, caliche pale patches.
+		vec3 tan = vec3(0.4, 0.29, 0.2);
+		vec3 rust = vec3(0.43, 0.24, 0.15);
+		field = mix(tan, rust, smoothstep(0.35, 0.7, n1)) * (0.86 + 0.22 * n3);
+		field = mix(field, vec3(0.58, 0.5, 0.4), smoothstep(0.66, 0.82, n2) * 0.18);
+		float peb = n(p * 6.7 + 2.0);
+		field *= 1.0 - 0.35 * smoothstep(0.7, 0.74, peb);
+		field = mix(field, vec3(0.75, 0.7, 0.62), smoothstep(0.76, 0.8, n(p * 9.1 + 5.0)) * 0.6);
+		path = mix(vec3(0.5, 0.4, 0.3), vec3(0.43, 0.34, 0.26), rut * 0.6) * (0.85 + 0.2 * n4);
+		field_rough = 0.95;
+		path_rough = 0.92;
+		bump = 1.1;
 	} else {
 		field = vec3(0.58, 0.32, 0.14) * (0.85 + 0.2 * n2) * (0.93 + 0.1 * n4);
 		path = vec3(0.5, 0.29, 0.15) * (0.85 + 0.2 * n4);

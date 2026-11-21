@@ -23,6 +23,7 @@ const GROUND_ALBEDO := {
 	"snow": Color(0.8, 0.82, 0.86),
 	"grass": Color(0.16, 0.2, 0.1),
 	"sand": Color(0.5, 0.33, 0.2),
+	"desert": Color(0.5, 0.39, 0.29),
 }
 
 
@@ -134,7 +135,7 @@ func apply_daylight(st: Dictionary, rain: float) -> void:
 	sky_mat.set_shader_parameter("stars", clampf(1.0 - daylight * 1.5, 0.0, 1.0) * (1.0 - rain))
 	var illum := Vector3.ONE * (0.012 if night else 1.0)
 	sky_mat.set_shader_parameter("light_illum", illum)
-	sky_mat.set_shader_parameter("coverage", lerpf(float(_preset.get("real_clouds", 0.5)), 1.0, rain))
+	sky_mat.set_shader_parameter("coverage", lerpf(float(flora.biome.get("clouds", 0.5)), 1.0, rain))
 	sky_mat.set_shader_parameter("cloud_type", lerpf(1.0, 0.25, rain))
 	sky_mat.set_shader_parameter("cloud_density", lerpf(0.19, 0.8, rain))
 	sky_mat.set_shader_parameter("haze", 0.78 + 2.0 * rain)

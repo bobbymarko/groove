@@ -22,6 +22,9 @@ var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
 var _drift := FastNoiseLite.new()
 var _far := FastNoiseLite.new()     # broad hills beyond the near field (only the realistic look reaches them)
+var far_relief := 70.0              ## height of the broad far hills (metres); the desert's ranges are taller
+var relief_from := 70.0             ## where those hills start (metres from the trail)
+var hill_scale := 1.0               ## the near hillside's steepness (the desert floor is nearly flat)
 var water := false                  ## realistic look: a river (widening into lakes) down the downhill side
 var _river_noise := FastNoiseLite.new()
 var _lake_noise := FastNoiseLite.new()
@@ -166,7 +169,14 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 		_water_material = wm
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scene/real/real_ground.gdshader")
-	mat.set_shader_parameter("ground", {"snow": 0, "grass": 1, "sand": 2}.get(kind, 0))
+	mat.set_shader_parameter("ground", {"snow": 0, "grass": 1, "sand": 2, "desert": 3}.get(kind, 0))
+	# Desert: the far hills become jagged ranges (ridged noise, much taller), like the Catalinas over Tucson.
+	far_relief = float(plants.biome.get("relief", far_relief))
+	relief_from = float(plants.biome.get("relief_from", relief_from))
+	hill_scale = float(plants.biome.get("hills", hill_scale))
+	if plants.biome.has("relief"):
+		_far.fractal_type = FastNoiseLite.FRACTAL_RIDGED
+		_far.frequency = 0.0028
 	mat.set_shader_parameter("trail_half_width", TRAIL_HALF_WIDTH)
 	var fn := FastNoiseLite.new()
 	fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -245,15 +255,16 @@ func height(x: float, z: float, t: Trail = trail) -> float:
 		hillside = (ad - TRAIL_HALF_WIDTH) * 0.32 + pow(maxf(ad - 25.0, 0.0), 1.3) * 0.18   # uphill side
 	else:
 		hillside = -(ad - TRAIL_HALF_WIDTH) * 0.18                                          # downhill side
+	hillside *= hill_scale
 	if ad > 70.0:
 		# Beyond the near field: the downhill side levels into a valley floor, the
 		# uphill side stops climbing at a ridge, and broad hills roll over both.
-		var far := smoothstep(70.0, 260.0, ad)
+		var far := smoothstep(relief_from, relief_from + 190.0 + far_relief * 0.6, ad)
 		if d < 0.0:
 			hillside = minf(hillside, 70.0 + (ad - 70.0) * 0.25)
 		else:
 			hillside = -(minf(ad, 150.0) - TRAIL_HALF_WIDTH) * 0.18
-		hillside += (_far.get_noise_2d(x, z) * 0.5 + 0.5) * 70.0 * far
+		hillside += (_far.get_noise_2d(x, z) * 0.5 + 0.5) * far_relief * far
 	var h := base + off * (rough + hillside)
 	if water and d > 20.0:
 		h = _carve_river(h, d, z, t)

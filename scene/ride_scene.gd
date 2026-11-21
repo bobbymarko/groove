@@ -22,6 +22,7 @@ var real: RealLook               ## the realistic look's sky and lighting, only 
 var fpv := false                 ## first-person camera (the realistic look)
 var _lamp: SpotLight3D           ## first person: the bar light, carried by the camera
 var camera_yaw := 0.0            ## tooling: turn the first-person head (radians, + = left)
+var far_range: FarRange          ## the realistic look's horizon mountains
 
 var trail: Trail
 var terrain: TerrainStreamer
@@ -134,7 +135,10 @@ func _ready() -> void:
 	_world.add_child(rider)
 	if fpv:
 		rider.visible = false     # first person: the rider is the camera
-		backdrop.visible = false  # the real sky and the terrain itself make the horizon
+		backdrop.visible = false  # the real sky, the terrain and FarRange make the horizon
+		far_range = FarRange.new()
+		far_range.build(float(real.flora.biome.get("range", 800.0)), real.flora.biome)
+		_world.add_child(far_range)
 	dust = WheelDust.new()
 	dust.position = Vector3(0.0, 0.04, -0.62)   # just behind the rear contact patch
 	dust.set_ground(bool(_preset.get("snow", true)), bool(_preset.get("dust_dark", false)))
@@ -274,7 +278,7 @@ func _apply_daylight() -> void:
 	var hour := hour_override if hour_override >= 0.0 else Daylight.hour_for_mode(time_mode)
 	var noon := float(_tuning.get("sun_elevation", 25.0)) + float(_preset.get("sun_lift", 0.0))
 	if real:
-		noon = float(_preset.get("real_noon", 42.0))   # a real sun climbs higher than the pixel look's low key light
+		noon = float(real.flora.biome.get("noon", 42.0))   # a real sun climbs higher than the pixel look's low key light
 	var st := Daylight.state(hour, noon, float(_tuning.get("sun_azimuth", 40.0)))
 	if _rain > 0.0:
 		# Overcast: dimmer, greyer, thicker air.
@@ -314,6 +318,7 @@ func _apply_daylight() -> void:
 		snow.set_tint(st.tint)
 	if real:
 		real.apply_daylight(st, _rain)
+		far_range.set_light(lerpf(0.06, 1.0, float(st.daylight)) * (1.0 - 0.35 * _rain))
 
 
 ## Kept for callers that only know the on/off toggle.
@@ -478,6 +483,8 @@ func _process(raw_delta: float) -> void:
 		real.update(camera.global_position, raw_delta, real_rain.wetness())
 	rain.follow(camera.global_position)
 	backdrop.follow(rider.global_position)
+	if far_range:
+		far_range.follow(rider.global_position)
 	_rain = move_toward(_rain, _rain_target(), raw_delta / 25.0)   # showers arrive and pass over ~25 s
 	# Edge streaking grows with speed; nothing when stopped.
 	_post.set_shader_parameter("motion_blur", float(_tuning.get("motion_blur", 0.6)) * clampf(speed / 5.0, 0.0, 1.0))
