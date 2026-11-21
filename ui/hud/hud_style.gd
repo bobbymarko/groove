@@ -114,13 +114,17 @@ static func snap_size(size: int) -> int:
 	return maxi(DISPLAY_FLOOR, int(ceil(size / 16.0)) * 16)
 
 
-## DM Sans at a weight (the variable font's wght axis), smooth and subpixel-placed.
+## DM Sans (the variable font's wght axis): Medium for all HUD text, Black for
+## the numbers asked for at 1000 (target and current watts). Bob, 2026-11-21:
+## Regular read too light over the scene.
 static func _sans(weight: int) -> Font:
+	weight = 1000 if weight >= 1000 else 500
 	var key := "sans:%d" % weight
 	if not _fonts.has(key):
 		var fv := FontVariation.new()
 		fv.base_font = load(FONT_SANS)
-		fv.variation_opentype = {"wght": clampi(weight, 300, 800), "opsz": 14}
+		var ts := TextServerManager.get_primary_interface()
+		fv.variation_opentype = {ts.name_to_tag("wght"): weight, ts.name_to_tag("opsz"): 14}
 		_fonts[key] = fv
 	return _fonts[key]
 

@@ -703,7 +703,7 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	block.add_child(bv)
 	_block_name_l = HudStyle.label(bv, HudStyle.caps("READY"), 20, 700)
 	_block_name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_target = HudStyle.label(bv, "—", 44, 900)
+	_target = HudStyle.label(bv, "—", 44, 1000)   # the numbers that matter most: heaviest weight
 	_target.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_block_dur_l = HudStyle.label(bv, "", 18, 700)
 	_block_dur_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -729,7 +729,7 @@ func _build_telemetry_panel(parent: Control) -> PanelContainer:
 	prow.add_theme_constant_override("separation", 6)
 	mid.add_child(prow)
 	var bolt := _hud_icon_ref(prow, "bolt", 44, HudStyle.YELLOW)
-	_power = HudStyle.label(prow, "—", 96, 900)
+	_power = HudStyle.label(prow, "—", 96, 1000)
 	_sit_on_baseline(bolt, _power)
 	var wl := HudStyle.label(prow, "w", 36, 700)
 	HudStyle.share_baseline(prow, _power, wl)
