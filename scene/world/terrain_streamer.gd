@@ -260,7 +260,7 @@ func river(z: float, t: Trail = trail) -> Vector4:
 	if biome_map != null and biome_map.segments.size() > 1:
 		bend += (1.0 - biome_map.water_at(z)) * 340.0      # no water here: the river swings away out of sight
 	var half := 13.0 + 4.0 * _river_noise.get_noise_1d(z * 3.0 + 400.0) + lake * 60.0
-	var level := t.river_base(z) - 0.18 * bend - 1.2
+	var level := t.river_base(z) - 0.18 * minf(bend, 150.0) - 1.2   # never below the valley floor
 	return Vector4(bend + lake * 62.0, half, level, 2.2 + lake * 4.0)
 
 
@@ -448,7 +448,7 @@ func _land(x: float, z: float, t: Trail = trail) -> float:
 			fn = lerpf(fn, _far_ridged.get_noise_2d(x, z) * 0.5 + 0.5, ridged)
 		hillside += fn * relief * far
 	var h := base + off * (rough + hillside)
-	if water and d > 20.0:
+	if water and d > 20.0 and (biome_map == null or biome_map.segments.size() == 1 or biome_map.water_at(z) > 0.0):
 		h = _carve_river(h, d, z, t)
 	return h
 
@@ -612,6 +612,9 @@ func _chunk_ground_material(pair: Vector2i) -> Material:
 ## The river's surface for one chunk: a ribbon across its width (a little over,
 ## tucked under the banks), one row every 2 m. UV in metres: x across, y along.
 func _water_arrays(z0: float, t: Trail) -> Dictionary:
+	if biome_map != null and biome_map.segments.size() > 1 \
+			and biome_map.water_at(z0) <= 0.0 and biome_map.water_at(z0 + CHUNK_LEN) <= 0.0:
+		return {"verts": PackedVector3Array(), "norms": PackedVector3Array(), "uvs": PackedVector2Array(), "idx": PackedInt32Array()}
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
 	var uvs := PackedVector2Array()
