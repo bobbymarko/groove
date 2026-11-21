@@ -21,6 +21,7 @@ var look_override := ""          ## tooling: force a look regardless of settings
 var real: RealLook               ## the realistic look's sky and lighting, only in look "real"
 var fpv := false                 ## first-person camera (the realistic look)
 var _lamp: SpotLight3D           ## first person: the bar light, carried by the camera
+var camera_yaw := 0.0            ## tooling: turn the first-person head (radians, + = left)
 
 var trail: Trail
 var terrain: TerrainStreamer
@@ -461,6 +462,7 @@ func _process(raw_delta: float) -> void:
 		var eye := rider.global_position + Vector3.UP * 1.48 + flat * 0.3
 		var ahead := trail.position_at(distance + 14.0)
 		ahead.y = terrain.height(ahead.x, ahead.z) + 0.6
+		camera.fpv_yaw = camera_yaw
 		camera.update_fpv(eye, ahead, anim_cadence if riding else 0.0, rider.lean, raw_delta)
 	else:
 		camera.update_follow(rider.global_position, trail.heading_at(distance), anchor, ground, speed, delta)

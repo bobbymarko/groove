@@ -6,21 +6,21 @@ extends RefCounted
 ## worker thread, so it touches no nodes.
 
 const BIOMES := {
-	"winter": {"ground": "snow", "snow": 0.5, "spruce": 0.92, "broad": 0.0, "bare": 0.08, "trees": 0.55,
+	"winter": {"water": "ice", "ground": "snow", "snow": 0.5, "spruce": 0.92, "broad": 0.0, "bare": 0.08, "trees": 0.55,
 		"needle": Color(0.06, 0.14, 0.08), "bark": Color(0.24, 0.19, 0.15),
 		"grass": Color(0.42, 0.36, 0.2), "grass_h": 0.5, "grass_blades": 7, "grass_density": 0.1,
 		"bush": 0.0, "rock": Color(0.42, 0.41, 0.4), "rocks": 1.0},
-	"summer": {"ground": "grass", "snow": 0.0, "spruce": 0.25, "broad": 0.75, "bare": 0.0, "trees": 0.5,
+	"summer": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.25, "broad": 0.75, "bare": 0.0, "trees": 0.5,
 		"needle": Color(0.06, 0.15, 0.07), "bark": Color(0.27, 0.22, 0.17), "leaves": [Color(0.1, 0.22, 0.05), Color(0.13, 0.25, 0.05)],
 		"grass": Color(0.13, 0.24, 0.06), "grass_h": 0.5, "grass_blades": 15, "grass_density": 1.0,
 		"flowers": [Color(0.95, 0.93, 0.85), Color(0.95, 0.78, 0.15)], "flower_share": 0.06,
 		"bush": 0.6, "rock": Color(0.4, 0.39, 0.37), "rocks": 0.6, "moss": 0.6},
-	"autumn": {"ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.05, "trees": 0.5,
+	"autumn": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.05, "trees": 0.5,
 		"needle": Color(0.06, 0.14, 0.07), "bark": Color(0.25, 0.2, 0.16),
 		"leaves": [Color(0.75, 0.32, 0.05), Color(0.8, 0.55, 0.08), Color(0.55, 0.12, 0.04), Color(0.45, 0.45, 0.08)],
 		"grass": Color(0.24, 0.22, 0.08), "grass_h": 0.45, "grass_blades": 14, "grass_density": 0.8,
 		"bush": 0.5, "rock": Color(0.4, 0.38, 0.35), "rocks": 0.7, "moss": 0.4},
-	"spring": {"ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.0, "trees": 0.45,
+	"spring": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.0, "trees": 0.45,
 		"needle": Color(0.07, 0.17, 0.08), "bark": Color(0.28, 0.23, 0.18), "leaves": [Color(0.2, 0.36, 0.06), Color(0.85, 0.75, 0.8)],
 		"grass": Color(0.15, 0.3, 0.06), "grass_h": 0.4, "grass_blades": 15, "grass_density": 1.0,
 		"flowers": [Color(0.95, 0.93, 0.85), Color(0.95, 0.8, 0.12), Color(0.55, 0.35, 0.8), Color(0.85, 0.2, 0.15)], "flower_share": 0.25,
@@ -28,12 +28,12 @@ const BIOMES := {
 	"desert": {"ground": "sand", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 0.0, "trees": 0.0,
 		"grass": Color(0.45, 0.38, 0.2), "grass_h": 0.35, "grass_blades": 9, "grass_density": 0.12,
 		"bush": 0.5, "bush_leaves": Color(0.28, 0.28, 0.14), "rock": Color(0.55, 0.3, 0.19), "rocks": 2.5},
-	"birchwood": {"ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 1.0, "bare": 0.0, "trees": 0.55, "birch": true,
+	"birchwood": {"water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 1.0, "bare": 0.0, "trees": 0.55, "birch": true,
 		"bark": Color(0.8, 0.78, 0.74), "leaves": [Color(0.3, 0.42, 0.08), Color(0.24, 0.38, 0.07)],
 		"grass": Color(0.16, 0.28, 0.07), "grass_h": 0.5, "grass_blades": 15, "grass_density": 1.0,
 		"flowers": [Color(0.95, 0.93, 0.85)], "flower_share": 0.05,
 		"bush": 0.4, "rock": Color(0.42, 0.41, 0.39), "rocks": 0.4, "moss": 0.6},
-	"apocalypse": {"ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 1.0, "trees": 0.35,
+	"apocalypse": {"water": "river", "water_tint": Color(0.05, 0.05, 0.03), "ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 1.0, "trees": 0.35,
 		"bark": Color(0.18, 0.16, 0.14), "grass": Color(0.3, 0.27, 0.16), "grass_h": 0.4, "grass_blades": 8, "grass_density": 0.3,
 		"bush": 0.0, "rock": Color(0.3, 0.29, 0.28), "rocks": 1.0},
 }
@@ -197,7 +197,9 @@ func _add(m: Mesh, kind: String, far: Mesh = null) -> void:
 
 ## Worker thread: instance transforms and tints for one chunk, per mesh index.
 ## height: Callable(x, z, trail) -> float.
-func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float, t: Trail, height: Callable) -> Dictionary:
+## in_water: Callable(x, z, trail) -> half widths into the river (< 1 is water).
+func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float, t: Trail, height: Callable,
+		in_water: Callable = Callable()) -> Dictionary:
 	var out := {}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(int(z0) * 31 + 7)
@@ -215,10 +217,25 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 			var p := tree_share * (1.25 if lat < 0.0 else 0.8) * smoothstep(0.25, 0.65, clump)
 			if rng.randf() > p:
 				continue
+			if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.4:
+				continue
 			var y := float(height.call(x, z, t))
 			var mi := _pick_tree(rng)
 			var s := rng.randf_range(0.7, 1.25)
 			_put(out, mi, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, y - 0.1, z)), _tint(rng, 0.12))
+	# Thinner woods out across the valley and up the far slopes (distant versions do most of the drawing).
+	if not _trees.is_empty() and tree_share > 0.0:
+		for i in 70:
+			var z := z0 + rng.randf() * chunk_len
+			var lat := rng.randf_range(half_width, 230.0) * (1.0 if rng.randf() < 0.6 else -1.0)
+			var x := t.x_at(z) + lat
+			if rng.randf() > tree_share * 0.6 * smoothstep(0.3, 0.6, _clump.get_noise_2d(x, z) * 0.5 + 0.5):
+				continue
+			if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.6:
+				continue
+			var y := float(height.call(x, z, t))
+			var s := rng.randf_range(0.75, 1.25)
+			_put(out, _pick_tree(rng), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, y - 0.1, z)), _tint(rng, 0.12))
 	# Bushes along the trail edges and in clearings.
 	if not _bushes.is_empty():
 		for i in int(40 * float(biome.bush)):
@@ -227,6 +244,8 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 			if absf(lat) < trail_clear + 1.2:
 				continue
 			var x := t.x_at(z) + lat
+			if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.25:
+				continue
 			var y := float(height.call(x, z, t))
 			var s := rng.randf_range(0.6, 1.4)
 			_put(out, _bushes[rng.randi() % _bushes.size()], Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, y - 0.05, z)), _tint(rng, 0.15))
@@ -237,6 +256,8 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 		if absf(lat) < trail_clear + 0.6:
 			continue
 		var x := t.x_at(z) + lat
+		if in_water.is_valid() and float(in_water.call(x, z, t)) < 0.7:
+			continue
 		var y := float(height.call(x, z, t))
 		var s := 0.15 + 1.5 * pow(rng.randf(), 2.6)
 		var basis := Basis(Vector3(rng.randf_range(-1.0, 1.0), 1.0, rng.randf_range(-1.0, 1.0)).normalized(), rng.randf() * TAU)
@@ -259,6 +280,8 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 				var z := zz + rng.randf_range(-0.25, 0.25)
 				var patch := _clump.get_noise_2d(x * 3.0, z * 3.0) * 0.5 + 0.5
 				if rng.randf() > density * smoothstep(0.15, 0.55, patch) + 0.08:
+					continue
+				if in_water.is_valid() and float(in_water.call(x, z, t)) < 1.08:
 					continue
 				var y := float(height.call(x, z, t))
 				var edge := smoothstep(trail_clear * 0.8, trail_clear + 0.8, ad)   # short at the trail's edge

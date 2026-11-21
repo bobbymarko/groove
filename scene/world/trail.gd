@@ -11,6 +11,12 @@ const GRADE_SMOOTHING := 0.16     # per metre; ~6 m to settle
 
 var grade_provider: Callable      # func(z: float) -> float grade in percent, or invalid
 var _heights: PackedFloat64Array = [0.0]
+## The river's datum (realistic look): the trail's height, but never rising
+## faster than RIVER_RISE per metre (water does not climb a 14 % interval) nor
+## falling faster than RIVER_FALL. One value per height sample.
+var _river: PackedFloat64Array = [0.0]
+const RIVER_RISE := 0.008
+const RIVER_FALL := 0.05
 var _grade := 0.0
 var _noise := FastNoiseLite.new()
 var _seed := 7
@@ -29,6 +35,7 @@ func _init(seed_value: int = 7) -> void:
 func snapshot() -> Trail:
 	var t := Trail.new(_seed)
 	t._heights = _heights.duplicate()
+	t._river = _river.duplicate()
 	t._grade = _grade
 	return t
 
@@ -60,6 +67,15 @@ func h_at(z: float) -> float:
 	return lerpf(_heights[idx], _heights[idx + 1], f)
 
 
+## The river datum at z, from what is cached (never extends the trail).
+func river_base(z: float) -> float:
+	var f := clampf(z / STEP, 0.0, float(_river.size() - 1))
+	var i := mini(int(floor(f)), _river.size() - 2)
+	if i < 0:
+		return _river[0]
+	return lerpf(_river[i], _river[i + 1], f - i)
+
+
 ## Current grade in percent at z (from the cached profile).
 func grade_at(z: float) -> float:
 	return (h_at(z + 1.0) - h_at(z - 1.0)) / 2.0 * 100.0
@@ -82,6 +98,7 @@ func _extend() -> void:
 			target = float(g)
 	_grade = lerpf(_grade, target, GRADE_SMOOTHING)
 	_heights.append(_heights[-1] + _grade / 100.0 * STEP)
+	_river.append(_river[-1] + clampf(_heights[-1] - _river[-1], -RIVER_FALL * STEP, RIVER_RISE * STEP))
 
 
 func _default_grade(z: float) -> float:

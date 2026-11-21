@@ -57,6 +57,10 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				rs.preset_override = a.trim_prefix("preset=")
 			if a == "look=real":
 				rs.look_override = "real"
+			if a.begins_with("at="):
+				rs.distance = float(a.trim_prefix("at="))
+			if a.begins_with("yaw="):
+				rs.camera_yaw = deg_to_rad(float(a.trim_prefix("yaw=")))
 			if a.begins_with("hour="):
 				rs.hour_override = float(a.trim_prefix("hour="))
 			if a.begins_with("rain="):

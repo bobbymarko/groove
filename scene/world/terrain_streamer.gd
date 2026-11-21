@@ -22,6 +22,10 @@ var _noise := FastNoiseLite.new()
 var _detail := FastNoiseLite.new()
 var _drift := FastNoiseLite.new()
 var _far := FastNoiseLite.new()     # broad hills beyond the near field (only the realistic look reaches them)
+var water := false                  ## realistic look: a river (widening into lakes) down the downhill side
+var _river_noise := FastNoiseLite.new()
+var _lake_noise := FastNoiseLite.new()
+var _water_material: Material
 var _fine_columns: PackedFloat64Array = []       # |x| <= 8 m: 0.2 m near the groove, then 0.5 m
 var _coarse_columns_l: PackedFloat64Array = []   # -HALF_WIDTH .. -8 m at RES
 var _coarse_columns_r: PackedFloat64Array = []   # 8 m .. HALF_WIDTH at RES
@@ -58,6 +62,12 @@ func _init(t: Trail) -> void:
 	_far.frequency = 0.0035
 	_far.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_far.fractal_octaves = 4
+	_river_noise.seed = 15
+	_river_noise.frequency = 0.004
+	_river_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_lake_noise.seed = 16
+	_lake_noise.frequency = 0.0025
+	_lake_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	var x := -8.0
 	while x < 8.0 - 0.001:
 		_fine_columns.append(x)
@@ -117,15 +127,43 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 	real_ground = true
 	flora = plants
 	ahead_chunks = 16                 # built ~380 m out, beyond where trees fade in
+	var kind_water := str(plants.biome.get("water", ""))
+	water = kind_water != ""
 	# First person sees far: carry the ground out to ~600 m either side, the
-	# columns spreading out with distance (the hills there need no detail).
+	# columns spreading out with distance (the hills there need no detail),
+	# except across the river valley on the downhill side, kept at 3 m.
 	var x := HALF_WIDTH
 	var step := 4.0
 	while x < 600.0:
 		x += step
 		step *= 1.22
-		_coarse_columns_r.append(x)
 		_coarse_columns_l.insert(0, -x)
+	x = HALF_WIDTH
+	step = 3.0
+	while x < 600.0:
+		x += step
+		if x > 260.0 or not water:
+			step *= 1.22
+		_coarse_columns_r.append(x)
+	if water:
+		var wm := ShaderMaterial.new()
+		wm.shader = load("res://scene/real/real_ice.gdshader" if kind_water == "ice" else "res://scene/real/real_water.gdshader")
+		var wn := FastNoiseLite.new()
+		wn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		wn.fractal_octaves = 3
+		wn.frequency = 0.02
+		var wt := NoiseTexture2D.new()
+		wt.width = 256
+		wt.height = 256
+		wt.seamless = true
+		wt.as_normal_map = true
+		wt.bump_strength = 6.0
+		wt.noise = wn
+		wt.generate_mipmaps = true
+		wm.set_shader_parameter("ripples", wt)
+		if plants.biome.has("water_tint"):
+			wm.set_shader_parameter("deep", plants.biome.water_tint)
+		_water_material = wm
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scene/real/real_ground.gdshader")
 	mat.set_shader_parameter("ground", {"snow": 0, "grass": 1, "sand": 2}.get(kind, 0))
@@ -151,6 +189,37 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 	mat.set_shader_parameter("noise_tex", tex)
 	mat.set_shader_parameter("noise_nrm", nrm)
 	_material = mat
+
+
+## The river at distance z: x = centre's offset from the trail (downhill side),
+## y = half width, z = water level, w = depth. It meanders 40-85 m out and
+## widens into a lake where the noise says so and its datum runs nearly flat.
+func river(z: float, t: Trail = trail) -> Vector4:
+	var slope := absf(t.river_base(z + 40.0) - t.river_base(z - 40.0)) / 80.0
+	var lake := smoothstep(0.0, 0.3, _lake_noise.get_noise_1d(z)) * (1.0 - smoothstep(0.009, 0.02, slope))
+	var bend := 62.0 + 24.0 * _river_noise.get_noise_1d(z)
+	var half := 13.0 + 4.0 * _river_noise.get_noise_1d(z * 3.0 + 400.0) + lake * 60.0
+	var level := t.river_base(z) - 0.18 * bend - 1.2
+	return Vector4(bend + lake * 62.0, half, level, 2.2 + lake * 4.0)
+
+
+## How far a point is into the river, in half widths (< 1 is water); 99 without water.
+func water_depth_u(x: float, z: float, t: Trail = trail) -> float:
+	if not water:
+		return 99.0
+	var r := river(z, t)
+	return absf(x - t.x_at(z) - r.x) / r.y
+
+
+## The water's own ground: the river bed dips under the level, banks climb
+## back out at 30 %; the land is only ever lowered to meet them.
+func _carve_river(h: float, d: float, z: float, t: Trail) -> float:
+	var r := river(z, t)
+	var u := absf(d - r.x) / r.y
+	if u > 8.0:
+		return h
+	var target := r.z - r.w * (1.0 - u * u) if u < 1.0 else r.z + (u - 1.0) * r.y * 0.3
+	return minf(h, target)
 
 
 ## Terrain height at any point: the trail's own height on the trail, rising
@@ -185,7 +254,10 @@ func height(x: float, z: float, t: Trail = trail) -> float:
 		else:
 			hillside = -(minf(ad, 150.0) - TRAIL_HALF_WIDTH) * 0.18
 		hillside += (_far.get_noise_2d(x, z) * 0.5 + 0.5) * 70.0 * far
-	return base + off * (rough + hillside)
+	var h := base + off * (rough + hillside)
+	if water and d > 20.0:
+		h = _carve_river(h, d, z, t)
+	return h
 
 
 ## Drop every chunk so the next update regenerates them (after a density change).
@@ -257,11 +329,39 @@ func _build_chunk_arrays(index: int, t: Trail) -> Dictionary:
 	out["coarse_l"] = _grid_arrays(z0, _coarse_columns_l, RES, t)
 	out["coarse_r"] = _grid_arrays(z0, _coarse_columns_r, RES, t)
 	if flora:
-		out["flora"] = flora.scatter(z0, CHUNK_LEN, HALF_WIDTH, TRAIL_HALF_WIDTH + BANK_WIDTH, t, height)
+		out["flora"] = flora.scatter(z0, CHUNK_LEN, HALF_WIDTH, TRAIL_HALF_WIDTH + BANK_WIDTH, t, height, water_depth_u)
+	if water:
+		out["water"] = _water_arrays(z0, t)
 	else:
 		out["scatter"] = _scatter_transforms(z0, t)
 	out["usec"] = Time.get_ticks_usec() - t0
 	return out
+
+
+## The river's surface for one chunk: a ribbon across its width (a little over,
+## tucked under the banks), one row every 2 m. UV in metres: x across, y along.
+func _water_arrays(z0: float, t: Trail) -> Dictionary:
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	var cols := 12
+	var rows := int(CHUNK_LEN / 2.0)
+	for i in rows + 1:
+		var z := z0 + i * 2.0
+		var rv := river(z, t)
+		var cx := t.x_at(z) + rv.x
+		for c in cols + 1:
+			var s := lerpf(-1.12, 1.12, float(c) / cols)
+			verts.append(Vector3(cx + s * rv.y, rv.z, z))
+			norms.append(Vector3.UP)
+			uvs.append(Vector2(s * rv.y, z))
+	for i in rows:
+		for c in cols:
+			var a := i * (cols + 1) + c
+			var b := a + cols + 1
+			idx.append_array([a, a + 1, b, a + 1, b + 1, b])
+	return {"verts": verts, "norms": norms, "uvs": uvs, "idx": idx}
 
 
 ## Vertex/normal/colour arrays for a grid of columns (offsets from the trail centre) × rows.
@@ -425,6 +525,20 @@ func _finish_chunk(r: Dictionary) -> void:
 		mi.mesh = mesh
 		mi.material_override = _material
 		root.add_child(mi)
+	if r.has("water") and not (r.water as Dictionary).verts.is_empty():
+		var wa := []
+		wa.resize(Mesh.ARRAY_MAX)
+		wa[Mesh.ARRAY_VERTEX] = r.water.verts
+		wa[Mesh.ARRAY_NORMAL] = r.water.norms
+		wa[Mesh.ARRAY_TEX_UV] = r.water.uvs
+		wa[Mesh.ARRAY_INDEX] = r.water.idx
+		var wmesh := ArrayMesh.new()
+		wmesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, wa)
+		var wmi := MeshInstance3D.new()
+		wmi.mesh = wmesh
+		wmi.material_override = _water_material
+		wmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(wmi)
 	if r.has("flora"):
 		_add_flora(root, r.flora, float(r.z0))
 		add_child(root)

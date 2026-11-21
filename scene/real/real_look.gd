@@ -124,6 +124,12 @@ func apply_daylight(st: Dictionary, rain: float) -> void:
 	var daylight := float(st.daylight)
 	var dir := sun.global_transform.basis.z.normalized()   # toward the light
 	sky_mat.set_shader_parameter("light_dir", dir)
+	RenderingServer.global_shader_parameter_set("sun_dir", dir)
+	# What water reflects where its traced reflection leaves the screen: the sky's colour now.
+	var sky := Color(0.5, 0.63, 0.82).lerp(Color(0.62, 0.64, 0.68), rain) * lerpf(0.04, 1.0, daylight)
+	if float(st.elev) < 12.0 and not night:
+		sky = sky.lerp(Color(0.85, 0.6, 0.45), 0.4 * (1.0 - float(st.elev) / 12.0))
+	RenderingServer.global_shader_parameter_set("water_sky", Vector3(sky.r, sky.g, sky.b))
 	sky_mat.set_shader_parameter("sun_disk", 0.0 if night else 1.0)
 	sky_mat.set_shader_parameter("stars", clampf(1.0 - daylight * 1.5, 0.0, 1.0) * (1.0 - rain))
 	var illum := Vector3.ONE * (0.012 if night else 1.0)

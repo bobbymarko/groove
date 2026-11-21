@@ -7,6 +7,7 @@ var follow_distance := 7.8
 var follow_height := 2.7
 var look_ahead := 4.5
 var orbit := 0.0            ## debug: yaw offset around the rider (radians), 0 = behind
+var fpv_yaw := 0.0          ## debug: first person head turn (radians, + = left)
 var ground_height: Callable ## func(x, z) -> float; terrain height, for clearance
 const CLEARANCE := 1.0      ## metres the lens stays above the ground
 
@@ -88,5 +89,7 @@ func update_fpv(eye: Vector3, look_target: Vector3, cadence: float, lean: float,
 	_smooth_pos = _smooth_pos.lerp(look_target, clampf(delta * 2.5, 0.0, 1.0))
 	global_position = eye
 	look_at(_smooth_pos, Vector3.UP)
+	if fpv_yaw != 0.0:
+		global_rotate(Vector3.UP, fpv_yaw)
 	rotate_object_local(Vector3.FORWARD, lean * 0.45)
 
