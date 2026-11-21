@@ -63,6 +63,10 @@ func _build(v: VBoxContainer) -> void:
 
 	# What the land is like along the way.
 	var scen := HudStyle.label(v, _scenery_text(), 15, 500, HudStyle.TEXT_DIM)
+	# While the lookup runs, its progress (and any "busy, trying again") shows live.
+	App.route_lookup.progress.connect(func(_f: float) -> void:
+		if is_instance_valid(scen) and App.is_looking_up(path):
+			scen.text = _scenery_text())
 	scen.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if route.estimated:
 		var h := HBoxContainer.new()

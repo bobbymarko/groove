@@ -429,6 +429,11 @@ func _add_route_card(grid: GridContainer, path: String) -> void:
 		meta = "%s %s   looking up the scenery…" % [App.distance_text(r.length), App.distance_unit().to_lower()]
 	var meta_l := HudStyle.label(v, meta, 13, 500, HudStyle.TEXT_DIM)
 	meta_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	if App.is_looking_up(path):
+		App.route_lookup.progress.connect(func(_f: float) -> void:
+			if is_instance_valid(meta_l) and App.is_looking_up(path):
+				meta_l.text = "%s %s   %s" % [App.distance_text(r.length), App.distance_unit().to_lower(),
+					App.route_lookup.status.to_lower() if App.route_lookup.status != "" else "waiting to look up the scenery…"])
 	var menu := PopupMenu.new()
 	menu.add_item("Ride", 0)
 	menu.add_item("Delete", 1)

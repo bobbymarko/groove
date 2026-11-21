@@ -17,7 +17,7 @@ signal done(ok: bool, message: String)
 const ENDPOINTS := ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter",
 	"https://overpass.kumi.systems/api/interpreter"]
 const MAX_ATTEMPTS := 6
-const STRETCH := 5000.0
+const STRETCH := 10000.0
 const SAMPLE := 100.0
 const MARGIN := 400.0          ## metres added around each stretch's box
 const PROBE := 40.0            ## metres either side of the route
@@ -25,7 +25,9 @@ const WATER_NEAR := 250.0
 const MIN_RUN := 400.0         ## shorter land-cover runs merge into a neighbour
 
 const NATURAL := "wood|scrub|heath|grassland|bare_rock|scree|sand|glacier|water|wetland|beach"
-const LANDUSE := "forest|meadow|farmland|grass|orchard|vineyard|residential|farmyard|allotments"
+## Residential areas are left out: suburbs have hundreds, they only ever mean
+## "open" here, and they made the queries heavy and slow.
+const LANDUSE := "forest|meadow|farmland|grass|orchard|vineyard"
 
 var busy := false
 var status := ""
@@ -41,7 +43,7 @@ var _endpoint := 0
 
 func _ready() -> void:
 	_http = HTTPRequest.new()
-	_http.timeout = 150.0
+	_http.timeout = 200.0
 	_http.request_completed.connect(_on_completed)
 	add_child(_http)
 
@@ -66,6 +68,7 @@ func _request_next() -> void:
 		_finish(true, "")
 		return
 	status = "Looking up the scenery… %d%%" % int(100.0 * _next / _stretches.size())
+	print("[route lookup] stretch %d/%d of %s" % [_next + 1, _stretches.size(), _path.get_file()])
 	progress.emit(float(_next) / _stretches.size())
 	var body := "data=" + query_for(_stretches[_next].bbox).uri_encode()
 	var headers := ["Content-Type: application/x-www-form-urlencoded",
@@ -102,6 +105,7 @@ func _retry(why: String) -> void:
 	_endpoint = (_endpoint + 1) % ENDPOINTS.size()
 	var wait := minf(8.0 * pow(2.0, _attempts - 1), 90.0)
 	status = "OpenStreetMap is busy, trying again in %d s…" % int(wait)
+	print("[route lookup] %s; retry %d in %d s" % [why, _attempts, int(wait)])
 	progress.emit(float(_next) / _stretches.size())
 	await get_tree().create_timer(wait).timeout
 	_request_next()
@@ -130,6 +134,7 @@ func _finish(ok: bool, message: String) -> void:
 	RouteLibrary.save_cover(_path, cover, not ok)
 	busy = false
 	status = "" if ok else "Scenery estimated: " + message
+	print("[route lookup] done %s: %s" % [_path.get_file(), "ok" if ok else message])
 	progress.emit(1.0)
 	done.emit(ok, message)
 
@@ -161,7 +166,7 @@ static func stretches_for(route: Route) -> Array:
 
 static func query_for(box: Rect2) -> String:
 	var b := "(%.6f,%.6f,%.6f,%.6f)" % [box.position.y, box.position.x, box.end.y, box.end.x]
-	return ("[out:json][timeout:120];(" +
+	return ("[out:json][timeout:180];(" +
 		"wr[\"natural\"~\"^(%s)$\"]%s;" % [NATURAL, b] +
 		"wr[\"landuse\"~\"^(%s)$\"]%s;" % [LANDUSE, b] +
 		"way[\"waterway\"=\"river\"]%s;);out geom%s;" % [b, b])
