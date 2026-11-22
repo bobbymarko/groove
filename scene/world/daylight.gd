@@ -38,9 +38,12 @@ static func hour_for_mode(mode: String) -> float:
 
 ## Lighting for an hour of the world day. noon_elev is the sun's height at noon
 ## (degrees), az_offset the azimuth at noon (the tuning "sun direction").
-static func state(hour: float, noon_elev: float, az_offset: float) -> Dictionary:
+## arc_shape > 1 flattens the arc (the sun stays lower for longer, rising and
+## setting at the same hours); 1 is the plain sine.
+static func state(hour: float, noon_elev: float, az_offset: float, arc_shape := 1.0) -> Dictionary:
 	var day_t := (hour - SUNRISE) / (SUNSET - SUNRISE)      # 0 sunrise, 1 sunset, night outside
-	var sun_elev := noon_elev * sin(PI * day_t)               # negative at night
+	var arc := sin(PI * day_t)
+	var sun_elev := noon_elev * signf(arc) * pow(absf(arc), arc_shape)   # negative at night
 	var daylight := clampf((sun_elev + 4.0) / 10.0, 0.0, 1.0) # 1 by day, 0 once the sun is 4° down
 	var twilight := clampf(1.0 - absf(sun_elev) / 14.0, 0.0, 1.0) if sun_elev > -6.0 else 0.0
 	var moon_up := clampf((-sun_elev - 2.0) / 6.0, 0.0, 1.0)  # moon takes over as the sun sinks

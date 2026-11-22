@@ -62,8 +62,13 @@ func build(height: float, biome: Dictionary) -> void:
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
-func set_light(k: float) -> void:
-	_mat.set_shader_parameter("light", k)
+## Lit by hand the way the terrain is lit by the engine: the sun (or moon) as
+## RideScene set it, plus the sky's light in shade, so the range matches the
+## near land at every hour.
+func set_light(sun_light: Color, daylight: float, rain: float) -> void:
+	_mat.set_shader_parameter("sun_light", Vector3(sun_light.r, sun_light.g, sun_light.b))
+	var sky := Color(0.32, 0.38, 0.5).lerp(Color(0.42, 0.44, 0.48), rain) * lerpf(0.03, 1.0, daylight)
+	_mat.set_shader_parameter("sky_light", Vector3(sky.r, sky.g, sky.b))
 
 
 func follow(pos: Vector3) -> void:

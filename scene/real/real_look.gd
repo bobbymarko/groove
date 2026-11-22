@@ -6,8 +6,29 @@ extends Node
 ## the daylight cycle mapped onto it. RideScene owns the nodes; this sets them up
 ## and feeds the sky every frame.
 
-const SUN_ENERGY := 1.15
+## Light balance (R43). Outdoors on a clear day the sun gives several times
+## the light of the open sky, so shade reads clearly darker and bluer than lit
+## ground. The sky's own light is turned down for the ambient term (it alone
+## lights what is in shade) and the sun up; the exposure brings lit ground back
+## to a natural brightness, with snow in full sun the case that must not clip.
+const SUN_ENERGY := 3.2
+const SKY_AMBIENT := 0.62          ## share of the sky's light that reaches the shade (ambient_light_sky_contribution)
+const EXPOSURE := 0.6              ## tone map exposure before the camera's automatic adjustment
 const MOON_ENERGY := 0.22
+## The sun's path for this look: the biome's noon height scaled down, and the
+## arc flattened (sin^shape) so more of the day has long raking shadows.
+const NOON_SCALE := 0.8
+const SUN_ARC_SHAPE := 1.15
+## Automatic exposure (CameraAttributesPractical): the frame is scaled by
+## AUTO_SCALE / (average scene luminance), the average clamped to luminance
+## ISO / 800. A clear summer midday measures about 0.39, so it is left as set;
+## the clamp lets darker scenes (woods, low sun, dusk) come up by at most
+## 1.5 stops and bright ones (snow, desert sand) go down by at most half a
+## stop. Slow (a time constant of about 4 s), so a passing tree never pumps it.
+const AUTO_SCALE := 0.39
+const AUTO_SPEED := 0.25
+const AUTO_MIN_ISO := 112.0       ## luminance 0.14: the most it brightens
+const AUTO_MAX_ISO := 440.0       ## luminance 0.55: the most it darkens
 const WIND_KMPS := 0.008          ## cloud drift, km per second
 
 var env: Environment
@@ -17,6 +38,9 @@ var _wind := Vector3.ZERO
 var _frame := 0
 var _preset: Dictionary = {}
 var flora: RealFlora
+## The first-person camera's exposure, gently automatic (see AUTO_SCALE).
+var camera_attributes := CameraAttributesPractical.new()
+var _mist := 0.0          ## valley mist 0..1 (mornings)
 
 ## Ground colour seen by the sky (light bounced up into clouds and ambient), per ground type.
 const GROUND_ALBEDO := {
@@ -42,34 +66,65 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	env.sky = sky
 	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	# With the sky as the source, the energy setting does nothing; the
+	# contribution blends the sky's light with this (black) colour instead.
+	env.ambient_light_sky_contribution = SKY_AMBIENT
+	env.ambient_light_color = Color.BLACK
 	env.ambient_light_energy = 1.0
-	env.ambient_light_sky_contribution = 1.0
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = 0.85
+	env.tonemap_exposure = EXPOSURE
+	env.tonemap_agx_contrast = 1.2
+	# Bloom only from what is far brighter than lit ground: the sun, its rim on
+	# clouds and glints on water; snow in the sun stays below the threshold.
 	env.glow_enabled = true
-	env.glow_intensity = 0.2
-	env.glow_bloom = 0.05
-	env.glow_hdr_threshold = 1.2
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	env.glow_intensity = 0.35
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 3.0
+	env.glow_hdr_scale = 2.0
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	env.ssr_max_steps = 48
 	env.ssr_fade_in = 0.1
 	env.ssr_fade_out = 2.0
 	env.ssao_enabled = true
 	env.ssao_radius = 1.2
 	env.ssao_intensity = 1.6
+	# Aerial perspective: thin enough that the near and middle ground stay
+	# crisp, so only far hills go blue. Below the mist floor the air thickens
+	# (valley mist, mornings), set by apply_daylight.
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_density = 0.0005
+	env.fog_density = 0.00035
 	env.fog_aerial_perspective = 1.0
 	env.fog_sky_affect = 0.0
-	env.fog_sun_scatter = 0.15
-	env.volumetric_fog_enabled = false
-	env.volumetric_fog_density = 0.0012
-	env.volumetric_fog_anisotropy = 0.7
-	env.volumetric_fog_length = 120.0
-	env.volumetric_fog_ambient_inject = 0.0
+	env.fog_sun_scatter = 0.1
+	env.fog_height_density = 0.0
+	# Volumetric fog near the rider: light shafts where the low sun cuts
+	# through trees, and morning haze that glows toward the sun.
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.002
+	env.volumetric_fog_albedo = Color(0.92, 0.95, 1.0)
+	env.volumetric_fog_anisotropy = 0.6
+	env.volumetric_fog_length = 96.0
+	env.volumetric_fog_detail_spread = 2.0
+	env.volumetric_fog_ambient_inject = 0.35
+	env.volumetric_fog_gi_inject = 0.0
 	env.volumetric_fog_sky_affect = 0.0
+	env.volumetric_fog_temporal_reprojection_enabled = true
+	env.volumetric_fog_temporal_reprojection_amount = 0.9
+	# A gentle film grade: a touch more contrast and colour, warm highlights
+	# over cool shadows (see _grade_lut).
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 1.0
+	env.adjustment_contrast = 1.04
+	env.adjustment_saturation = 1.08
+	env.adjustment_color_correction = _grade_lut()
+	camera_attributes.exposure_multiplier = 1.0
+	camera_attributes.auto_exposure_enabled = true
+	camera_attributes.auto_exposure_speed = AUTO_SPEED
+	camera_attributes.auto_exposure_scale = AUTO_SCALE
+	camera_attributes.auto_exposure_min_sensitivity = AUTO_MIN_ISO
+	camera_attributes.auto_exposure_max_sensitivity = AUTO_MAX_ISO
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = 140.0
@@ -99,9 +154,40 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 		sun.shadow_enabled = false
 	if args.has("nossao"):
 		env.ssao_enabled = false
+	if args.has("novfog"):
+		env.volumetric_fog_enabled = false
+	if args.has("noauto"):
+		camera_attributes.auto_exposure_enabled = false
 	var noise := CloudNoise.new()
 	noise.baked.connect(_on_noise)
 	add_child(noise)
+
+
+## The first-person camera takes this look's exposure.
+func attach_camera(cam: Camera3D) -> void:
+	cam.attributes = camera_attributes
+
+
+## The colour grade as a small 3D lookup (display-referred, 0..1 in and out):
+## shadows lean a little cool, highlights a little warm, midtones untouched.
+static func _grade_lut() -> ImageTexture3D:
+	const N := 17
+	var slices: Array[Image] = []
+	for bi in N:
+		var img := Image.create(N, N, false, Image.FORMAT_RGB8)
+		for gi in N:
+			for ri in N:
+				var c := Vector3(ri, gi, bi) / float(N - 1)
+				var l := c.dot(Vector3(0.2126, 0.7152, 0.0722))
+				var sh := 1.0 - smoothstep(0.0, 0.45, l)
+				var hi := smoothstep(0.55, 1.0, l)
+				c += Vector3(-0.012, 0.0, 0.022) * sh * (1.0 - sh) * 4.0 * 0.6 + Vector3(-0.006, 0.0, 0.012) * sh
+				c += Vector3(0.018, 0.006, -0.02) * hi * (1.0 - hi) * 4.0 * 0.7
+				img.set_pixel(ri, gi, Color(clampf(c.x, 0.0, 1.0), clampf(c.y, 0.0, 1.0), clampf(c.z, 0.0, 1.0)))
+		slices.append(img)
+	var tex := ImageTexture3D.new()
+	tex.create(Image.FORMAT_RGB8, N, N, N, false, slices)
+	return tex
 
 
 ## Route rides: the biome under the rider now (clouds, noon sun, ground glow).
@@ -155,10 +241,25 @@ func apply_daylight(st: Dictionary, rain: float) -> void:
 		sun.light_energy = MOON_ENERGY * float(st.energy_mult) / 0.3
 	else:
 		sun.light_color = warm
-		sun.light_energy = SUN_ENERGY * smoothstep(-0.02, 0.12, sin(elev)) * (1.0 - 0.75 * rain)
-	env.ambient_light_energy = lerpf(0.6, 1.0, daylight)
-	env.fog_density = 0.0005 + 0.006 * rain
-	env.volumetric_fog_density = 0.0012 + 0.01 * rain
+		# Low sun crosses more air: weaker as well as warmer (auto exposure lifts the frame back).
+		sun.light_energy = SUN_ENERGY * smoothstep(-0.035, 0.07, sin(elev)) * lerpf(0.5, 1.0, air) * (1.0 - 0.75 * rain)
+	# With the sun low, and under cloud, the sky is more of the light: its share
+	# of the shade rises, so golden-hour shade and rain stay readable.
+	env.ambient_light_sky_contribution = lerpf(lerpf(0.85, SKY_AMBIENT, air), 0.95, rain)
+	# Mist: thickest just after sunrise, a little again at dusk, held in the
+	# low ground (fog height, see set_mist_floor); rain thickens all of it.
+	var hour := float(st.hour)
+	var morning := clampf(1.0 - absf(hour - 7.0) / 2.5, 0.0, 1.0)
+	var dusk := clampf(1.0 - absf(hour - 19.0) / 2.0, 0.0, 1.0) * 0.4
+	_mist = maxf(morning, dusk) * (1.0 - rain)
+	env.fog_density = 0.00035 + 0.0004 * _mist + 0.006 * rain
+	env.fog_height_density = 0.045 * _mist
+	env.volumetric_fog_density = 0.0016 + 0.0035 * _mist + 0.01 * rain
+
+
+## Where the valley mist lies (world height); RideScene finds the low ground around the rider.
+func set_mist_floor(y: float) -> void:
+	env.fog_height = y
 
 
 ## Every frame: where the eye is, how far the clouds have drifted, the TAA jitter.

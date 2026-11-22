@@ -43,6 +43,8 @@ var hour_override := -1.0        ## tooling: fixed world hour
 var _tuning: Dictionary = {}
 var _sky_mat: ProceduralSkyMaterial
 var _daylight_clock := 1.0
+var _mist_clock := 0.0
+var _mist_floor := -INF          ## the realistic look's valley mist height (world y)
 var preset_id := "winter"        ## ScenePreset in use (from App unless overridden)
 var preset_override := ""        ## tooling: force a preset regardless of settings
 var _preset: Dictionary = {}
@@ -205,6 +207,8 @@ func _ready() -> void:
 	camera.ground_height = func(x: float, z: float) -> float: return terrain.surface(x, z)
 	_world.add_child(camera)
 	camera.current = true
+	if real:
+		real.attach_camera(camera)
 	snow = Snow.new()
 	snow.emitting = bool(_preset.get("snow", true))
 	_world.add_child(snow)
@@ -325,9 +329,13 @@ func _apply_daylight() -> void:
 	_follow_biome()
 	var hour := hour_override if hour_override >= 0.0 else Daylight.hour_for_mode(time_mode)
 	var noon := float(_tuning.get("sun_elevation", 25.0)) + float(_preset.get("sun_lift", 0.0))
+	var arc := 1.0
 	if real:
-		noon = float(real.flora.biome.get("noon", 42.0))   # a real sun climbs higher than the pixel look's low key light
-	var st := Daylight.state(hour, noon, float(_tuning.get("sun_azimuth", 40.0)))
+		# A real sun climbs higher than the pixel look's low key light; its arc is
+		# flattened so most of the day still throws long shadows (R43).
+		noon = float(real.flora.biome.get("noon", 42.0)) * RealLook.NOON_SCALE
+		arc = RealLook.SUN_ARC_SHAPE
+	var st := Daylight.state(hour, noon, float(_tuning.get("sun_azimuth", 40.0)), arc)
 	if _rain > 0.0:
 		# Overcast: dimmer, greyer, thicker air.
 		var grey := Color(0.55, 0.6, 0.68)
@@ -367,7 +375,7 @@ func _apply_daylight() -> void:
 	if real:
 		real.apply_daylight(st, _rain)
 		if far_range:
-			far_range.set_light(lerpf(0.06, 1.0, float(st.daylight)) * (1.0 - 0.35 * _rain))
+			far_range.set_light(_sun.light_color * _sun.light_energy, float(st.daylight), _rain)
 
 
 ## Kept for callers that only know the on/off toggle.
@@ -569,6 +577,27 @@ func _process(raw_delta: float) -> void:
 	if _daylight_clock >= 0.25:
 		_daylight_clock = 0.0
 		_apply_daylight()
+	if real:
+		_mist_clock -= raw_delta
+		if _mist_clock <= 0.0:
+			_mist_clock = 2.0
+			_find_mist_floor()
+
+
+## Morning mist lies in the low ground: the lower quarter of the land within
+## a kilometre, a few metres up, but always below the rider's eye so the
+## ground at the wheels stays clear. Eased so it never jumps.
+func _find_mist_floor() -> void:
+	var c := camera.global_position
+	var hs: Array[float] = []
+	for r in [150.0, 400.0, 800.0]:
+		for i in 8:
+			var a := TAU * float(i) / 8.0
+			hs.append(terrain.surface(c.x + cos(a) * r, c.z + sin(a) * r))
+	hs.sort()
+	var target := minf(hs[hs.size() / 4] + 6.0, c.y - 6.0)
+	_mist_floor = target if is_inf(_mist_floor) else lerpf(_mist_floor, target, 0.3)
+	real.set_mist_floor(_mist_floor)
 
 
 func _place_rider() -> void:

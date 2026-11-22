@@ -9,7 +9,8 @@ uniform vec3 rock = vec3(0.36, 0.3, 0.27);
 uniform vec3 scrub = vec3(0.22, 0.24, 0.14);
 uniform float snow_line = 9999.0;
 uniform float haze = 0.5;
-uniform float light = 1.0;   // set by RealLook with the time of day
+uniform vec3 sun_light = vec3(3.0);   // sun or moon colour times energy (FarRange.set_light)
+uniform vec3 sky_light = vec3(0.3);   // the sky's light in shade
 global uniform vec3 water_sky;
 global uniform vec3 sun_dir;
 
@@ -29,7 +30,7 @@ void fragment() {
 	vec3 alb = mix(scrub, rock, smoothstep(0.25, 0.55, steep + (n - 0.5) * 0.3));
 	alb = mix(alb, vec3(0.9, 0.92, 0.96), smoothstep(snow_line, snow_line + 120.0, h + (n - 0.5) * 220.0) * (1.0 - smoothstep(0.55, 0.8, steep)));
 	float lit = max(dot(wn, sun_dir), 0.0) * smoothstep(-0.05, 0.1, sun_dir.y);
-	vec3 col = alb * (lit * 2.6 + 0.45) * light;
+	vec3 col = alb * (sun_light * lit + sky_light);
 	float d = length(wp.xz - CAMERA_POSITION_WORLD.xz);
 	float k = haze * smoothstep(1500.0, 9000.0, d) + 0.15;
 	ALBEDO = mix(col, water_sky * 1.05, clamp(k, 0.0, 0.9));
