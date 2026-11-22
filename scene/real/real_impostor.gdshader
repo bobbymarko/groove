@@ -92,6 +92,7 @@ void fragment() {
 	SPECULAR = 0.35;
 	BACKLIGHT = alb / mix(0.3, 1.0, shade) * translucency * leafy * mix(0.4, 1.0, shade);
 	// As the live tree's leaves (real_leaf): the same cover, by the same height above the root.
-	Shade sh = shade_plant(v_wp, length(VERTEX), above, 0.9, 0.3, 0.5);
+	// (its trunk and limbs as the live tree's bark: under its own crown, darker at the foot)
+	Shade sh = shade_plant(v_wp, length(VERTEX), above, mix(0.4, 0.9, leafy), mix(0.4, 0.3, leafy), mix(1.2, 0.5, leafy));
 	SHADE_APPLY(sh)
 }

@@ -116,7 +116,9 @@ void fragment() {
 	ROUGHNESS = mix(mix(0.72, 0.6, s), 0.32, rain_wet);
 	SPECULAR = 0.35;
 	BACKLIGHT = alb * translucency * leafy * (1.0 - s) * mix(0.4, 1.0, shade);
-	Shade sh = shade_plant(wp, length(VERTEX), above, shade_own, 0.3, 0.5);
+	// Solid wood (a far tree's trunk and limbs) stands under its own crown as bark does (real_bark).
+	Shade sh = UV.x < -0.5 ? shade_plant(wp, length(VERTEX), above, min(shade_own, 0.4), 0.4, 1.2)
+			: shade_plant(wp, length(VERTEX), above, shade_own, 0.3, 0.5);
 	SHADE_APPLY(sh)
 #endif
 }

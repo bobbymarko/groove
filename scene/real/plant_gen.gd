@@ -8,8 +8,8 @@ extends RefCounted
 ## (atlas_cells) and drawn into textures once by PlantBake.
 ##
 ## A tree has a close-up version (lod 0: bark surface 0, cards surface 1), a
-## middle-distance one (lod 1: far fewer, larger cards, the wood riding in
-## the same surface) and a shadow caster (lod 2: a handful of big cards
+## middle-distance one (lod 1: fewer, somewhat larger cards holding the
+## close-up's outline, mass and tone, the wood riding in the same surface) and a shadow caster (lod 2: a handful of big cards
 ## facing the sky, so the sun's shadow maps are not filled many times over)
 ## from the same seed, so their outlines match.
 ## Vertex data:
@@ -325,8 +325,17 @@ static func curtain(b: Builder, tl: Vector3, tr: Vector3, fall_l: Vector3, fall_
 ## leave the trunk at the same height or reach the same length (whorls of equal
 ## boughs read as a stack of plates), and each bough has depth: a tent-shaped
 ## spray, side sprays hanging off it, and curtains of twigs below (see _bough).
-## lod 1 keeps every other bough as one broad card with its skirt; lod 2 (the
+## lod 1 keeps every bough as one card with its skirt and hanging twigs; lod 2 (the
 ## shadow caster) a few boughs of every third whorl; all from the same dice.
+## Measured, the same view drawn with each version (2026-11-22): against the
+## close-up, plain wood in the card surface comes out a little light and red
+## beside scanned bark, and a crown of fewer cards a little light (less of it
+## shades itself). The far versions are toned by these so a handover does not
+## change a tree's colour.
+const FAR_WOOD := Color(0.87, 0.93, 0.96)
+const FAR_NEEDLES := 0.12        ## how much darker a far spruce's boughs are drawn
+const FAR_LEAVES := 0.07         ## and a far broadleaf's cards
+
 static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, needle := Color(0.06, 0.14, 0.07), lod := 0) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
@@ -343,7 +352,7 @@ static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, need
 		trunk.append(Vector3(0.0, H * k, 0.0) + lean * k * k)
 		radii.append(lerpf(r0, 0.02, pow(k, 0.8)) * (1.0 + 0.4 * maxf(0.0, 0.12 - k) / 0.12))
 	var first := bark.v.size()
-	tube(bark, trunk, radii, 7 if lod == 0 else 4, Color(0.24, 0.18, 0.14), 0.45, 0.0, 0.2)
+	tube(bark, trunk, radii, 7 if lod == 0 else 4, Color(0.24, 0.18, 0.14) if lod == 0 else Color(0.24, 0.18, 0.14) * FAR_WOOD, 0.45, 0.0, 0.2)
 	if lod > 0:
 		bark.mark_solid(first)
 	var y0 := H * rng.randf_range(0.1, 0.24)
@@ -368,10 +377,12 @@ static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, need
 			if wr.randf() < 0.14:
 				L *= 1.25          # the odd long bough breaks the cone's outline
 			var axis := Vector3(0.0, yb, 0.0) + lean * (yb / H) * (yb / H)
-			# The far versions keep every other bough of every whorl; the shadow
-			# caster makes do with a few boughs of every third whorl (and the core).
-			var keep := (j + w) % 2 == 0 if lod == 1 else (w % 3 == 0 and j % 2 == 0)
-			_bough(leaf, wr, axis, dir, L * (1.0 if lod == 0 else 1.1), needle, u, lod, gap * (1.0 if lod == 0 else 2.3), lod == 0 or keep)
+			# The middle version keeps every bough, each of fewer pieces: a tree
+			# must hold its outline and its mass when one version hands over to
+			# the next. The shadow caster makes do with a few broad boughs of
+			# every third whorl (and the core).
+			var keep := lod < 2 or (w % 3 == 0 and j % 2 == 0)
+			_bough(leaf, wr, axis, dir, L * (1.1 if lod == 2 else 1.0), needle, u, lod, gap * (2.3 if lod == 2 else 1.0), keep)
 		if lod == 0 and u < 0.85:
 			# Close up, shorter boughs between the whorls fill the inside, so the eye
 			# meets needles, not a bare pole, when it looks in under the big boughs.
@@ -407,7 +418,7 @@ static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, need
 		var k := float(i) / 5.0
 		var yy := lerpf(y0 + 0.3, H - 1.0, k)
 		core.append(Vector3(0.0, yy, 0.0) + lean * (yy / H) * (yy / H))
-		core_r.append(rmax * 0.3 * pow(1.0 - k, 0.9) * (0.5 + 0.5 * smoothstep(0.0, 0.2, k)) + 0.05)
+		core_r.append(rmax * (0.26 if lod == 1 else 0.3) * pow(1.0 - k, 0.9) * (0.5 + 0.5 * smoothstep(0.0, 0.2, k)) + 0.05)
 	if lod > 0:      # (close up the inner boughs do this, and the trunk may show)
 		first = leaf.v.size()
 		tube(leaf, core, core_r, 5, Color(needle.r * 0.55, needle.g * 0.55, needle.b * 0.55), 0.3, 0.3, 0.0)
@@ -430,7 +441,7 @@ static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, need
 ## of more, smaller pieces instead (_bough_long), so that no card shows the
 ## atlas much past its sharpness: stretched over three or four metres a spray's
 ## needles became slabs and a curtain's hanging twigs a picket fence.
-## lod 1: one broad flat card and the skirt. lod 2: the card alone. lod 3: a
+## lod 1: one tent as wide as the close-up's whole bough, the skirt and the curtain under it. lod 2: a broad card alone. lod 3: a
 ## short inner bough (the tent alone). Every die is thrown whether or not the
 ## bough is drawn, so each version of a tree throws the same ones.
 static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, dir: Vector3, L: float, needle: Color,
@@ -450,6 +461,8 @@ static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, d
 	var len: Array[float] = [rng.randf_range(0.48, 0.68), rng.randf_range(0.48, 0.68)]
 	if not draw:
 		return
+	if lod == 1 or lod == 2:
+		col = col.darkened(FAR_NEEDLES)
 	var ao0 := 0.12 + 0.3 * minf(u, 1.0)
 	var bend := (dir * 0.55 + Vector3.UP * 0.75).normalized()
 	# The bough's line, by how far along it (0 at the trunk .. 1 at the tip).
@@ -461,15 +474,18 @@ static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, d
 		return
 	var close := lod == 0 or lod == 3
 	var segs := 3 if lod == 0 else 2
-	var hw := L * ((0.27 if lod == 0 else 0.42) if close else 0.55)
+	# The middle version's one card is as wide as the close-up's tent and side sprays together.
+	var hw := L * ((0.27 if lod == 0 else 0.42) if close else (0.42 if lod == 1 else 0.55))
 	var pts := PackedVector3Array()
 	for i in segs + 1:
 		pts.append(line.call(float(i) / float(segs)))
 	# Further off a bough is one flat card: rolled well over to one side or the
 	# other, so it shows a face (not an edge, a line with sky above and below)
 	# to an eye level with it.
-	var tip_over := roll if close else signf(roll) * (0.4 + absf(roll) * 2.0)
-	ribbon(leaf, pts, (side + Vector3.UP * tip_over).normalized(), hw, hw * 0.42 if close else 0.0, cell, col, ao0, 1.0, bend, 0.0, 1.0)
+	var tip_over := roll if lod != 2 else signf(roll) * (0.4 + absf(roll) * 2.0)
+	# (the middle version's card stands for the side sprays too, which are more open to the sky than the bough's root: they carry its snow)
+	ribbon(leaf, pts, (side + Vector3.UP * tip_over).normalized(), hw, hw * 0.42 if close else (hw * 0.36 if lod == 1 else 0.0), cell, col,
+			lerpf(ao0, 1.0, 0.3) if lod == 1 else ao0, 1.0, bend, 0.0, 1.0)
 	if L < 0.55 or lod >= 2:
 		return
 	var hc := col.darkened(0.12)
@@ -477,17 +493,16 @@ static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, d
 	# A skirt across the bough's outer part, facing out: the hanging twigs that
 	# make a spruce's side (boughs pointing at the eye would otherwise be edge-on).
 	var sk := pts[segs - 1].lerp(pts[segs], 0.35)
-	var sw := side * L * (0.4 if close else 0.5)
+	var sw := side * L * 0.4
 	# Long enough to reach the boughs below, so the tree's side closes.
 	var fall := maxf(hang * 1.15, gap * 1.25)
 	var drop := Vector3.DOWN * fall + dir * fall * 0.18
 	curtain(leaf, sk + sw, sk - sw, drop, drop, hang_cell, hc, 0.95, 0.75, (dir * 0.75 + Vector3.UP * 0.45).normalized(), 0.5)
-	if lod > 0:
-		return
-	# Close up, a curtain along the bough as well: twigs hanging under its outer two thirds.
+	# A curtain along the bough as well: twigs hanging under its outer two thirds
+	# (what a bough shows of itself from the side).
 	var hb := (dir * 0.8 + Vector3.UP * 0.3).normalized()
 	curtain(leaf, pts[1], pts[segs], Vector3.DOWN * hang, Vector3.DOWN * hang * 0.8, hang_cell, hc, ao1 * 0.9, ao1 * 0.75, hb, 0.4)
-	if L < 0.95:
+	if lod > 0 or L < 0.95:
 		return
 	# Side sprays: the bough forks, and each fork's outer edge hangs lower than its inner one.
 	for s in 2:
@@ -634,7 +649,7 @@ class Crown:
 	var cells: Array = [LEAF_A, LEAF_B, LEAF_C]
 	var card_size := 1.3
 	var cards_per: Array = [6, 5, 3]   ## cards on a leafy branch, by its depth (0 the outer twigs)
-	var count := 0                     ## cards so far (lod 1 keeps every third, larger)
+	var count := 0                     ## cards so far (lod 1 keeps every other, a little larger)
 
 
 ## A broadleaf tree (oak-ish, or a birch with `birch`): a trunk that forks into
@@ -648,7 +663,7 @@ static func broadleaf(seed_value: int, bark_mat: Material, leaf_mat: Material, l
 	t.leaf = _cards()
 	t.wood = Builder.new() if lod == 0 else t.leaf
 	t.lod = lod
-	t.bark_col = bark_col
+	t.bark_col = bark_col if lod == 0 else bark_col * FAR_WOOD
 	t.leaf_col = leaf_col
 	t.birch = birch
 	t.bare = bare
@@ -673,7 +688,7 @@ static func broadleaf(seed_value: int, bark_mat: Material, leaf_mat: Material, l
 		pts.append(Vector3(0.0, fork * k, 0.0) + lean * k * k * 0.5)
 		radii.append(r0 * (1.0 - 0.25 * k) * (1.0 + 0.5 * maxf(0.0, 0.15 - k) / 0.15))
 	var first := t.wood.v.size()
-	tube(t.wood, pts, radii, 8 if lod == 0 else 5, bark_col, 0.4, 0.0, 0.2)
+	tube(t.wood, pts, radii, 8 if lod == 0 else 5, t.bark_col, 0.4, 0.0, 0.2)
 	if lod > 0:
 		t.wood.mark_solid(first)
 	t.crown_c = Vector3(0.0, fork + (H - fork) * 0.5, 0.0) + lean * 0.5
@@ -701,9 +716,10 @@ static func _branch(t: Crown, start: Vector3, dir: Vector3, L: float, r: float, 
 		p += d * L / float(segs)
 		pts.append(p)
 		radii.append(r * (1.0 - 0.3 * float(i + 1) / float(segs)))
-	# The finest twigs are drawn in the cards; the far version keeps only the limbs.
-	if depth >= (1 if t.lod == 0 else 2):
-		var sides: int = [3, 3, 4, 6][depth] if t.lod == 0 else depth + 1
+	# The finest twigs are drawn in the cards; the shadow caster keeps only the limbs.
+	# (and the middle version of a tree in leaf, whose twigs its leaves hide)
+	if depth >= (1 if t.lod == 0 or (t.lod == 1 and t.bare) else 2):
+		var sides: int = [3, 3, 4, 6][depth] if t.lod == 0 else maxi(depth + 1, 3)
 		var first := t.wood.v.size()
 		tube(t.wood, pts, radii, sides, t.bark_col, 0.5, 0.15 * float(3 - depth), 0.0)
 		if t.lod > 0:
@@ -750,10 +766,15 @@ static func _leaf_cards(t: Crown, twig: PackedVector3Array, depth: int) -> void:
 		if t.birch and not hangs:
 			cell = LEAF_SMALL
 		t.count += 1
-		if t.lod > 0 and t.count % (3 if t.lod == 1 else 9) != 0:
+		# The middle version keeps every other card, a little larger (much larger
+		# and its leaves visibly grow as the tree hands over); the shadow caster one in nine.
+		if t.lod > 0 and t.count % (2 if t.lod == 1 else 9) != 0:
 			continue
 		if t.lod > 0:
-			s *= 1.85 if t.lod == 1 else 1.5
+			s *= 1.4 if t.lod == 1 else 1.5
+			col = col.darkened(FAR_LEAVES)
+		if t.lod == 1:
+			p = t.crown_c + (p - t.crown_c) * 0.94     # larger cards, drawn in a little: the crown keeps its outline
 		var outward := (p - t.crown_c).normalized()
 		var up := (twig_dir * 0.5 + outward * 0.6 + rnd * 0.55 + (Vector3.DOWN * 1.9 if hangs else Vector3.UP * 0.2)).normalized()
 		var face := (outward * 0.7 + Vector3.UP * 0.45 + rnd2 * 0.8).normalized()

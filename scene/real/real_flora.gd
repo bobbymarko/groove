@@ -86,7 +86,14 @@ static var tree_far_z := 100000.0     ## and by this far along the trail (the st
 
 ## Where a tree's close-up version hands over to the middle one, for the quality tier (RealQuality).
 static func near_range() -> float:
+	if debug_version != "":
+		return 5000.0 if debug_version == "near" else 0.0
 	return NEAR_RANGE * float(RealQuality.get_value("range_mult"))
+
+
+## Preview tool (`lodview=near|mid|picture`): every tree drawn as that one
+## version at any distance, to compare the versions in the same view.
+static var debug_version := ""
 
 
 ## Where a small plant's close-up hands over to its cheap version, for the quality tier.
@@ -136,6 +143,10 @@ var _picture_mat: ShaderMaterial
 static func for_biome(id: String) -> RealFlora:
 	if not BIOMES.has(id):
 		id = "summer"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("lodview=") and debug_version == "":
+			debug_version = a.trim_prefix("lodview=")
+			detail_range = 0.0 if debug_version == "picture" else 5000.0
 	if not _cache.has(id):
 		var f := RealFlora.new()
 		f.biome_id = id
@@ -403,6 +414,8 @@ static func _apply_range(m: ShaderMaterial, role: String) -> void:
 ## Set this ride's tree ranges for every biome's plants (materials are shared
 ## and cached): where the middle version becomes a picture, and where trees end.
 static func set_ranges(detail: float, far: float, far_z := 100000.0) -> void:
+	if debug_version != "":
+		detail = 0.0 if debug_version == "picture" else 5000.0
 	if is_equal_approx(detail, detail_range) and is_equal_approx(far, tree_far) and is_equal_approx(far_z, tree_far_z):
 		return
 	detail_range = detail
