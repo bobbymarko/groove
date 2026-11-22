@@ -264,6 +264,17 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 			for i in 90:
 				await process_frame          # the cards cascade in first
 			(sc[0] as ScrollContainer).scroll_vertical = 100000
+	# "pick": open the first library workout's scene picker (home), scrolled to its end.
+	if OS.get_cmdline_user_args().has("pick") and scene.has_node("WorkoutSheet"):
+		var ws: Node = scene.get_node("WorkoutSheet")
+		ws.open(WorkoutLoader.load_file("res://workouts/endurance_60.zwo", 250))
+		ws.choose_scene(false)
+		for i in 40:
+			await process_frame
+		for sc2 in ws.find_children("*", "ScrollContainer", true, false):
+			(sc2 as ScrollContainer).scroll_vertical = 100000
+		for i in 10:
+			await process_frame
 	# "route=<path>": open that route's sheet (home).
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("route=") and scene.has_node("RouteSheet"):

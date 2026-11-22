@@ -26,6 +26,7 @@ var dry_run := false         # tooling: ride without recording, screenshots or u
 var route: Route = null
 var route_free := false
 var route_difficulty := 0.5
+var ride_route_path := ""     ## a workout ride's world when it is a route (R42); "" for a generic scene
 ## One scenery lookup at a time, for routes imported but not yet looked up;
 ## lives here so leaving the home screen (or starting a ride) does not cut it off.
 var route_lookup: RouteLandCover
@@ -79,6 +80,7 @@ func _ready() -> void:
 			look_mode = "16bit"
 		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
 		scene_preset = str(_cfg.get_value("scene", "preset", scene_preset))
+		ride_route_path = str(_cfg.get_value("scene", "route", ride_route_path))
 		time_of_day = str(_cfg.get_value("scene", "time_of_day", time_of_day))
 		for key in scene_tuning:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
@@ -170,6 +172,7 @@ func save_settings() -> void:
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)
+	_cfg.set_value("scene", "route", ride_route_path)
 	_cfg.set_value("scene", "time_of_day", time_of_day)
 	for key in scene_tuning:
 		_cfg.set_value("scene_tuning", key, scene_tuning[key])

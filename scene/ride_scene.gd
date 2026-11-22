@@ -145,10 +145,11 @@ func _ready() -> void:
 		trail.grade_provider = func(z: float) -> Variant:
 			var d := z - route_start
 			return route.grade_at(maxf(d, 0.0)) if d <= route.length else null
+		# Any ride on a real route rolls like a gravel bike; a free ride also feels its hills.
+		physics.crr = RidePhysics.GRAVEL_CRR
+		physics.cda = RidePhysics.GRAVEL_CDA
 		if app_r and app_r.route_free:
 			physics.grade_effect = 1.0
-			physics.crr = 0.008       # gravel tyres
-			physics.cda = 0.4
 	# True map (R42): in the realistic look, a route with its real ground fetched
 	# is ridden on that ground, along its real shape.
 	var dem: RouteDem = null

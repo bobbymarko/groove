@@ -16,6 +16,8 @@ const MAX_SPEED := 18.0
 ## real resistance; the hill is scenery.
 const GRADE_EFFECT := 0.0
 
+const GRAVEL_CRR := 0.008   ## route rides (R41/R42)
+const GRAVEL_CDA := 0.4
 var speed := 0.0            # m/s; nobody rolls until they pedal
 ## Per ride: a free ride on a real route (R41) feels its hills (grade_effect 1)
 ## on a gravel bike's tyres and position instead of the fat bike on snow.
@@ -39,12 +41,12 @@ func step(power_w: float, grade_percent: float, delta: float, riding := true) ->
 
 
 ## Steady-state speed for a power and grade (for tests and tuning).
-static func steady_speed(power_w: float, grade_percent: float, mass_kg := MASS) -> float:
+static func steady_speed(power_w: float, grade_percent: float, mass_kg := MASS, crr_k := CRR, cda_k := CDA) -> float:
 	var lo := 0.5
 	var hi := MAX_SPEED
 	for i in 40:
 		var v := (lo + hi) * 0.5
-		var need := (0.5 * RHO * CDA * v * v + CRR * mass_kg * G + mass_kg * G * grade_percent * GRADE_EFFECT / 100.0) * v
+		var need := (0.5 * RHO * cda_k * v * v + crr_k * mass_kg * G + mass_kg * G * grade_percent * GRADE_EFFECT / 100.0) * v
 		if need < power_w:
 			lo = v
 		else:

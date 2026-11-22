@@ -89,12 +89,43 @@ func choose_scene(simulator: bool) -> void:
 		card.gui_input.connect(func(e: InputEvent) -> void:
 			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
 				App.scene_preset = id
+				App.ride_route_path = ""
+				App.save_settings()
+				_mark_scene_cards(cards))
+	# Imported routes as worlds (R42): the workout on the route's real shape, hills and scenery.
+	for path in RouteLibrary.list():
+		var r := RouteLibrary.load_route(path)
+		if r == null:
+			continue
+		var card := HudStyle.panel(grid, HudStyle.CARD, 10, 10)
+		card.mouse_filter = Control.MOUSE_FILTER_STOP
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cv := VBoxContainer.new()
+		cv.add_theme_constant_override("separation", 2)
+		card.add_child(cv)
+		var prof := RouteProfile.new()
+		prof.custom_minimum_size = Vector2(0, 150)
+		prof.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		prof.set_route(r)
+		cv.add_child(prof)
+		HudStyle.label(cv, r.name, 15, 700, HudStyle.CYAN).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var d := HudStyle.label(cv, _route_fit(r), 12, 500, HudStyle.TEXT_DIM)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var key := "route:" + path
+		cards[key] = card
+		card.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+				App.ride_route_path = path
 				App.save_settings()
 				_mark_scene_cards(cards))
 	_mark_scene_cards(cards)
 	var go := HudStyle.button(v, "Ride", 18, func() -> void:
 		App.workout = workout
-		App.route = null          # an ordinary workout ride
+		App.route = null          # a generic scene, unless a route is the chosen world
+		App.route_free = false
+		if App.ride_route_path != "" and FileAccess.file_exists(App.ride_route_path):
+			App.route = RouteLibrary.load_route(App.ride_route_path)
 		if simulator:
 			Devices.use_simulated_devices()
 		App.go_to("res://ui/screens/ride_screen.tscn"))
@@ -106,9 +137,24 @@ func choose_scene(simulator: bool) -> void:
 func _mark_scene_cards(cards: Dictionary) -> void:
 	for id in cards:
 		var card: PanelContainer = cards[id]
-		var chosen: bool = id == App.scene_preset
+		var chosen: bool = id == "route:" + App.ride_route_path if App.ride_route_path != "" else id == App.scene_preset
 		card.add_theme_stylebox_override("panel", HudStyle.flat(HudStyle.CARD, HudStyle.RADIUS, 10, 8,
 			HudStyle.CYAN if chosen else HudStyle.BORDER))
+
+
+## "~38 km at your pace; the route is 101 km (it carries on round)."
+func _route_fit(r: Route) -> String:
+	var est := WorkoutSummary.estimates(workout, App.ftp)
+	var avg_w := float(est.kj) * 1000.0 / maxf(workout.total_duration(), 1.0)
+	var km := RidePhysics.steady_speed(maxf(avg_w, 60.0), 0.0, App.weight_kg + App.BIKE_KG,
+		RidePhysics.GRAVEL_CRR, RidePhysics.GRAVEL_CDA) * workout.total_duration()
+	var unit := App.distance_unit().to_lower()
+	var text := "~%s %s at your pace; the route is %s %s" % [App.distance_text(km), unit, App.distance_text(r.length), unit]
+	if km > r.length:
+		var g := Geo.for_route(r)
+		var loop := g.to_local(r.latlon_at(0.0)).distance_to(g.to_local(r.latlon_at(r.length))) < 60.0
+		text += " (it carries on round)" if loop else " (you turn back at the end)"
+	return text + "."
 
 
 func _build_content(v: VBoxContainer) -> void:
