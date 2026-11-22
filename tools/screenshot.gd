@@ -62,11 +62,14 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		rs.debug_top_down = OS.get_cmdline_user_args().has("top")
 		rs.debug_closeup = OS.get_cmdline_user_args().has("closeup") or OS.get_cmdline_user_args().has("hands")
 		rs.debug_hands = OS.get_cmdline_user_args().has("hands")
+		rs.upscaler_override = "temporal"     # never the app's saved choice: shots must compare
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("preset="):
 				rs.preset_override = a.trim_prefix("preset=")
 			if a.begins_with("quality="):
 				rs.quality_override = a.trim_prefix("quality=")
+			if a.begins_with("upscaler="):
+				rs.upscaler_override = a.trim_prefix("upscaler=")
 			if a == "look=real":
 				rs.look_override = "real"
 			if a.begins_with("route="):

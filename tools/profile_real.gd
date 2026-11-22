@@ -2,7 +2,7 @@ extends SceneTree
 ## Dev helper: where the realistic look's frame time goes. One launch; each
 ## feature is switched off in turn from the full scene and the median frame time
 ## printed (the display caps the low end at its refresh rate, 8.3 ms on ProMotion).
-##   tools/profile.sh [preset=summer] [at=2000] [hour=14] [route=<path>] [quality=low|medium|high] [quick]
+##   tools/profile.sh [preset=summer] [at=2000] [hour=14] [route=<path>] [quality=low|medium|high] [upscaler=temporal|spatial] [quick]
 ## "quick" prints only the moving and standing baselines.
 
 var rs: RideScene
@@ -32,6 +32,7 @@ func _run() -> void:
 	rs.cadence = 88.0
 	rs.look_override = "real"
 	rs.quality_override = _arg("quality", "")
+	rs.upscaler_override = _arg("upscaler", "temporal")    # never the app's saved choice: runs must compare
 	rs.preset_override = _arg("preset", "summer")
 	rs.distance = float(_arg("at", "2000"))
 	rs.hour_override = float(_arg("hour", "14"))
@@ -43,7 +44,7 @@ func _run() -> void:
 		await process_frame
 	var vp: SubViewport = rs._viewport
 	rs.real.governor_enabled = false      # this run sets the render scale itself
-	print("[prof] window %s, 3D viewport %s at render scale %.2f, preset %s%s, quality %s" % [root.size, vp.size, vp.scaling_3d_scale, rs.preset_override, ", route" if route != "" else "", RealQuality.tier])
+	print("[prof] window %s, 3D viewport %s at render scale %.2f, preset %s%s, quality %s, upscaler %s" % [root.size, vp.size, vp.scaling_3d_scale, rs.preset_override, ", route" if route != "" else "", RealQuality.tier, rs.real.upscaler])
 	await _measure("moving (chunks streaming)", 400)
 	rs.riding = false
 	for i in 90:

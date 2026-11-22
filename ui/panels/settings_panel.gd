@@ -225,6 +225,13 @@ func _build_ui() -> void:
 			look_note.text = "Quality applies from the next ride."
 			look_note.visible = true)
 	quality_row.visible = App.look_mode == "real"
+	# On trial (R43): the cheaper upscaler, to judge by eye. Applies at once; U switches it in a ride.
+	var upscaler_row := HudStyle.row(l, "Upscaler")
+	HudStyle.segmented(upscaler_row, ["Temporal", "Spatial"], maxi(RealQuality.UPSCALERS.find(App.real_upscaler), 0),
+		func(i: int) -> void:
+			App.real_upscaler = RealQuality.UPSCALERS[i]
+			App.save_settings())
+	upscaler_row.visible = App.look_mode == "real"
 	HudStyle.segmented(HudStyle.row(l, "Look"), ["Pixel", "Smooth", "Realistic"], maxi(looks.find(App.look_mode), 0),
 		func(i: int) -> void:
 			var was_real: bool = App.look_mode == "real"
@@ -234,8 +241,10 @@ func _build_ui() -> void:
 			# The realistic look (first person, its own sky and plants) is built with the world.
 			look_note.text = "Realistic shows from the next ride." if (App.look_mode == "real") != was_real else ""
 			quality_row.visible = App.look_mode == "real"
+			upscaler_row.visible = App.look_mode == "real"
 			look_note.visible = look_note.text != "")
 	l.move_child(quality_row, l.get_child_count() - 1)
+	l.move_child(upscaler_row, l.get_child_count() - 1)
 	l.move_child(look_note, l.get_child_count() - 1)
 	var times := ["live", "morning", "noon", "sunset", "night"]
 	HudStyle.segmented(HudStyle.row(l, "Time of day"), ["Live", "Morning", "Noon", "Sunset", "Night"], maxi(times.find(App.time_of_day), 0),

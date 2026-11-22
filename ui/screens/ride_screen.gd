@@ -174,6 +174,10 @@ func _process(delta: float) -> void:
 	var show := _controls_idle < CONTROLS_HIDE_AFTER or _runner.state != WorkoutRunner.State.RUNNING or _tuning.visible or _side.is_open()
 	_controls.modulate.a = move_toward(_controls.modulate.a, 1.0 if show else 0.0, delta * 4.0)
 	_controls.mouse_filter = Control.MOUSE_FILTER_STOP if _controls.modulate.a > 0.05 else Control.MOUSE_FILTER_IGNORE
+	if _fps_l.visible:      # live while paused too, so a view can be compared standing still
+		_fps_l.text = "%d fps  %.1f ms" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0]
+		if _scene.real:   # what the frame time is buying: the render scale and the upscaler (U switches)
+			_fps_l.text += "  ·  %d%% %s" % [roundi(_scene.real.render_scale() * 100.0), _scene.real.upscaler]
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -198,6 +202,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
 			_scene.time_scale = _runner.time_scale
 		KEY_T: _tuning.visible = not _tuning.visible
+		KEY_U:   # realistic look, on trial (R43): the other upscaler, to compare by eye
+			if _scene.real:
+				App.real_upscaler = RealQuality.UPSCALERS[(RealQuality.UPSCALERS.find(App.real_upscaler) + 1) % RealQuality.UPSCALERS.size()]
+				App.save_settings()
 
 
 func _bind_trainer(t: Trainer) -> void:
@@ -279,7 +287,6 @@ func _on_tick(snap: Dictionary) -> void:
 	_scene.riding = snap.state == WorkoutRunner.State.RUNNING
 	_scene.power = float(_actual_power)
 	_scene.cadence = float(_cadence)
-	_fps_l.text = "%d fps  %.1f ms" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0]
 	var g := _scene.current_grade()
 	_grade_l.text = "%s%d%%" % ["-" if g < -0.5 else "", int(round(absf(g)))]
 	_clock.text = _fmt(snap.elapsed)
