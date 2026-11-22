@@ -156,9 +156,12 @@ void rock_surface(vec3 p, vec3 dpx, vec3 dpy, vec3 n0, float dist, vec3 tint, ve
 	vec3 lichen = mix(vec3(0.4, 0.42, 0.37), vec3(0.46, 0.4, 0.22), smoothstep(0.5, 0.62, A.c));
 	alb = mix(alb, lichen * (0.55 + 0.7 * B.h), enc * 0.3);
 	alb = mix(alb, vec3(0.55, 0.54, 0.5) * (0.5 + 0.7 * C.h), smoothstep(0.62, 0.7, B.c * 0.6 + C.c * 0.5) * 0.4 * ck);
-	// Moss in patches on faces that look up, thickest in the hollows.
-	float alg = smoothstep(0.6, 0.72, n0.y * 0.8 + (B.c - 0.5) * 0.6 + (big - 0.5) * 0.5 + (0.5 - hgt) * 0.3 + (moss - 0.6) * 0.3)
-			* step(0.01, moss);
+	// Moss on faces that look up, thickest in the hollows, in patches a hand
+	// to an arm across with bare stone between (not one cap over the whole top:
+	// the patches come from noise at two sizes, weighing as much as the slope does).
+	float mp = vnoise(p.xz * 2.6 + p.y * 1.9) * 0.6 + vnoise(p.xz * 8.5 - p.y * 6.0 + 3.7) * 0.4;
+	float alg = smoothstep(0.6, 0.72, n0.y * 0.55 + (mp - 0.5) * 1.15 + 0.2 + (B.c - 0.5) * 0.4 + (0.5 - hgt) * 0.3 + (moss - 0.6) * 0.3)
+			* step(0.01, moss) * smoothstep(0.1, 0.35, n0.y);
 	alb = mix(alb, vec3(0.06, 0.1, 0.025) * (0.6 + 0.8 * B.h), alg * 0.92);
 	// Crevices dark, ridges light; the scan's grain on top.
 	alb *= (0.22 + 1.35 * hgt) * mix(1.0, 0.65 + 0.7 * F.h, fk) * mix(1.0, grain, ck * 0.8);

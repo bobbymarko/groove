@@ -581,6 +581,8 @@ func _build_chunk_arrays(index: int, t: Trail) -> Dictionary:
 			out["bridge"] = BridgeGen.build(c.x, BRIDGE_HALF, DECK_TOP, _creek_half(0.0), t, height)
 	else:
 		out["scatter"] = _scatter_transforms(z0, t)
+	if out.has("flora"):
+		out["shade"] = RealShade.blobs(out.flora, floras, flora)   # canopy and contact shade (R43)
 	out["usec"] = Time.get_ticks_usec() - t0
 	return out
 
@@ -954,6 +956,7 @@ func _finish_chunk(r: Dictionary) -> void:
 	if r.has("flora"):
 		for id in r.flora:
 			_add_flora(root, r.flora[id], float(r.z0), floras.get(id, flora))
+		root.add_child(RealShade.holder("c%d" % index, r.shade))
 		add_child(root)
 		_chunks[index] = root
 		return
@@ -1001,6 +1004,8 @@ func _add_flora(root: Node3D, placed: Dictionary, _z0: float, fl: RealFlora) -> 
 				dst[1].append(c)
 				if not real:
 					continue
+			if band == -1 and not fl.mid_meshes.has(mi):
+				band = 0        # small plants keep close to the trail: its two sides share a MultiMesh (half the draws)
 			if not bands.has(band):
 				bands[band] = []
 			bands[band].append(i)
@@ -1044,12 +1049,23 @@ func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Co
 			near.add_to_group("veg_near")
 			root.add_child(near)
 		return
-	var mmi := _band_instance(fl.meshes[mi], xfs, tints, idx, mid)
-	mmi.visibility_range_end = RealFlora.SMALL_FAR + BAND_PAD
-	if not close:
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mmi.add_to_group("veg_small")
-	root.add_child(mmi)
+	# A small plant: the versions RealFlora lists for it (its close-up, a cheap
+	# distant one, that one again as shadow caster), each over its own range.
+	var shared: Dictionary = {}        # mesh -> its MultiMesh here (the shadow caster reuses the cheap version's)
+	for v: Dictionary in fl.small_versions(mi, close):
+		var mesh: Mesh = v.mesh
+		if not shared.has(mesh):
+			shared[mesh] = _band_multimesh(mesh, xfs, tints, idx, mid)
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = shared[mesh]
+		mmi.position = mid
+		mmi.visibility_range_begin = maxf(float(v.begin) - BAND_PAD, 0.0)
+		mmi.visibility_range_end = float(v.end) + BAND_PAD
+		mmi.cast_shadow = int(v.cast)
+		if v.material != null:
+			mmi.material_override = v.material
+		mmi.add_to_group("veg_small")
+		root.add_child(mmi)
 
 
 ## Far trees as flat pictures: every variant in one MultiMesh (the row of the

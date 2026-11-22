@@ -8,6 +8,7 @@ render_mode cull_disabled;
 // Without the scan (before tools/fetch-textures.sh) the grain is noise.
 
 #include "res://scene/real/wind.gdshaderinc"
+#include "res://scene/real/shade.gdshaderinc"
 
 uniform float snow = 0.0;
 uniform bool wood_tex = false;
@@ -68,4 +69,7 @@ void fragment() {
 		float inv = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-12));
 		NORMAL = normalize(T * inv * tn.x - B * inv * tn.y + n * tn.z);
 	}
+	SPECULAR = 0.5;
+	Shade sh = shade_ground((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, length(VERTEX));
+	SHADE_APPLY(sh)
 }

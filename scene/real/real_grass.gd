@@ -117,7 +117,7 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 ## Vertex data for the shader: VERTEX the blade's foot in the tuft (-1..1),
 ## UV x across the blade (-1, 1; 0 at the tip) and y along it, UV2 x the way it
 ## leans (radians) and y its height share, COLOR r bend, g width share (a flower:
-## its corner), b 1 on a flower head, a a little shade of its own.
+## its corner), b 1 on a flower head and 0.5 on its stalk, a a little shade of its own.
 static func _tuft(ring: Dictionary, mat: Material) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5150 + int(float(ring.tile))
@@ -151,17 +151,32 @@ static func _tuft(ring: Dictionary, mat: Material) -> ArrayMesh:
 		var top := first + (rows - 1) * 2
 		idx.append_array(PackedInt32Array([top, top + 2, top + 1]))
 	if float(ring.flower) > 0.0:
-		# A small six-sided head on the first blade's line.
+		# A flower: a thin stalk from the root (one triangle; COLOR.b 0.5 marks
+		# it: a blade that stands only where the tuft carries a flower), and a
+		# head of five petals with gaps between them (COLOR.b 1;
+		# UV.x and COLOR.g are the corner in the head's disc, 0 at its middle).
 		var first := verts.size()
-		for k in 7:
-			var a := TAU * float(k - 1) / 6.0
-			var corner := Vector2.ZERO if k == 0 else Vector2(cos(a), sin(a))
+		for s: float in [-1.0, 1.0, 0.0]:
 			verts.append(Vector3.ZERO)
-			uvs.append(Vector2(corner.x, 1.0))
-			uv2s.append(Vector2(0.0, 1.0))
-			cols.append(Color(0.2, corner.y * 0.5 + 0.5, 1.0, 0.5 * float(ring.flower)))
-		for k in 6:
-			idx.append_array(PackedInt32Array([first, first + 1 + k, first + 1 + (k + 1) % 6]))
+			uvs.append(Vector2(s, 0.0 if s != 0.0 else 1.0))
+			uv2s.append(Vector2(0.0, 1.12))
+			cols.append(Color(0.0, 0.3, 0.5, 0.5))
+		idx.append_array(PackedInt32Array([first, first + 2, first + 1]))
+		# (every tuft carries the head, flowering or not: the far ring's petals are plain wedges, a triangle each)
+		var fine := float(ring["in"]) <= 0.0
+		for k in 5:
+			var a := TAU * float(k) / 5.0
+			first = verts.size()
+			# A petal: widest two thirds of the way out, then drawn in to a blunt tip.
+			var corners: Array[Vector2] = [Vector2.ZERO, Vector2.from_angle(a - 0.5) * 0.68, Vector2.from_angle(a + 0.5) * 0.68, Vector2.from_angle(a)]
+			if not fine:
+				corners = [Vector2.ZERO, Vector2.from_angle(a - 0.42), Vector2.from_angle(a + 0.42)]
+			for corner in corners:
+				verts.append(Vector3.ZERO)
+				uvs.append(Vector2(corner.x, 1.0))
+				uv2s.append(Vector2(0.0, 1.0))
+				cols.append(Color(0.2, corner.y * 0.5 + 0.5, 1.0, 0.5 * float(ring.flower)))
+			idx.append_array(PackedInt32Array([first, first + 1, first + 2, first + 1, first + 3, first + 2] if fine else [first, first + 1, first + 2]))
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = verts

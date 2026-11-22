@@ -15,6 +15,7 @@ uniform float snow = 0.0;
 uniform float translucency = 0.55;
 uniform float roundness = 0.6;                   // how far the cards' normals bend to the crown's
 uniform vec3 wood_color = vec3(0.2, 0.16, 0.12);  // twigs drawn in a cluster
+uniform float shade_own = 0.9;                   // a tree's own crown in the canopy map (0: a bush, which adds none)
 
 varying float ao;
 varying vec3 tint;
@@ -25,6 +26,7 @@ varying vec3 v_bent;
 varying vec3 v_tan;
 varying vec3 v_bin;
 varying vec3 v_face;
+varying float above;    // metres above the root
 
 void vertex() {
 	vec3 origin = MODEL_MATRIX[3].xyz;
@@ -43,6 +45,7 @@ void vertex() {
 	}
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	tint = INSTANCE_CUSTOM.a > 0.0 ? INSTANCE_CUSTOM.rgb : vec3(1.0);
+	above = wp.y - origin.y;
 #endif
 	ao = COLOR.a;
 	mat3 mv = mat3(MODELVIEW_MATRIX);
@@ -113,5 +116,7 @@ void fragment() {
 	ROUGHNESS = mix(mix(0.72, 0.6, s), 0.32, rain_wet);
 	SPECULAR = 0.35;
 	BACKLIGHT = alb * translucency * leafy * (1.0 - s) * mix(0.4, 1.0, shade);
+	Shade sh = shade_plant(wp, length(VERTEX), above, shade_own, 0.3, 0.5);
+	SHADE_APPLY(sh)
 #endif
 }

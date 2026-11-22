@@ -8,11 +8,13 @@ uniform vec3 fuzz_color = vec3(0.92, 0.86, 0.6);
 
 varying float plant_d;
 varying float gone;
+varying float root_y;
 
 void vertex() {
 #ifndef BAKE
 	plant_d = plant_distance(MODEL_MATRIX);
 	gone = far_gone(MODEL_MATRIX[3].xyz, plant_d);
+	root_y = MODEL_MATRIX[3].y;
 	if (lod_gone(plant_d, gone)) {
 		VERTEX = vec3(0.0);
 	}
@@ -38,5 +40,8 @@ void fragment() {
 	BACKLIGHT = fuzz_color * fuzz * 0.7;
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	EMISSION = fuzz_color * rim * fuzz * 0.12;
+	vec3 cwp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	Shade sh = shade_plant(cwp, length(VERTEX), cwp.y - root_y, 0.0, 0.4, 0.5);
+	SHADE_APPLY(sh)
 #endif
 }

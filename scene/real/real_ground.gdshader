@@ -18,6 +18,7 @@ render_mode cull_back;
 #include "res://scene/real/wind.gdshaderinc"
 #include "res://scene/real/rock.gdshaderinc"
 #include "res://scene/real/ground_tone.gdshaderinc"
+#include "res://scene/real/shade.gdshaderinc"
 
 // Ground looks: 0 snow, 1 grass, 2 sand, 3 Sonoran desert (decomposed granite).
 // A route ride's chunk blends two (ground_b's share per vertex in UV.y, R41).
@@ -176,7 +177,7 @@ Surf mix_surf(Surf a, Surf b, float t) {
 // One ground look at p, near: field (with patches), trail and wheel line,
 // blended by height. trail_w: the trail's share by its ragged edge; rut: the
 // wheel line's (0..1).
-Surf look_near(int g, vec2 p, vec2 warp, vec2 dpx, vec2 dpy, float k2, float trail_w, float rut,
+Surf look_near(int g, vec2 p, vec2 warp, vec2 dpx, vec2 dpy, float k2, float trail_w, float rut, float packed,
 		float patch_w, float along_x, float n1, float n2, out float rough) {
 	ivec4 sl = look_slots(g);
 	Surf f = layer(sl.x, p, warp, dpx, dpy, k2, float(sl.x) * 1.7);
@@ -203,9 +204,10 @@ Surf look_near(int g, vec2 p, vec2 warp, vec2 dpx, vec2 dpy, float k2, float tra
 			tr = mix(tr, slot_rough(sl.w), k);
 		}
 		// The wheel line is packed down: darker, smoother, its stones pressed flat.
-		t.col *= 1.0 - 0.12 * rut;
-		t.h = mix(t.h, 0.4, rut * 0.5);
-		t.tilt *= 1.0 - 0.5 * rut;
+		float press = max(rut, packed * 0.8);
+		t.col *= 1.0 - 0.07 * packed - 0.06 * rut;
+		t.h = mix(t.h, 0.42, press * 0.55);
+		t.tilt *= 1.0 - 0.6 * press;
 		tr = mix(tr, tr - 0.12, rut);
 		t.col *= trail_tint[g] * (0.94 + 0.12 * n2);
 		float k = height_blend(f.h, t.h, trail_w, 0.12);
@@ -277,6 +279,7 @@ void fragment() {
 	float trail = 1.0 - smoothstep(edge - 0.18, edge + 0.22, a);
 	float wander = lat + (n2 - 0.5) * 0.18;              // the wheel line wanders a little
 	float rut = exp(-pow(wander / 0.13, 2.0));          // the wheel line down the middle
+	float packed = exp(-pow(wander / (trail_half_width * 0.5), 2.0));   // the ridden band about it: stones pressed in
 	float rock = smoothstep(0.38, 0.55, slope + (n2 - 0.5) * 0.25);
 	float k_b = 0.0;
 	if (b_share > 0.002 && ground_b != ground_a) {
@@ -318,10 +321,10 @@ void fragment() {
 			float k2 = 0.25 + 0.2 * smoothstep(8.0, 40.0, dist);
 			float patch_w = smoothstep(0.66, 0.78, n3 * 0.5 + n2 * 0.35 + n1 * 0.25) * (1.0 - trail) * smoothstep(45.0, 20.0, dist);   // bare litter here and there, close by
 			float r_a;
-			Surf s = look_near(ground_a, p, warp, dpx, dpy, k2, trail, rut, patch_w, along_x, n1, n2, r_a);
+			Surf s = look_near(ground_a, p, warp, dpx, dpy, k2, trail, rut, packed, patch_w, along_x, n1, n2, r_a);
 			if (k_b > 0.0) {
 				float r_b;
-				Surf sb = look_near(ground_b, p, warp, dpx, dpy, k2, trail, rut, patch_w, along_x, n1, n2, r_b);
+				Surf sb = look_near(ground_b, p, warp, dpx, dpy, k2, trail, rut, packed, patch_w, along_x, n1, n2, r_b);
 				s = mix_surf(s, sb, k_b);
 				r_a = mix(r_a, r_b, k_b);
 			}
@@ -336,7 +339,7 @@ void fragment() {
 				float ft = slot_tile[fs] * 0.27;
 				mat2 fr = turn(0.6);
 				vec2 fnm = textureGrad(g_normal, vec3(fr * p / ft, float(fs)), fr * dpx / ft, fr * dpy / ft).rg * 2.0 - 1.0;
-				s.tilt += transpose(fr) * vec2(fnm.x, -fnm.y) * 0.5 * fine * (1.0 - rut * 0.6);
+				s.tilt += transpose(fr) * vec2(fnm.x, -fnm.y) * 0.5 * fine * (1.0 - max(rut, packed * 0.8) * 0.6 * trail);
 			}
 			// The wheel line's dip: the ground leans in toward the middle.
 			float dip = -wander / 0.13 * rut * 0.3 * trail * smoothstep(30.0, 5.0, dist);
@@ -405,4 +408,6 @@ void fragment() {
 	ROUGHNESS = rough;
 	SPECULAR = mix(spec, 0.5, wet);
 	NORMAL = normalize((VIEW_MATRIX * vec4(nrm, 0.0)).xyz);
+	Shade sh = shade_ground(wpos, dist);
+	SHADE_APPLY(sh)
 }

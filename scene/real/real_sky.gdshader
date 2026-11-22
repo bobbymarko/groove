@@ -8,9 +8,9 @@ render_mode use_half_res_pass;
 // the sun or moon disk and the stars. No TIME or POSITION here: Godot would
 // then redraw the radiance cubemap every frame, so both come in as uniforms.
 
-uniform sampler3D shape_tex : filter_linear, repeat_enable;
+#include "res://scene/real/cloud_shape.gdshaderinc"
+
 uniform sampler3D detail_tex : filter_linear, repeat_enable;
-uniform sampler2D weather_tex : filter_linear, repeat_enable;
 uniform sampler2D curl_tex : filter_linear, repeat_enable;
 
 uniform vec3 cam_km = vec3(0.0, 0.3, 0.0);     // camera, km (y = altitude above the planet surface)
@@ -23,41 +23,29 @@ uniform float haze = 0.78;
 uniform vec3 ground_albedo = vec3(0.6);
 uniform float frame = 0.0;                      // 0..63, jitter for TAA
 
-uniform float coverage = 0.51;
-uniform float cloud_type = 1.0;
 uniform float cloud_density = 0.19;
 uniform float erosion = 0.45;
-uniform float cloud_bottom = 1.5;
-uniform float cloud_top = 4.4;
 uniform float sharp = 1.0;
 uniform float turb = 1.0;
 uniform float ambient = 2.0;
 uniform float crease = 0.8;
-uniform vec3 wind = vec3(0.0);                  // accumulated wind offset, km
-uniform vec3 wind_dir = vec3(1.0, 0.0, 0.0);
 uniform int cloud_steps = 64;
 uniform int light_steps = 6;
 uniform int atmo_steps = 14;
 uniform float cloud_far = 60.0;
 
-const float Rg = 6360.0;
 const float Rt = 6460.0;
 const vec3 RAY_S = vec3(5.802e-3, 13.558e-3, 33.1e-3);
 const float MIE_S = 3.996e-3;
 const vec3 OZONE_A = vec3(0.650e-3, 1.881e-3, 0.085e-3);
-const float WEATHER_SCALE = 45.0;
 const float SHAPE_RES = 128.0;
 const float DETAIL_RES = 64.0;
 const float CURL_SCALE = 2.5;
-const float SHAPE_SCALE = 2.0;
 const float MID_SCALE = 1.85;
 const float MID_AMT = 0.11;
 const float FINE_SCALE = 0.42;
 const float FINE_AMT = 0.78;
 const vec3 OCT_W = vec3(1.0 / 3.0);
-
-float sat(float x) { return clamp(x, 0.0, 1.0); }
-float remap(float v, float a, float b, float c, float d) { return c + (v - a) / (b - a) * (d - c); }
 
 vec2 ray_sphere2(vec3 ro, vec3 rd, float r) {
 	float b = dot(ro, rd);
@@ -151,36 +139,7 @@ void atmosphere(vec3 ro, vec3 rd, float D, float jit, int steps, out vec3 L, out
 }
 
 // ---- clouds ----
-float height_frac(vec3 W) {
-	return (length(W + vec3(0.0, Rg, 0.0)) - Rg - cloud_bottom) / (cloud_top - cloud_bottom);
-}
-
-vec2 weather_at(vec3 W) {
-	vec4 w = textureLod(weather_tex, (W.xz - wind.xz * 0.6) / WEATHER_SCALE, 0.0);
-	float thr = 1.0 - coverage * 1.3;
-	return vec2(smoothstep(thr, thr + 0.45, w.r), sat(cloud_type + (w.g - 0.5) * 0.7));
-}
-
-vec4 profile(float type) {
-	vec4 st = vec4(0.0, 0.07, 0.12, 0.25);
-	vec4 sc = vec4(0.0, 0.12, 0.35, 0.55);
-	vec4 cu = vec4(0.0, 0.10, 0.55, 1.00);
-	return type < 0.5 ? mix(st, sc, type * 2.0) : mix(sc, cu, type * 2.0 - 1.0);
-}
-
-float cloud_base(vec3 W, float h, vec2 wt, float lod) {
-	if (wt.x <= 0.001 || h < 0.0 || h > 1.0) return 0.0;
-	vec3 p = W - wind + wind_dir * h * 0.6;
-	vec4 n = textureLod(shape_tex, p / SHAPE_SCALE, lod);
-	float fbm = dot(n.gba, vec3(0.625, 0.25, 0.125));
-	float base = remap(n.r, fbm - 1.0, 1.0, 0.0, 1.0);
-	vec4 g = profile(wt.y);
-	base *= smoothstep(g.x, g.y, h) * (1.0 - smoothstep(g.z, g.w, h));
-	float hn = sat((h - g.y) / max(g.w - g.y, 1e-3));
-	float cov = wt.x * mix(1.0, 0.5, hn * hn);
-	base = remap(base, 1.0 - cov, 1.0, 0.0, 1.0) * cov;
-	return sat(base);
-}
+// (height_frac, weather_at, profile, cloud_base: cloud_shape.gdshaderinc)
 
 float erode(float b, vec3 p, float scale, float h, float amt) {
 	float n = dot(textureLod(detail_tex, p / scale, 0.0).rgb, OCT_W);
@@ -254,7 +213,12 @@ void march_clouds(vec3 W0, vec3 rd, float jit, out vec3 col, out float T, out fl
 	float sigma = 45.0 * cloud_density;
 	float powder_w = 0.6 * sat(0.5 - 0.5 * cos_t) + 0.2;
 	// Sky light on the clouds: zenith-ish blue above, darker and ground-tinted below.
-	vec3 sky_light = light_illum * trans_to_light(vec3(0.0, Rg + cloud_bottom, 0.0)) * sat(light_dir.y * 2.0 + 0.25);
+	// A low sun: the sky above is still blue (its light comes from high up, not
+	// through the red horizon), and the sun reaches up under the clouds.
+	float low = sat(1.0 - light_dir.y / 0.32) * sun_disk;
+	vec3 tr_sky = trans_to_light(vec3(0.0, Rg + cloud_bottom, 0.0));
+	tr_sky = mix(tr_sky, vec3(dot(tr_sky, vec3(0.3333))), low * 0.7);
+	vec3 sky_light = light_illum * tr_sky * sat(light_dir.y * 2.0 + 0.25);
 	vec3 amb_top = sky_light * vec3(0.10, 0.14, 0.22) * ambient;
 	vec3 amb_bot = sky_light * (vec3(0.05, 0.06, 0.08) + ground_albedo * 0.04) * ambient * 0.55;
 	float wsum = 0.0;
@@ -280,7 +244,8 @@ void march_clouds(vec3 W0, vec3 rd, float jit, out vec3 col, out float T, out fl
 				float vert_p = pow(clamp(remap(hf, 0.07, 0.14, 0.1, 1.0), 0.1, 1.0), 0.8);
 				float in_scat = mix(1.0, sat(depth_p * vert_p * 1.6), crease);
 				vec3 amb = mix(amb_bot, amb_top, sat(hf)) * mix(1.0, in_scat, 0.6);
-				vec3 S = sun_l * beer * powder * in_scat + amb;
+				float under = low * pow(1.0 - sat(hf), 2.0) * 2.2 * ph1 * exp(-od * 0.1);
+				vec3 S = sun_l * (beer * powder * in_scat + under) + amb;
 				float a = 1.0 - exp(-sE * dt);
 				col += T * S * a;
 				dsum += T * a * t;

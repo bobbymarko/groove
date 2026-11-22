@@ -514,7 +514,7 @@ func _process(raw_delta: float) -> void:
 	anim_cadence = minf(anim_cadence, speed / LOW_GEAR_METRES_PER_REV * 60.0)
 	rider.animate(anim_cadence if riding else 0.0, speed if riding else 0.0, raw_delta)
 	_place_rider()
-	if riding and speed > 0.05:
+	if riding and speed > 0.05 and look_mode != "real":   # the realistic ground draws its own wheel line
 		marks.add(rider.to_global(Vector3(0.0, 0.0, -0.55)), rider.global_transform.basis.x, terrain.surface)
 	dust.update(speed if riding else 0.0, _rain)
 	if horde:

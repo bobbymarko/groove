@@ -17,6 +17,8 @@ const TIERS := ["low", "medium", "high"]
 ##  grass_pitch    tuft slot spacing multiplier (1.22 leaves two thirds of the tufts)
 ##  grass_reach    multiplier on where the middle and far grass rings end
 ##  grass_rings    how many of the grass rings are made (3 = all)
+##  under_density  share of the undergrowth that is planted (ferns, herbs, saplings, deadwood, stones)
+##  under_reach    multiplier on how far off the low undergrowth is drawn (RealFlora.UNDER_FAR)
 ##  shadow_splits  sun shadow cascades (Godot has 2 or 4); shadow_dist their reach in metres; shadow_atlas map size
 ##  split_1/2/3    cascade boundaries as shares of shadow_dist
 ##  ssao, vfog, ssr  ambient occlusion, volumetric fog, wet-ground reflections
@@ -25,6 +27,7 @@ const TABLE := {
 	"low": {
 		"scale_max": 0.5, "range_mult": 0.7, "forest_density": 0.5, "forest_reach": 0.7,
 		"grass_pitch": 1.25, "grass_reach": 1.0, "grass_rings": 2,
+		"under_density": 0.4, "under_reach": 0.7,
 		"shadow_splits": 2, "shadow_dist": 70.0, "shadow_atlas": 2048,
 		"split_1": 0.2, "split_2": 0.5, "split_3": 0.8,
 		"ssao": false, "vfog": false, "ssr": false, "cloud_steps": 32,
@@ -32,6 +35,7 @@ const TABLE := {
 	"medium": {
 		"scale_max": 0.59, "range_mult": 0.85, "forest_density": 0.67, "forest_reach": 0.85,
 		"grass_pitch": 1.22, "grass_reach": 0.85, "grass_rings": 3,
+		"under_density": 0.7, "under_reach": 0.85,
 		"shadow_splits": 4, "shadow_dist": 110.0, "shadow_atlas": 4096,
 		"split_1": 0.07, "split_2": 0.2, "split_3": 0.5,
 		"ssao": true, "vfog": true, "ssr": true, "cloud_steps": 48,
@@ -39,6 +43,7 @@ const TABLE := {
 	"high": {
 		"scale_max": 0.67, "range_mult": 1.0, "forest_density": 1.0, "forest_reach": 1.0,
 		"grass_pitch": 1.0, "grass_reach": 1.0, "grass_rings": 3,
+		"under_density": 1.0, "under_reach": 1.0,
 		"shadow_splits": 4, "shadow_dist": 140.0, "shadow_atlas": 4096,
 		"split_1": 0.06, "split_2": 0.18, "split_3": 0.45,
 		"ssao": true, "vfog": true, "ssr": true, "cloud_steps": 64,

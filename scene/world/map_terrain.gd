@@ -288,6 +288,7 @@ func _build_tile(key: Vector2i, lod: float, with_flora: bool) -> Dictionary:
 		out["frozen"] = _frozen_at(centre.x)
 	if with_flora and flora:
 		out["plants"] = _scatter_tile(x0, z0, centre.x)
+		out["shade"] = RealShade.blobs(out.plants, floras, flora)   # canopy and contact shade (R43)
 	return out
 
 
@@ -325,6 +326,7 @@ func _finish_tile(r: Dictionary) -> void:
 	if r.has("plants"):
 		for id in r.plants:
 			_add_tile_flora(root, r.plants[id], floras.get(id, flora), float(r.lod) <= 2.0)
+		root.add_child(RealShade.holder("t%d,%d" % [key.x, key.y], r.shade))
 	add_child(root)
 	_tiles[key] = {"node": root, "lod": r.lod, "flora": r.flora}
 

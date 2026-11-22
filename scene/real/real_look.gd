@@ -49,6 +49,12 @@ var _avg_ms := 0.0         ## frame cost, smoothed over about 2 s
 var _age := 0.0            ## seconds since the ride began
 var _gov: Dictionary = {}  ## RealQuality.govern's state
 var _ssr_allowed := true
+## Shade under the canopy, contact shade and cloud shadows on the land (R43 stage 5).
+var shade: RealShade
+## The sky's cloud settings its shadows must match (cloud_shape.gdshaderinc), copied to RealShade's cloud map.
+const CLOUD_PARAMS := ["coverage", "cloud_type", "cloud_density", "cloud_bottom", "cloud_top", "wind", "wind_dir", "light_dir"]
+## Preview tool (`clouds=<0..1>`): this much cloud cover whatever the biome says.
+var _clouds_override := -1.0
 
 ## Ground colour seen by the sky (light bounced up into clouds and ambient), per ground type.
 const GROUND_ALBEDO := {
@@ -62,6 +68,8 @@ const GROUND_ALBEDO := {
 func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_id: String) -> void:
 	env = e
 	sun = s
+	shade = RealShade.new()
+	add_child(shade)
 	_preset = ScenePreset.get_preset(preset_id)
 	flora = RealFlora.for_biome(preset_id)
 	sky_mat = ShaderMaterial.new()
@@ -164,6 +172,9 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 		governor_enabled = false
 	if args.has("noauto"):
 		camera_attributes.auto_exposure_enabled = false
+	for arg in args:
+		if arg.begins_with("clouds="):
+			_clouds_override = float(arg.trim_prefix("clouds="))
 	var noise := CloudNoise.new()
 	noise.baked.connect(_on_noise)
 	add_child(noise)
@@ -236,6 +247,9 @@ func _on_noise() -> void:
 	sky_mat.set_shader_parameter("detail_tex", CloudNoise.detail)
 	sky_mat.set_shader_parameter("weather_tex", CloudNoise.weather)
 	sky_mat.set_shader_parameter("curl_tex", CloudNoise.curl)
+	shade.cloud_mat.set_shader_parameter("shape_tex", CloudNoise.shape)
+	shade.cloud_mat.set_shader_parameter("weather_tex", CloudNoise.weather)
+	shade.cloud_mat.set_shader_parameter("ready", true)
 
 
 ## Sun or moon for this moment of the world day (Daylight.state), rain greying it over.
@@ -254,7 +268,8 @@ func apply_daylight(st: Dictionary, rain: float) -> void:
 	sky_mat.set_shader_parameter("stars", clampf(1.0 - daylight * 1.5, 0.0, 1.0) * (1.0 - rain))
 	var illum := Vector3.ONE * (0.012 if night else 1.0)
 	sky_mat.set_shader_parameter("light_illum", illum)
-	sky_mat.set_shader_parameter("coverage", lerpf(float(flora.biome.get("clouds", 0.5)), 1.0, rain))
+	var clouds := float(flora.biome.get("clouds", 0.5)) if _clouds_override < 0.0 else _clouds_override
+	sky_mat.set_shader_parameter("coverage", lerpf(clouds, 1.0, rain))
 	sky_mat.set_shader_parameter("cloud_type", lerpf(1.0, 0.25, rain))
 	sky_mat.set_shader_parameter("cloud_density", lerpf(0.19, 0.8, rain))
 	sky_mat.set_shader_parameter("haze", 0.78 + 2.0 * rain)
@@ -281,6 +296,18 @@ func apply_daylight(st: Dictionary, rain: float) -> void:
 	env.fog_density = 0.00035 + 0.0004 * _mist + 0.006 * rain
 	env.fog_height_density = 0.045 * _mist
 	env.volumetric_fog_density = 0.0016 + 0.0035 * _mist + 0.01 * rain
+	shade.set_light(rain, leaf_green(), sun.directional_shadow_max_distance)
+
+
+## How green the light under this biome's trees is (leaves overhead; none under bare twigs).
+func leaf_green() -> float:
+	var b := flora.biome
+	var g := clampf(float(b.get("broad", 0.0)) + 0.5 * float(b.get("spruce", 0.0)), 0.0, 1.0)
+	if flora.biome_id == "autumn":
+		g *= 0.4
+	if ground_type() == "snow":
+		g *= 0.5
+	return g
 
 
 ## Where the valley mist lies (world height); RideScene finds the low ground around the rider.
@@ -300,6 +327,9 @@ func update(cam_pos: Vector3, delta: float, wet := 0.0) -> void:
 	sky_mat.set_shader_parameter("cam_km", Vector3(cam_pos.x / 1000.0, 0.25 + cam_pos.y / 1000.0, cam_pos.z / 1000.0))
 	sky_mat.set_shader_parameter("wind", _wind)
 	sky_mat.set_shader_parameter("frame", float(_frame))
+	for p: String in CLOUD_PARAMS:
+		shade.cloud_mat.set_shader_parameter(p, sky_mat.get_shader_parameter(p))
+	shade.update(cam_pos)
 
 
 ## Holds 60 fps by moving the 3D render scale (RealQuality.govern). The signal

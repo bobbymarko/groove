@@ -45,7 +45,7 @@ static func ensure_leaf_atlas() -> bool:
 		var row := i / PlantGen.ATLAS_COLS
 		# Row 0 is the top of the picture; the camera's up is +y.
 		var base := Vector3(col + 0.5, PlantGen.ATLAS_ROWS - 1 - row, 0.0)
-		backs.append({"rect": Rect2(col, PlantGen.ATLAS_ROWS - 1 - row, 1.0, 1.0), "color": Color(0.62, 0.62, 0.56)})
+		backs.append({"rect": Rect2(col, PlantGen.ATLAS_ROWS - 1 - row, 1.0, 1.0), "color": PlantGen.atlas_backdrop(i)})
 		if cells[i] != null:
 			items.append({"mesh": cells[i], "xf": Transform3D(Basis.IDENTITY, base), "mats": [[mats[0], mats[1]]]})
 	var size := Vector2i(PlantGen.ATLAS_COLS, PlantGen.ATLAS_ROWS) * CELL_PX

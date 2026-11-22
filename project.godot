@@ -49,6 +49,39 @@ rain_wet={
 "value": 0.0
 }
 
+shade_near={
+"type": "sampler2D",
+"value": ""
+}
+shade_far={
+"type": "sampler2D",
+"value": ""
+}
+shade_cloud={
+"type": "sampler2D",
+"value": ""
+}
+shade_near_at={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
+}
+shade_far_at={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
+}
+shade_cloud_at={
+"type": "vec4",
+"value": Vector4(0, 0, 1, 0)
+}
+shade_amount={
+"type": "vec4",
+"value": Vector4(0, 0, 0, 0)
+}
+shade_trees={
+"type": "vec4",
+"value": Vector4(0, 0, 100000, 100000)
+}
+
 cel_shade_band={
 "type": "float",
 "value": 0.66

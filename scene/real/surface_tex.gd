@@ -19,7 +19,7 @@ const GROUND := ["grass_ground", "forest_floor", "trail_gravel", "trail_mud", "s
 		"sand", "desert_gravel", "rock_cliff", "rock_mossy"]
 ## Metres one repeat of each set covers on the ground (assets/textures/README.md;
 ## the ambientCG ones are estimates, checked against the scene).
-const TILE := {"grass_ground": 2.5, "forest_floor": 1.5, "trail_gravel": 2.0, "trail_mud": 2.1, "snow": 2.4,
+const TILE := {"grass_ground": 2.5, "forest_floor": 1.5, "trail_gravel": 1.25, "trail_mud": 2.1, "snow": 2.4,
 		"snow_trail": 2.0, "sand": 1.8, "desert_gravel": 2.5, "rock_cliff": 2.5, "rock_mossy": 2.5}
 ## Average albedo (linear luminance) each ground set is shown at: what the
 ## light was tuned for (grass 0.05-0.15, dry gravel 0.2-0.35, snow 0.8-0.9).

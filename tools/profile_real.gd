@@ -52,6 +52,30 @@ func _run() -> void:
 	if OS.get_cmdline_user_args().has("quick"):
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("aa"):
+		# The other ways to upscale and anti-alias, beside the temporal upscaler.
+		var mode0 := vp.scaling_3d_mode
+		var scale0 := vp.scaling_3d_scale
+		rs.riding = OS.get_cmdline_user_args().has("aamove")    # "aamove": measured (and shot) while riding
+		for row: Array in [[Viewport.SCALING_3D_MODE_METALFX_SPATIAL, true, 0.67, "MetalFX spatial + TAA"],
+				[Viewport.SCALING_3D_MODE_METALFX_SPATIAL, true, 0.75, "MetalFX spatial + TAA"],
+				[Viewport.SCALING_3D_MODE_FSR, true, 0.67, "FSR 1 + TAA"],
+				[Viewport.SCALING_3D_MODE_BILINEAR, true, 0.67, "bilinear + TAA"],
+				[Viewport.SCALING_3D_MODE_METALFX_SPATIAL, false, 0.67, "MetalFX spatial, no AA"],
+				[Viewport.SCALING_3D_MODE_METALFX_TEMPORAL, false, 0.5, "MetalFX temporal"],
+				[Viewport.SCALING_3D_MODE_METALFX_TEMPORAL, false, 0.67, "MetalFX temporal"]]:
+			vp.scaling_3d_mode = row[0]
+			vp.use_taa = row[1]
+			vp.scaling_3d_scale = row[2]
+			await _measure("%s at %.2f" % [row[3], row[2]])
+			var shot := _arg("shots", "")
+			if shot != "":
+				root.get_texture().get_image().save_png("%s_%s_%d.png" % [shot, str(row[3]).to_snake_case().replace(",", "").replace("+", "").replace(" ", "_"), int(row[2] * 100.0)])
+		vp.scaling_3d_mode = mode0
+		vp.use_taa = false
+		vp.scaling_3d_scale = scale0
+		quit(0)
+		return
 	var env: Environment = rs.real.env
 	var sun: DirectionalLight3D = rs.real.sun
 	var sky: ShaderMaterial = rs.real.sky_mat

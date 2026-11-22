@@ -9,6 +9,8 @@ render_mode cull_disabled;
 // Per instance: the tree's own transform (turn and size), INSTANCE_CUSTOM rgb
 // its tint and a its row in the atlas + 1.
 #include "res://scene/real/wind.gdshaderinc"
+#define SHADE_BACKLIGHT
+#include "res://scene/real/shade.gdshaderinc"
 
 uniform sampler2D imp_albedo : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D imp_data : filter_linear_mipmap, repeat_disable;   // rg normal, b shade (+0.5 leaf), a cover
@@ -26,6 +28,8 @@ varying flat float frame_t;
 varying vec3 v_right;
 varying vec3 v_face;
 varying vec3 v_up;
+varying vec3 v_wp;
+varying float above;    // metres above the root
 
 void vertex() {
 	vec3 origin = MODEL_MATRIX[3].xyz;
@@ -51,6 +55,8 @@ void vertex() {
 		wpos = origin;
 	}
 	VERTEX = (inverse(MODEL_MATRIX) * vec4(wpos, 1.0)).xyz;
+	v_wp = wpos;
+	above = wpos.y - origin.y;
 	v_right = (VIEW_MATRIX * vec4(right, 0.0)).xyz;
 	v_up = (VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz;
 	v_face = (VIEW_MATRIX * vec4(f, 0.0)).xyz;
@@ -85,4 +91,7 @@ void fragment() {
 	ROUGHNESS = mix(0.72, 0.32, rain_wet);
 	SPECULAR = 0.35;
 	BACKLIGHT = alb / mix(0.3, 1.0, shade) * translucency * leafy * mix(0.4, 1.0, shade);
+	// As the live tree's leaves (real_leaf): the same cover, by the same height above the root.
+	Shade sh = shade_plant(v_wp, length(VERTEX), above, 0.9, 0.3, 0.5);
+	SHADE_APPLY(sh)
 }

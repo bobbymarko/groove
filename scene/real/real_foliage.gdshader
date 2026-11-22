@@ -4,6 +4,8 @@ render_mode cull_disabled;
 // toward the crown's outside), light shines through (BACKLIGHT), baked AO from
 // COLOR.a darkens the inside of a crown, snow settles on what faces up.
 #include "res://scene/real/wind.gdshaderinc"
+#define SHADE_BACKLIGHT
+#include "res://scene/real/shade.gdshaderinc"
 
 uniform float snow = 0.0;
 uniform float translucency = 0.55;
@@ -16,6 +18,7 @@ varying vec3 wn;
 varying float plant_d;
 varying float gone;
 varying vec3 wp;
+varying float above;   // metres above the root
 
 void vertex() {
 	plant_d = plant_distance(MODEL_MATRIX);
@@ -30,6 +33,7 @@ void vertex() {
 	tint = INSTANCE_CUSTOM.a > 0.0 ? INSTANCE_CUSTOM.rgb : vec3(1.0);
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	above = wp.y - origin.y;
 }
 
 void fragment() {
@@ -57,4 +61,6 @@ void fragment() {
 	ROUGHNESS = mix(mix(0.72, 0.6, s), 0.32, rain_wet);
 	SPECULAR = 0.35;
 	BACKLIGHT = alb * translucency * (1.0 - s) * mix(0.4, 1.0, ao);
+	Shade sh = shade_plant(wp, length(VERTEX), above, 0.0, 0.35, 0.6);
+	SHADE_APPLY(sh)
 }

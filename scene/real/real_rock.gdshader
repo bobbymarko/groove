@@ -5,6 +5,7 @@ shader_type spatial;
 // underside; wet in rain.
 #include "res://scene/real/wind.gdshaderinc"
 #include "res://scene/real/rock.gdshaderinc"
+#include "res://scene/real/shade.gdshaderinc"
 
 uniform float snow = 0.0;
 uniform float moss_amount = 0.0;
@@ -14,6 +15,7 @@ varying vec3 wn;
 varying vec3 bed;
 varying float plant_d;
 varying float gone;
+varying float above;   // metres above where the ground meets the boulder (a quarter of its size up from its middle)
 
 void vertex() {
 	plant_d = plant_distance(MODEL_MATRIX);
@@ -25,6 +27,8 @@ void vertex() {
 	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	float a = hash21(o.xz) * TAU;
+	float sz = length(MODEL_MATRIX[1].xyz);
+	above = wp.y - o.y - 0.25 * sz;
 	bed = normalize(vec3(cos(a), 2.2 + hash21(o.zx + 3.0) * 2.0, sin(a)));
 }
 
@@ -45,4 +49,6 @@ void fragment() {
 	ROUGHNESS = mix(rough, 0.25, rain_wet);
 	SPECULAR = 0.35;
 	NORMAL = normalize((VIEW_MATRIX * vec4(nrm, 0.0)).xyz);
+	Shade sh = shade_plant(wp, length(VERTEX), max(above, 0.0), 0.0, 0.5, 0.45);
+	SHADE_APPLY(sh)
 }

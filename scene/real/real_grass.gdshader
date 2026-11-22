@@ -42,6 +42,8 @@ uniform vec4 root_ground[8];
 uniform float meadow_end = 56.0;       // the ground takes the meadow's colour past here (ground_tone)
 
 #include "res://scene/real/ground_tone.gdshaderinc"
+#define SHADE_BACKLIGHT
+#include "res://scene/real/shade.gdshaderinc"
 
 varying vec3 wpos;
 varying float v_k;
@@ -51,6 +53,7 @@ varying vec3 v_flower;      // rgb of the flower head, or -1
 varying float v_var;
 varying vec4 v_ground;
 varying vec3 v_blades;
+varying vec4 v_shade;      // the ground's Shade at the tuft: rgb ambient, a sun
 
 uint hash_u(uvec2 q) {
 	q = q * uvec2(1597334677u, 3812015801u);
@@ -105,7 +108,9 @@ void vertex() {
 	float edge = trail_half_width + (n3 - 0.5) * 0.35 + (n2 - 0.5) * 0.25;
 	float off_trail = smoothstep(edge + 0.05, edge + 0.45, lat);
 	float steep = 1.0 - smoothstep(0.3, 0.45, 1.0 - gn.y + (n2 - 0.5) * 0.25);     // rock shows on steep ground
-	float density = f.b * off_trail * steep;
+	// Under thick leaf cover grass grows thin, and none at a trunk's or rock's foot.
+	vec2 cover = shade_cover(root);
+	float density = f.b * off_trail * steep * (1.0 - 0.3 * (1.0 - exp(-cover.x))) * (1.0 - 0.3 * min(cover.y, 1.0));
 	// Thinning: each tuft has a rank; it stands while the density and its ring's fade are over it.
 	float d = distance(root, eye_pos.xz);
 	float ring = 1.0 - smoothstep(fade_out - fade_width, fade_out, d);
@@ -130,22 +135,27 @@ void vertex() {
 	gust = smoothstep(0.3, 0.8, gust);
 	vec2 push = wind_dir * (0.06 + 0.42 * gust) + lean * 0.05 * sin(TIME * (2.0 + 3.0 * r1) + r2 * TAU) * (0.4 + gust);
 	vec3 p = vec3(root.x + base.x, f.r + groove(lat) - 0.03, root.y + base.y);
-	bool flower = COLOR.b > 0.5;
+	bool flower = COLOR.b > 0.75;
 	v_flower = vec3(-1.0);
-	if (flower) {
-		// A head on a stalk: only on the tufts chosen for one.
-		float fc = flower_count[biome];
+	float fc = flower_count[biome];
+	if (COLOR.b > 0.25) {
+		// A head on a stalk: only on the tufts chosen for one (the stalk is a
+		// straight blade, COLOR.b 0.5, that goes the way of the head).
 		if (grow <= 0.0 || fc < 0.5 || hf(hash_u(uvec2(h0, 5u))) >= flower_share[biome]) {
 			H = 0.0;
 		}
+	}
+	if (flower) {
 		v_flower = flower_color[biome * 4 + int(min(hf(hash_u(uvec2(h0, 6u))) * fc, fc - 1.0))];
 		float stalk = H * 1.12;
 		p.y += stalk;
-		p.xz += push * stalk * 0.8;
-		// UV.x, COLOR.g: the petal's corner, in a disc tilted a little.
-		vec2 pet = rot * vec2(UV.x, COLOR.g * 2.0 - 1.0) * (H > 0.0 ? 0.038 * COLOR.a * 2.0 : 0.0);
-		p += vec3(pet.x, 0.012 + dot(pet, lean) * 0.4, pet.y);
-		k = 1.0;
+		p.xz += push * stalk;
+		// UV.x, COLOR.g: the petal's corner in the head's disc: five wedges
+		// round the middle, a shallow cup tilted a little toward the lean.
+		vec2 corner = vec2(UV.x, COLOR.g * 2.0 - 1.0);
+		vec2 pet = rot * corner * (H > 0.0 ? 0.038 * COLOR.a * 2.0 : 0.0);
+		p += vec3(pet.x, dot(pet, lean) * 0.4 + length(pet) * 0.3, pet.y);
+		k = 1.0 + length(corner);          // past 1: how far out from the head's middle (the fragment's eye and petal)
 	} else {
 		p.y += H * k * (1.0 - 0.3 * bend * k);
 		p.xz += (lean * bend + push) * H * k * k;
@@ -165,6 +175,8 @@ void vertex() {
 	v_ground = root_ground[biome];
 	v_blades = tip_color[biome];
 	v_var = COLOR.a;
+	Shade sh = shade_ground_from(cover, p, distance(p, eye_pos));
+	v_shade = vec4(sh.amb, sh.sun);
 }
 
 void fragment() {
@@ -188,14 +200,24 @@ void fragment() {
 	vec3 root = mix(tip * 0.5, ground * 0.92, v_matched);
 	vec3 col = mix(root, tip, smoothstep(0.0, 0.75, v_k));
 	col *= mix(0.94, 1.06, v_var);
-	float back = 0.35 * v_k;
+	float back = 0.35 * min(v_k, 1.0);
 	if (v_flower.r >= 0.0) {
-		col = v_flower;
-		back = 0.5;
+		// Petals: the flower's colour as a matt surface (pale petals reflect
+		// about two thirds of the light, not all of it: at full strength they
+		// stood out of a dark meadow as if lit from inside), a little darker
+		// toward the middle, round a yellow eye.
+		float r = v_k - 1.0;
+		col = v_flower * 0.62 * mix(0.8, 1.0, smoothstep(0.3, 0.9, r));
+		col = mix(vec3(0.5, 0.36, 0.05), col, smoothstep(0.24, 0.36, r));
+		back = 0.2;
 	}
 	NORMAL = normalize(NORMAL) * (FRONT_FACING ? 1.0 : -1.0);     // the ground's normal, whichever face shows
 	ALBEDO = col * mix(1.0, 0.8, rain_wet);
 	ROUGHNESS = mix(0.8, 0.4, rain_wet);
 	SPECULAR = 0.25;
 	BACKLIGHT = col * back;
+	Shade sh;
+	sh.amb = v_shade.rgb;
+	sh.sun = v_shade.a;
+	SHADE_APPLY(sh)
 }

@@ -11,6 +11,7 @@
 
 uniform float birch = 0.0;
 uniform float snow = 0.0;
+uniform float moss = 0.0;          // deadwood: moss in patches on what faces up (logs, stumps)
 uniform bool bark_tex = false;
 uniform sampler2D bark_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D bark_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -101,6 +102,13 @@ void fragment() {
 		}
 		tn = normalize(vec3((furrow - 0.5) * 0.6, 0.0, 1.0));
 	}
+	if (moss > 0.0) {
+		float mp = vnoise(p * vec2(3.1, 1.3)) * 0.65 + vnoise(p * vec2(11.0, 7.0) + 4.0) * 0.35;
+		float mk = smoothstep(0.42, 0.58, wn.y * 0.55 + mp * 0.75 + (moss - 0.6) * 0.4 - 0.22);
+		alb = mix(alb, vec3(0.07, 0.115, 0.03) * (0.6 + 0.8 * mp), mk * 0.9);
+		rough = mix(rough, 0.95, mk);
+		tn.xy *= 1.0 - mk * 0.6;
+	}
 	alb = mix(alb, vec3(0.88, 0.9, 0.95), s);
 	ALBEDO = alb * mix(0.35, 1.0, COLOR.a);
 #ifdef BAKE
@@ -123,5 +131,8 @@ void fragment() {
 	float inv = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-12));
 	// The scans are OpenGL normal maps (green up the picture, i.e. toward lower UV.y).
 	NORMAL = normalize(T * inv * tn.x - B * inv * tn.y + n * tn.z);
+	// UV2.x: metres above the root; the foot of the trunk darkens into the soil.
+	Shade sh = shade_plant((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz, length(VERTEX), UV2.x, 0.4, 0.4, 1.2);
+	SHADE_APPLY(sh)
 #endif
 }
