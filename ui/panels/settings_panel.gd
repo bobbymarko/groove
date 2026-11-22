@@ -215,6 +215,16 @@ func _build_ui() -> void:
 	var looks := ["16bit", "off", "real"]
 	var look_note := HudStyle.label(l, "", 12, 500, HudStyle.TEXT_DIM)
 	look_note.visible = false
+	var qualities := ["low", "medium", "high"]
+	var quality_row := HudStyle.row(l, "Quality")
+	HudStyle.segmented(quality_row, ["Low", "Medium", "High"], maxi(qualities.find(App.real_quality), 0),
+		func(i: int) -> void:
+			App.real_quality = qualities[i]
+			App.save_settings()
+			# Plants, grass, shadows and effects are read when the ride's world is built.
+			look_note.text = "Quality applies from the next ride."
+			look_note.visible = true)
+	quality_row.visible = App.look_mode == "real"
 	HudStyle.segmented(HudStyle.row(l, "Look"), ["Pixel", "Smooth", "Realistic"], maxi(looks.find(App.look_mode), 0),
 		func(i: int) -> void:
 			var was_real: bool = App.look_mode == "real"
@@ -223,7 +233,9 @@ func _build_ui() -> void:
 			preview.set_look_mode(App.look_mode)
 			# The realistic look (first person, its own sky and plants) is built with the world.
 			look_note.text = "Realistic shows from the next ride." if (App.look_mode == "real") != was_real else ""
+			quality_row.visible = App.look_mode == "real"
 			look_note.visible = look_note.text != "")
+	l.move_child(quality_row, l.get_child_count() - 1)
 	l.move_child(look_note, l.get_child_count() - 1)
 	var times := ["live", "morning", "noon", "sunset", "night"]
 	HudStyle.segmented(HudStyle.row(l, "Time of day"), ["Live", "Morning", "Noon", "Sunset", "Night"], maxi(times.find(App.time_of_day), 0),

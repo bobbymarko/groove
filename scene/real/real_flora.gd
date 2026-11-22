@@ -64,6 +64,11 @@ static var detail_range := TREE_DETAIL_RANGE
 static var tree_far := TREE_FAR       ## trees are gone by this distance,
 static var tree_far_z := 100000.0     ## and by this far along the trail (the strip's ground ends there)
 
+
+## Where a tree's close-up version hands over to the middle one, for the quality tier (RealQuality).
+static func near_range() -> float:
+	return NEAR_RANGE * float(RealQuality.get_value("range_mult"))
+
 var biome: Dictionary = {}
 var meshes: Array[Mesh] = []         ## each plant's closest (or only) version
 var kinds: Array[String] = []        ## "tree", "bush", "rock" per mesh
@@ -135,17 +140,23 @@ func _build(id: String) -> void:
 	rock_mat.shader = load("res://scene/real/real_rock.gdshader")
 	rock_mat.set_shader_parameter("snow", snow)
 	rock_mat.set_shader_parameter("moss_amount", float(biome.get("moss", 0.0)))
+	SurfaceTex.rock(rock_mat)
 	rock_mat = _role(rock_mat, "small")
 	if biome.get("ground", "") == "desert":
 		_build_desert(bark_mat, leaf_mat, rock_mat)
 		_bake_pictures(snow)
 		return
+	# Scanned bark (palo verde above keeps its smooth noise bark): pine on spruces, oak on broadleaves and bare trees.
+	var pine_mat := bark_mat.duplicate() as ShaderMaterial
+	SurfaceTex.bark(pine_mat, "bark_pine")
+	SurfaceTex.bark(bark_mat, "bark_oak")
+	SurfaceTex.bark(birch_mat, "bark_birch")
 	var birch := bool(biome.get("birch", false))
 	if float(biome.trees) > 0.0:
 		if float(biome.spruce) > 0.0:
 			for i in 4:
 				var sd := 100 + i
-				_add(PlantGen.spruce(sd, _role(bark_mat, "near"), _role(needle_mat, "near"), biome.needle), "spruce",
+				_add(PlantGen.spruce(sd, _role(pine_mat, "near"), _role(needle_mat, "near"), biome.needle), "spruce",
 						PlantGen.spruce(sd, null, _role(needle_mat, "mid"), biome.needle, 1),
 						PlantGen.spruce(sd, null, _role(needle_mat, "shade"), biome.needle, 2), biome.needle)
 		if float(biome.broad) > 0.0:
@@ -193,11 +204,11 @@ static func _apply_range(m: ShaderMaterial, role: String) -> void:
 	m.set_shader_parameter("far_fade", 60.0)
 	match role:
 		"near":
-			m.set_shader_parameter("lod_out", NEAR_RANGE)
+			m.set_shader_parameter("lod_out", near_range())
 			m.set_shader_parameter("lod_out_fade", NEAR_FADE)
 			m.set_shader_parameter("far_end", 100000.0)
 		"mid":
-			m.set_shader_parameter("lod_in", NEAR_RANGE)
+			m.set_shader_parameter("lod_in", near_range())
 			m.set_shader_parameter("lod_out", detail_range)
 			m.set_shader_parameter("sway_end", detail_range - TREE_FADE * 0.5)
 			m.set_shader_parameter("far_end", 100000.0)
@@ -210,7 +221,7 @@ static func _apply_range(m: ShaderMaterial, role: String) -> void:
 			m.set_shader_parameter("lod_in_fade", SHADE_FADE)
 			m.set_shader_parameter("far_end", 400.0)
 		"mid_only":      # no pictures: the middle version carries on to the trees' end
-			m.set_shader_parameter("lod_in", NEAR_RANGE)
+			m.set_shader_parameter("lod_in", near_range())
 			m.set_shader_parameter("far_end", minf(tree_far, TREE_FAR))
 		"shade_only":
 			m.set_shader_parameter("far_end", 140.0)
@@ -378,9 +389,9 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 	# goes: flat pictures out there, so real forest costs little. Broad noise
 	# leaves meadows and clearings between the stands.
 	if not _trees.is_empty() and tree_share > 0.0:
-		for i in int(520 * minf(tree_share * 2.0, 1.2)):
+		for i in int(520 * float(RealQuality.get_value("forest_density")) * minf(tree_share * 2.0, 1.2)):
 			var z := z0 + rng.randf() * chunk_len
-			var lat := rng.randf_range(half_width, FAR_WOODS) * (1.0 if rng.randf() < 0.5 else -1.0)
+			var lat := rng.randf_range(half_width, maxf(FAR_WOODS * float(RealQuality.get_value("forest_reach")), half_width + 20.0)) * (1.0 if rng.randf() < 0.5 else -1.0)
 			var x := t.x_at(z) + lat
 			var o := Vector3(1.0, 1.0, 0.0) if not own.is_valid() else own.call(x, z) as Vector3
 			if o.x <= 0.0:

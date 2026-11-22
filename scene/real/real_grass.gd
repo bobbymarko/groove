@@ -25,6 +25,7 @@ const RINGS := [
 ]
 
 var terrain: TerrainStreamer
+var _rings: Array = []               ## RINGS as this quality tier has them (RealQuality.grass_rings)
 var _image: Image
 var _texture: ImageTexture
 var _origin := Vector2i(1 << 30, 0)   ## the field's lowest corner (world metres)
@@ -39,6 +40,7 @@ var _first := true
 func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 	terrain = t
 	name = "RealGrass"
+	_rings = RealQuality.grass_rings(RINGS)
 	_image = Image.create(FIELD, FIELD, false, Image.FORMAT_RGBAF)
 	_texture = ImageTexture.create_from_image(_image)
 	var shader := load("res://scene/real/real_grass.gdshader") as Shader
@@ -50,6 +52,7 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 	var counts := PackedFloat32Array()
 	var flowers := PackedVector3Array()
 	flowers.resize(32)
+	var roots := PackedVector4Array()
 	for i in 8:
 		var b: Dictionary = RealFlora.BIOMES[biomes[mini(i, biomes.size() - 1)]]
 		var c: Color = b.grass
@@ -61,8 +64,15 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 		matched.append(1.0 if str(b.get("ground", "grass")) == "grass" else 0.0)
 		for k in mini(fl.size(), 4):
 			flowers[i * 4 + k] = Vector3(fl[k].r, fl[k].g, fl[k].b)
-	for r in RINGS.size():
-		var ring: Dictionary = RINGS[r]
+		# Roots take the scanned ground's colour (SurfaceTex), the meadow's beyond its last ring.
+		var field: Variant = SurfaceTex.grass_field(c)
+		roots.append(Vector4(-1.0, -1.0, -1.0, -1.0) if field == null else
+				Vector4(field.x, field.y, field.z, clampf(float(b.get("grass_density", 0.0)), 0.0, 1.0)))
+	var meadow_end := float(_rings[_rings.size() - 1].out) if not _rings.is_empty() else 56.0
+	if terrain._material is ShaderMaterial:
+		(terrain._material as ShaderMaterial).set_shader_parameter("meadow_end", meadow_end)
+	for r in _rings.size():
+		var ring: Dictionary = _rings[r]
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
 		mat.set_shader_parameter("field", _texture)
@@ -84,6 +94,8 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 		mat.set_shader_parameter("flower_count", counts)
 		mat.set_shader_parameter("on_grass", matched)
 		mat.set_shader_parameter("flower_color", flowers)
+		mat.set_shader_parameter("root_ground", roots)
+		mat.set_shader_parameter("meadow_end", meadow_end)
 		_materials.append(mat)
 		var mm := _slots(float(ring.tile), float(ring.pitch), _tuft(ring, mat))
 		var ring_tiles: Array[MultiMeshInstance3D] = []
@@ -191,8 +203,8 @@ func _process(_delta: float) -> void:
 ## Step each ring's tiles to stay centred on the eye, and show only the tiles
 ## its tufts can stand in (between where the ring grows in and where it ends).
 func _place_tiles(eye: Vector3) -> void:
-	for r in RINGS.size():
-		var ring: Dictionary = RINGS[r]
+	for r in _rings.size():
+		var ring: Dictionary = _rings[r]
 		var tile := float(ring.tile)
 		var side := int(ring.side)
 		var cell := Vector2i(roundi(eye.x / tile), roundi(eye.z / tile))

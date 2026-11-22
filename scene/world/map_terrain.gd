@@ -45,7 +45,7 @@ func _init(t: RouteTrail, d: RouteDem, g: CoverGrid = null) -> void:
 func use_real_ground(kind: String, plants: RealFlora) -> void:
 	super(kind, plants)
 	# Trees are gone before the tile that would bring them in can appear (a tile's corner is 45 m nearer than its middle).
-	RealFlora.set_ranges(DETAIL_RANGE, FLORA_REACH - 48.0)
+	RealFlora.set_ranges(DETAIL_RANGE * float(RealQuality.get_value("range_mult")), FLORA_REACH - 48.0)
 	if grid != null and grid.has_water() and _water_material == null:
 		_make_water_materials("river")
 
@@ -476,7 +476,7 @@ func _add_tile_flora(root: Node3D, placed: Dictionary, fl: RealFlora, near_tile:
 				continue
 			if not tree and off > RealFlora.SMALL_FAR + BAND_PAD:
 				continue
-			_flora_band(root, mi, xfs, tints, idx, mid, fl, off < RealFlora.NEAR_RANGE + RealFlora.NEAR_FADE * 0.5 + BAND_PAD,
+			_flora_band(root, mi, xfs, tints, idx, mid, fl, off < RealFlora.near_range() + RealFlora.NEAR_FADE * 0.5 + BAND_PAD,
 					off < RealFlora.SHADE_RANGE + RealFlora.SHADE_FADE * 0.5 + BAND_PAD)
 	_picture_band(root, pic_xfs, pic_custom, fl, near_tile)
 

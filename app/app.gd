@@ -12,6 +12,7 @@ var weight_kg := 80.0          # rider weight, always stored in kg
 var units := "metric"          # "metric" (kg, km/h) | "imperial" (lbs, mph)
 var auto_pause := true         # the workout pauses on zero watts and resumes when pedalling (R33)
 const BIKE_KG := 14.0          # fat bike, added to the rider for the speed model
+var real_quality := ""        # "low" | "medium" | "high": how much the realistic look draws (RealQuality); chosen from the GPU on first run
 var look_mode := "16bit"    # "16bit" (pixel look) | "off" (smooth) | "real" (realistic, first person). The 8-bit palette mode was removed 2026-09-03.
 var show_fps := true
 var scene_preset := "winter"   # ScenePreset id chosen before a ride
@@ -78,12 +79,15 @@ func _ready() -> void:
 		look_mode = str(_cfg.get_value("scene", "look_mode", look_mode))
 		if look_mode == "8bit":
 			look_mode = "16bit"
+		real_quality = str(_cfg.get_value("scene", "real_quality", ""))
 		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
 		scene_preset = str(_cfg.get_value("scene", "preset", scene_preset))
 		ride_route_path = str(_cfg.get_value("scene", "route", ride_route_path))
 		time_of_day = str(_cfg.get_value("scene", "time_of_day", time_of_day))
 		for key in scene_tuning:
 			scene_tuning[key] = float(_cfg.get_value("scene_tuning", key, scene_tuning[key]))
+	if not RealQuality.TABLE.has(real_quality):
+		real_quality = RealQuality.default_for_gpu(RenderingServer.get_video_adapter_name())
 	_secrets.load_encrypted_pass(SECRETS_PATH, _install_key())
 	route_lookup = RouteLandCover.new()
 	route_lookup.name = "RouteLookup"
@@ -170,6 +174,7 @@ func save_settings() -> void:
 	_cfg.set_value("rider", "auto_pause", auto_pause)
 	_cfg.set_value("rider", "route_difficulty", route_difficulty)
 	_cfg.set_value("scene", "look_mode", look_mode)
+	_cfg.set_value("scene", "real_quality", real_quality)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)
 	_cfg.set_value("scene", "route", ride_route_path)

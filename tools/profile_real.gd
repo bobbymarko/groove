@@ -2,7 +2,7 @@ extends SceneTree
 ## Dev helper: where the realistic look's frame time goes. One launch; each
 ## feature is switched off in turn from the full scene and the median frame time
 ## printed (the display caps the low end at its refresh rate, 8.3 ms on ProMotion).
-##   tools/profile.sh [preset=summer] [at=2000] [hour=14] [route=<path>] [quick]
+##   tools/profile.sh [preset=summer] [at=2000] [hour=14] [route=<path>] [quality=low|medium|high] [quick]
 ## "quick" prints only the moving and standing baselines.
 
 var rs: RideScene
@@ -31,6 +31,7 @@ func _run() -> void:
 	rs.power = 210.0
 	rs.cadence = 88.0
 	rs.look_override = "real"
+	rs.quality_override = _arg("quality", "")
 	rs.preset_override = _arg("preset", "summer")
 	rs.distance = float(_arg("at", "2000"))
 	rs.hour_override = float(_arg("hour", "14"))
@@ -41,7 +42,8 @@ func _run() -> void:
 	for i in 300:
 		await process_frame
 	var vp: SubViewport = rs._viewport
-	print("[prof] window %s, 3D viewport %s at render scale %.2f, preset %s%s" % [root.size, vp.size, vp.scaling_3d_scale, rs.preset_override, ", route" if route != "" else ""])
+	rs.real.governor_enabled = false      # this run sets the render scale itself
+	print("[prof] window %s, 3D viewport %s at render scale %.2f, preset %s%s, quality %s" % [root.size, vp.size, vp.scaling_3d_scale, rs.preset_override, ", route" if route != "" else "", RealQuality.tier])
 	await _measure("moving (chunks streaming)", 400)
 	rs.riding = false
 	for i in 90:
@@ -80,7 +82,7 @@ func _run() -> void:
 	var steps: Variant = sky.get_shader_parameter("cloud_steps")
 	sky.set_shader_parameter("cloud_steps", 0)
 	await _measure("no clouds")
-	sky.set_shader_parameter("cloud_steps", 64 if steps == null else steps)
+	sky.set_shader_parameter("cloud_steps", int(RealQuality.get_value("cloud_steps")) if steps == null else steps)
 	var glow := env.glow_enabled
 	env.glow_enabled = false
 	await _measure("no bloom")

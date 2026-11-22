@@ -150,7 +150,7 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 	flora = plants
 	ahead_chunks = 16                 # built ~380 m out; trees dither in a little nearer
 	# Woods stand on every slope in sight (flat pictures far off); ahead they end where the ground does.
-	RealFlora.set_ranges(RealFlora.TREE_DETAIL_RANGE, 1000.0, ahead_chunks * CHUNK_LEN - CHUNK_LEN)
+	RealFlora.set_ranges(RealFlora.TREE_DETAIL_RANGE * float(RealQuality.get_value("range_mult")), 1000.0, ahead_chunks * CHUNK_LEN - CHUNK_LEN)
 	var kind_water := str(plants.biome.get("water", ""))
 	water = kind_water != ""
 	if biome_map == null:
@@ -220,6 +220,12 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 	nrm.generate_mipmaps = true
 	mat.set_shader_parameter("noise_tex", tex)
 	mat.set_shader_parameter("noise_nrm", nrm)
+	# Scanned materials (R43): each ground look coloured by the biome that has it (the rider's first).
+	var looks := {GROUND_IDS.get(kind, 0): plants.biome_id}
+	for id in biome_map.ids():
+		if not looks.has(_ground_of(id)):
+			looks[_ground_of(id)] = id
+	SurfaceTex.ground_material(mat, looks, plants.biome_id)
 	_material = mat
 	# The meadow follows the eye (RealGrass) instead of being built into each chunk.
 	if grass == null and not OS.get_cmdline_user_args().has("nograss"):
@@ -400,6 +406,7 @@ func _make_water_materials(kind_water: String) -> void:
 	var wood := ShaderMaterial.new()
 	wood.shader = load("res://scene/real/real_wood.gdshader")
 	wood.set_shader_parameter("snow", 1.0 if kind_water == "ice" else 0.0)
+	SurfaceTex.wood(wood)
 	_wood_material = wood
 
 
@@ -1016,7 +1023,7 @@ func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Co
 		var pictured := fl.picture_mesh != null
 		var hand := RealFlora.detail_range + RealFlora.TREE_FADE * 0.5 + BAND_PAD
 		var middle := _band_instance(fl.mid_meshes[mi], xfs, tints, idx, mid)
-		middle.visibility_range_begin = maxf(RealFlora.NEAR_RANGE - RealFlora.NEAR_FADE * 0.5 - BAND_PAD, 0.0)
+		middle.visibility_range_begin = maxf(RealFlora.near_range() - RealFlora.NEAR_FADE * 0.5 - BAND_PAD, 0.0)
 		middle.visibility_range_end = hand if pictured else RealFlora.TREE_FAR + BAND_PAD
 		middle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		middle.add_to_group("veg_mid")
@@ -1032,7 +1039,7 @@ func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Co
 			root.add_child(shade)
 		if close:
 			var near := _band_instance(fl.meshes[mi], xfs, tints, idx, mid)
-			near.visibility_range_end = RealFlora.NEAR_RANGE + RealFlora.NEAR_FADE * 0.5 + BAND_PAD
+			near.visibility_range_end = RealFlora.near_range() + RealFlora.NEAR_FADE * 0.5 + BAND_PAD
 			near.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			near.add_to_group("veg_near")
 			root.add_child(near)

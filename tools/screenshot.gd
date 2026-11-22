@@ -65,6 +65,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("preset="):
 				rs.preset_override = a.trim_prefix("preset=")
+			if a.begins_with("quality="):
+				rs.quality_override = a.trim_prefix("quality=")
 			if a == "look=real":
 				rs.look_override = "real"
 			if a.begins_with("route="):

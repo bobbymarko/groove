@@ -14,7 +14,7 @@ const RAIL_SIDE := 1.25
 ## deck_top: deck height against the trail's; creek_half: the water's half width
 ## (the bents stand just outside it); ground: func(x, z, t) -> terrain height.
 static func build(zc: float, half: float, deck_top: float, creek_half: float, t: Trail, ground: Callable) -> Dictionary:
-	var b := {"v": PackedVector3Array(), "n": PackedVector3Array(), "c": PackedColorArray(), "uv": PackedVector2Array(), "i": PackedInt32Array()}
+	var b := {"v": PackedVector3Array(), "n": PackedVector3Array(), "c": PackedColorArray(), "uv": PackedVector2Array(), "uv2": PackedVector2Array(), "i": PackedInt32Array()}
 	# Planks across the trail, 0.24 m apart.
 	var s := -half
 	var k := 0
@@ -87,6 +87,7 @@ static func mesh(b: Dictionary) -> ArrayMesh:
 	a[Mesh.ARRAY_NORMAL] = b.n
 	a[Mesh.ARRAY_COLOR] = b.c
 	a[Mesh.ARRAY_TEX_UV] = b.uv
+	a[Mesh.ARRAY_TEX_UV2] = b.uv2
 	a[Mesh.ARRAY_INDEX] = b.i
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
@@ -107,9 +108,11 @@ static func _frame(z: float, deck_top: float, t: Trail) -> Dictionary:
 
 
 ## A box from its centre and three half-extent vectors; ax is its length (the
-## grain runs along it). UV in metres.
+## grain runs along it). UV in metres; UV2 x across the face (-1..1), y a
+## number of the piece's own (real_wood picks its board in the plank scan by it).
 static func _box(b: Dictionary, c: Vector3, ax: Vector3, ay: Vector3, az: Vector3, col: Color) -> void:
 	var axes := [ax, ay, az]
+	var piece := fposmod(sin(c.x * 12.99 + c.y * 78.23 + c.z * 37.72) * 43758.55, 1.0)
 	for i in 3:
 		var nrm: Vector3 = axes[i]
 		var u: Vector3 = axes[(i + 1) % 3]
@@ -128,6 +131,7 @@ static func _box(b: Dictionary, c: Vector3, ax: Vector3, ay: Vector3, az: Vector
 				var along: float = corner.x * lu if i == 2 else corner.y * lw
 				var across: float = corner.y * lw if i == 2 else corner.x * lu
 				b.uv.append(Vector2(along, across) + Vector2(c.x + c.z, c.y) * 0.37)
+				b.uv2.append(Vector2(corner.y if i == 2 else corner.x, piece))
 			# Godot's front faces wind clockwise seen from outside.
 			if u.cross(w).dot(nn) > 0.0:
 				b.i.append_array([base, base + 2, base + 1, base, base + 3, base + 2])

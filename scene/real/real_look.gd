@@ -41,6 +41,14 @@ var flora: RealFlora
 ## The first-person camera's exposure, gently automatic (see AUTO_SCALE).
 var camera_attributes := CameraAttributesPractical.new()
 var _mist := 0.0          ## valley mist 0..1 (mornings)
+## The render-scale governor (RealQuality.next_scale): off for profiling
+## (the `fixedscale` switch, or governor_enabled = false set by a tool).
+var governor_enabled := true
+var _viewport: SubViewport
+var _avg_ms := 0.0         ## frame cost, smoothed over about 2 s
+var _age := 0.0            ## seconds since the ride began
+var _gov: Dictionary = {}  ## RealQuality.govern's state
+var _ssr_allowed := true
 
 ## Ground colour seen by the sky (light bounced up into clouds and ambient), per ground type.
 const GROUND_ALBEDO := {
@@ -125,12 +133,7 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	camera_attributes.auto_exposure_scale = AUTO_SCALE
 	camera_attributes.auto_exposure_min_sensitivity = AUTO_MIN_ISO
 	camera_attributes.auto_exposure_max_sensitivity = AUTO_MAX_ISO
-	sun.shadow_enabled = true
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	sun.directional_shadow_max_distance = 140.0
-	sun.directional_shadow_split_1 = 0.06
-	sun.directional_shadow_split_2 = 0.18
-	sun.directional_shadow_split_3 = 0.45
+	_apply_quality(viewport)
 	sun.directional_shadow_blend_splits = true
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.0
@@ -141,7 +144,8 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	# (MetalFX on Macs, FSR 2 elsewhere), which also antialiases and settles the
 	# sky's jittered clouds.
 	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_METALFX_TEMPORAL if OS.get_name() == "macOS" else Viewport.SCALING_3D_MODE_FSR2
-	viewport.scaling_3d_scale = 0.5
+	viewport.scaling_3d_scale = minf(0.5, RealQuality.scale_max())
+	_viewport = viewport
 	viewport.msaa_3d = Viewport.MSAA_DISABLED
 	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	viewport.use_debanding = true
@@ -156,11 +160,33 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 		env.ssao_enabled = false
 	if args.has("novfog"):
 		env.volumetric_fog_enabled = false
+	if args.has("fixedscale"):
+		governor_enabled = false
 	if args.has("noauto"):
 		camera_attributes.auto_exposure_enabled = false
 	var noise := CloudNoise.new()
 	noise.baked.connect(_on_noise)
 	add_child(noise)
+
+
+## The tier's settings (RealQuality): sun shadows, ambient occlusion, volumetric
+## fog, wet reflections and cloud steps. The ranges of plants and grass are read
+## by RealFlora and RealGrass themselves when the world is built.
+func _apply_quality(viewport: SubViewport) -> void:
+	var q: Dictionary = RealQuality.TABLE[RealQuality.tier]
+	var splits := int(q.shadow_splits)
+	sun.shadow_enabled = true
+	# Godot has 1, 2 or 4 cascades (no 3).
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if splits <= 2 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_max_distance = float(q.shadow_dist)
+	sun.directional_shadow_split_1 = float(q.split_1)
+	sun.directional_shadow_split_2 = float(q.split_2)
+	sun.directional_shadow_split_3 = float(q.split_3)
+	RenderingServer.directional_shadow_atlas_set_size(int(q.shadow_atlas), true)
+	env.ssao_enabled = bool(q.ssao)
+	env.volumetric_fog_enabled = bool(q.vfog)
+	_ssr_allowed = bool(q.ssr)
+	sky_mat.set_shader_parameter("cloud_steps", int(q.cloud_steps))
 
 
 ## The first-person camera takes this look's exposure.
@@ -265,10 +291,38 @@ func set_mist_floor(y: float) -> void:
 ## Every frame: where the eye is, how far the clouds have drifted, the TAA jitter.
 func update(cam_pos: Vector3, delta: float, wet := 0.0) -> void:
 	# Puddles reflect: screen-space reflections only while the ground is wet.
-	env.ssr_enabled = wet > 0.08
+	env.ssr_enabled = _ssr_allowed and wet > 0.08
+	if governor_enabled and _viewport != null:
+		_govern(delta)
 	_wind += Vector3(1.0, 0.0, 0.35).normalized() * WIND_KMPS * delta
 	_frame = (_frame + 1) % 64
 	RenderingServer.global_shader_parameter_set("eye_pos", cam_pos)
 	sky_mat.set_shader_parameter("cam_km", Vector3(cam_pos.x / 1000.0, 0.25 + cam_pos.y / 1000.0, cam_pos.z / 1000.0))
 	sky_mat.set_shader_parameter("wind", _wind)
 	sky_mat.set_shader_parameter("frame", float(_frame))
+
+
+## Holds 60 fps by moving the 3D render scale (RealQuality.govern). The signal
+## is the 2-second smoothed frame time: the viewport's own GPU timer reads 0
+## under Metal, so frame time is all there is (see RealQuality for how it copes
+## with vsync hiding headroom). A hitch (a chunk arriving) is not counted.
+func _govern(delta: float) -> void:
+	_age += delta
+	if delta > 0.08:
+		return                       # a stall (loading, a window move), not the scene's cost
+	var cost := delta * 1000.0
+	if _avg_ms <= 0.0:
+		_avg_ms = cost
+	_avg_ms = lerpf(_avg_ms, cost, 1.0 - exp(-delta / 2.0))
+	if _age < RealQuality.WARMUP:
+		return
+	var now := _viewport.scaling_3d_scale
+	if _gov.is_empty():
+		_gov = RealQuality.new_state(now)
+	_gov.scale = now
+	_gov = RealQuality.govern(_gov, _avg_ms, delta, RealQuality.scale_max())
+	var want := float(_gov.scale)
+	if not is_equal_approx(want, now):
+		_viewport.scaling_3d_scale = want
+		if OS.get_cmdline_user_args().has("scalelog"):
+			print("[scale] %.2f -> %.2f at avg %.1f ms%s" % [now, want, _avg_ms, " (probe)" if _gov.probing else ""])

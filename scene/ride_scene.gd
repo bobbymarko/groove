@@ -17,6 +17,7 @@ var pixel_stable := true     ## camera snapping and compensated presentation
 var _factor := 4             ## screen pixels per texel
 var _shift := Vector2.ZERO   ## texels the frame is displaced by, from the snapped camera to the ideal one
 var look_mode := "16bit"         ## "16bit" (pixel look), "off" (native) or "real" (realistic, first person); "8bit" maps to 16bit
+var quality_override := ""       ## tooling: force a realistic-look quality tier (low | medium | high)
 var look_override := ""          ## tooling: force a look regardless of settings (must be set before _ready)
 var real: RealLook               ## the realistic look's sky and lighting, only in look "real"
 var fpv := false                 ## first-person camera (the realistic look)
@@ -97,6 +98,8 @@ func _ready() -> void:
 			look_mode = str(app0.look_mode)
 	if look_override != "":
 		look_mode = look_override
+	var app_q := get_node_or_null("/root/App")
+	RealQuality.set_tier(quality_override if quality_override != "" else (str(app_q.real_quality) if app_q else "high"))
 	fpv = look_mode == "real"
 	# A route ride (R41) takes its scenery from the route: the realistic look
 	# starts in the biome where the route starts; the others use its main one.

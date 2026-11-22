@@ -36,6 +36,12 @@ uniform float flower_share[8];
 uniform float on_grass[8];
 uniform vec3 flower_color[32];
 uniform float flower_count[8];
+// Per biome: the bare field's colour under it (rgb, SurfaceTex.grass_field) and
+// how thick its meadow grows (a); a < 0: no scanned ground, the old noise colour.
+uniform vec4 root_ground[8];
+uniform float meadow_end = 56.0;       // the ground takes the meadow's colour past here (ground_tone)
+
+#include "res://scene/real/ground_tone.gdshaderinc"
 
 varying vec3 wpos;
 varying float v_k;
@@ -43,6 +49,8 @@ varying vec3 v_tip;
 varying float v_matched;
 varying vec3 v_flower;      // rgb of the flower head, or -1
 varying float v_var;
+varying vec4 v_ground;
+varying vec3 v_blades;
 
 uint hash_u(uvec2 q) {
 	q = q * uvec2(1597334677u, 3812015801u);
@@ -154,6 +162,8 @@ void vertex() {
 	v_k = k;
 	v_tip = tip_color[biome] * mix(0.82, 1.2, r1) * mix(vec3(1.0), vec3(1.18, 1.05, 0.8), 0.5 * r3);
 	v_matched = on_grass[biome];
+	v_ground = root_ground[biome];
+	v_blades = tip_color[biome];
 	v_var = COLOR.a;
 }
 
@@ -163,10 +173,17 @@ void fragment() {
 	float n3 = texture(noise_tex, p * 0.45 + 0.7).r;
 	float n4 = texture(noise_tex, p * 2.9 + 0.1).r;
 	// The grass ground's own colour here (real_ground.gdshader, look 1).
-	vec3 lush = vec3(0.07, 0.13, 0.035);
-	vec3 dry = vec3(0.15, 0.16, 0.06);
 	float dryness = smoothstep(0.35, 0.75, n1);
-	vec3 ground = mix(lush, dry, dryness) * (0.75 + 0.45 * n3) * (0.85 + 0.3 * n4);
+	vec3 ground;
+	if (v_ground.a < 0.0) {
+		vec3 lush = vec3(0.07, 0.13, 0.035);
+		vec3 dry = vec3(0.15, 0.16, 0.06);
+		ground = mix(lush, dry, dryness) * (0.75 + 0.45 * n3) * (0.85 + 0.3 * n4);
+	} else {
+		float n2 = texture(noise_tex, p * 0.07 + 0.3).r;
+		ground = v_ground.rgb * ground_macro(1, n1, n2);
+		ground = mix(ground, meadow_tone(v_blades, n3), meadow_share(length(VERTEX), v_ground.a, meadow_end));
+	}
 	vec3 tip = v_tip * mix(vec3(1.0), vec3(1.3, 1.08, 0.75), dryness * 0.6) * (0.8 + 0.4 * n3);
 	vec3 root = mix(tip * 0.5, ground * 0.92, v_matched);
 	vec3 col = mix(root, tip, smoothstep(0.0, 0.75, v_k));
