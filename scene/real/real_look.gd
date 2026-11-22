@@ -19,16 +19,23 @@ const MOON_ENERGY := 0.22
 ## arc flattened (sin^shape) so more of the day has long raking shadows.
 const NOON_SCALE := 0.8
 const SUN_ARC_SHAPE := 1.15
-## Automatic exposure (CameraAttributesPractical): the frame is scaled by
-## AUTO_SCALE / (average scene luminance), the average clamped to luminance
-## ISO / 800. A clear summer midday measures about 0.39, so it is left as set;
-## the clamp lets darker scenes (woods, low sun, dusk) come up by at most
-## 1.5 stops and bright ones (snow, desert sand) go down by at most half a
-## stop. Slow (a time constant of about 4 s), so a passing tree never pumps it.
-const AUTO_SCALE := 0.39
-const AUTO_SPEED := 0.25
-const AUTO_MIN_ISO := 112.0       ## luminance 0.14: the most it brightens
-const AUTO_MAX_ISO := 440.0       ## luminance 0.55: the most it darkens
+## Automatic exposure, metered here: the finished picture is averaged down
+## by a small light meter (exposure_meter.gdshader, read back without stalling
+## the frame) and the camera's exposure eased toward the one that holds its
+## mean brightness at METER_TARGET, what a clear summer midday shows at
+## exposure 1. Darker scenes (woods, low sun, dusk) come up by at most 1.5
+## stops and bright ones (snow, desert sand) go down by at most half a stop.
+## Slow (a time constant of about 4 s), so a passing tree never pumps it.
+## Godot's own auto exposure is not used: it meters a corner of the picture
+## whose size depends on the render scale, and starts over whenever the scale
+## changes, so each step of the automatic render scale flashed the picture
+## nearly three times brighter and left it at a different brightness (R43).
+const METER_SIZE := Vector2i(32, 18)
+const METER_EVERY := 6            ## frames between readings
+const METER_TARGET := 0.125       ## the mean brightness held (linear, of the tone-mapped picture; lower rows count more)
+const EXPOSE_MIN := 0.71          ## half a stop down
+const EXPOSE_MAX := 2.8           ## 1.5 stops up
+const EXPOSE_TIME := 4.0          ## seconds (time constant)
 const WIND_KMPS := 0.008          ## cloud drift, km per second
 
 var env: Environment
@@ -38,8 +45,17 @@ var _wind := Vector3.ZERO
 var _frame := 0
 var _preset: Dictionary = {}
 var flora: RealFlora
-## The first-person camera's exposure, gently automatic (see AUTO_SCALE).
+## The first-person camera's exposure, gently automatic (see METER_TARGET).
 var camera_attributes := CameraAttributesPractical.new()
+var auto_exposure := true          ## off: exposure 1 (the `noauto` preview switch)
+var _meter: SubViewport
+var _meter_frames := 0
+var _meter_drawn := false          ## the meter drew last frame: read it back now
+var _meter_busy := false           ## a reading is on its way back
+var _meter_at := 1.0               ## the exposure the reading on its way was taken at
+var _exposure := 1.0
+var _exposure_want := 1.0
+var _exposure_age := -1.0          ## seconds since the first reading (-1: none yet)
 var _mist := 0.0          ## valley mist 0..1 (mornings)
 ## The render-scale governor (RealQuality.next_scale): off for profiling
 ## (the `fixedscale` switch, or governor_enabled = false set by a tool).
@@ -136,11 +152,8 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	env.adjustment_saturation = 1.08
 	env.adjustment_color_correction = _grade_lut()
 	camera_attributes.exposure_multiplier = 1.0
-	camera_attributes.auto_exposure_enabled = true
-	camera_attributes.auto_exposure_speed = AUTO_SPEED
-	camera_attributes.auto_exposure_scale = AUTO_SCALE
-	camera_attributes.auto_exposure_min_sensitivity = AUTO_MIN_ISO
-	camera_attributes.auto_exposure_max_sensitivity = AUTO_MAX_ISO
+	camera_attributes.auto_exposure_enabled = false
+	_make_meter(viewport)
 	_apply_quality(viewport)
 	sun.directional_shadow_blend_splits = true
 	sun.shadow_bias = 0.04
@@ -174,7 +187,7 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	if args.has("fixedscale"):
 		governor_enabled = false
 	if args.has("noauto"):
-		camera_attributes.auto_exposure_enabled = false
+		auto_exposure = false
 	for arg in args:
 		if arg.begins_with("clouds="):
 			_clouds_override = float(arg.trim_prefix("clouds="))
@@ -329,6 +342,7 @@ func update(cam_pos: Vector3, delta: float, wet := 0.0) -> void:
 	env.ssr_enabled = _ssr_allowed and wet > 0.08
 	if governor_enabled and _viewport != null:
 		_govern(delta)
+	_expose(delta)
 	_wind += Vector3(1.0, 0.0, 0.35).normalized() * WIND_KMPS * delta
 	_frame = (_frame + 1) % 64
 	RenderingServer.global_shader_parameter_set("eye_pos", cam_pos)
@@ -338,6 +352,72 @@ func update(cam_pos: Vector3, delta: float, wet := 0.0) -> void:
 	for p: String in CLOUD_PARAMS:
 		shade.cloud_mat.set_shader_parameter(p, sky_mat.get_shader_parameter(p))
 	shade.update(cam_pos)
+
+
+func _make_meter(viewport: SubViewport) -> void:
+	if RenderingServer.get_rendering_device() == null:
+		return                       # no renderer to read back from: exposure stays at 1
+	_meter = SubViewport.new()
+	_meter.size = METER_SIZE
+	_meter.disable_3d = true
+	_meter.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var rect := ColorRect.new()
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var m := ShaderMaterial.new()
+	m.shader = load("res://scene/real/exposure_meter.gdshader")
+	m.set_shader_parameter("frame", viewport.get_texture())
+	m.set_shader_parameter("cells", Vector2(METER_SIZE))
+	rect.material = m
+	_meter.add_child(rect)
+	add_child(_meter)
+
+
+## Automatic exposure (see METER_TARGET): a reading every METER_EVERY frames,
+## the exposure eased toward what it asks for.
+func _expose(delta: float) -> void:
+	if _meter == null or not auto_exposure:
+		return
+	if _meter_drawn:
+		_meter_drawn = false
+		var rd := RenderingServer.get_rendering_device()
+		var tex := RenderingServer.texture_get_rd_texture(_meter.get_texture().get_rid())
+		if tex.is_valid():
+			_meter_at = _exposure
+			_meter_busy = rd.texture_get_data_async(tex, 0, _on_meter) == OK
+	_meter_frames += 1
+	if _meter_frames >= METER_EVERY and not _meter_busy:
+		_meter_frames = 0
+		_meter.render_target_update_mode = SubViewport.UPDATE_ONCE
+		_meter_drawn = true
+	if _exposure_age < 0.0:
+		return
+	_exposure_age += delta
+	# (quick over a ride's first moments, so it opens already settled)
+	var time := EXPOSE_TIME if _exposure_age > 1.5 else 0.25
+	_exposure = lerpf(_exposure, _exposure_want, 1.0 - exp(-delta / time))
+	camera_attributes.exposure_multiplier = _exposure
+
+
+func _on_meter(data: PackedByteArray) -> void:
+	_meter_busy = false
+	if data.size() != METER_SIZE.x * METER_SIZE.y * 4:
+		return
+	var sum := 0.0
+	var weights := 0.0
+	for y in METER_SIZE.y:
+		# The lower rows (the land) count for more than the sky above them.
+		var w := lerpf(0.5, 1.0, minf(float(y) / float(METER_SIZE.y - 1) * 2.0, 1.0))
+		for x in METER_SIZE.x:
+			var v := float(data[(y * METER_SIZE.x + x) * 4]) / 255.0
+			sum += v * v * w
+			weights += w
+	var seen := maxf(sum / weights, 0.002)
+	_exposure_want = clampf(_meter_at * METER_TARGET / seen, EXPOSE_MIN, EXPOSE_MAX)
+	if _exposure_age < 0.0:
+		_exposure_age = 0.0
+		_exposure = _exposure_want
+	if OS.get_cmdline_user_args().has("meterlog"):
+		print("[meter] seen %.3f at exposure %.2f -> want %.2f" % [seen, _meter_at, _exposure_want])
 
 
 ## Holds 60 fps by moving the 3D render scale (RealQuality.govern). The signal

@@ -4,7 +4,7 @@ render_mode use_half_res_pass;
 // Cloudscape (MIT, Fishypants/cloudscape): Hillaire-style single scattering
 // (multiple scattering approximated), Schneider / Nubis cloud shapes and light.
 // Units are kilometres. The expensive work runs in the quarter-resolution pass
-// with a per-frame jitter that TAA accumulates; the full-resolution pass adds
+// with a dithered start to each ray's march; the full-resolution pass adds
 // the sun or moon disk and the stars. No TIME or POSITION here: Godot would
 // then redraw the radiance cubemap every frame, so both come in as uniforms.
 
@@ -21,7 +21,7 @@ uniform float stars = 0.0;                      // 0 by day, 1 at full night
 uniform float exposure = 4.0;
 uniform float haze = 0.78;
 uniform vec3 ground_albedo = vec3(0.6);
-uniform float frame = 0.0;                      // 0..63, jitter for TAA
+uniform float frame = 0.0;                      // 0..63 (not used: the march's dither is a fixed pattern, see sky_color)
 
 uniform float cloud_density = 0.19;
 uniform float erosion = 0.45;
@@ -223,20 +223,40 @@ void march_clouds(vec3 W0, vec3 rd, float jit, out vec3 col, out float T, out fl
 	vec3 amb_bot = sky_light * (vec3(0.05, 0.06, 0.08) + ground_albedo * 0.04) * ambient * 0.55;
 	float wsum = 0.0;
 	float dsum = 0.0;
+	// Long strides through clear air, short ones inside a cloud (on meeting
+	// one the march steps back a stride and goes over it finely): a thin
+	// cloud edge is met by several samples, not one or none, which is what
+	// leaves it grainy.
+	float fine = dt / 2.0;      // (halving again measured no smoother, and each halving costs about half a millisecond)
+	bool inside = false;
+	int clear_run = 0;
+	int lit_run = 0;
+	float od = 0.0;
 	for (int i = 0; i < 256; i++) {
 		if (t >= t1 || T < 0.01) break;
 		vec3 W = W0 + rd * t;
 		float hf = height_frac(W);
 		vec2 wt = weather_at(W);
 		float base = cloud_base(W, hf, wt, 0.0);
+		if (base > 0.0 && !inside) {
+			inside = true;
+			clear_run = 0;
+			lit_run = 0;
+			t = max(t - dt * 2.0, t0) + fine;
+			continue;
+		}
 		if (base > 0.0) {
+			clear_run = 0;
 			float dens0 = cloud_detail(W, hf, base);
 			float sw = mix(1.0, 0.03, pow(sharp, 0.6));
 			float dens = sat((dens0 - sharp * 0.05) / sw);
 			dens *= 1.0 - smoothstep(cloud_far * 0.6, cloud_far, t);
 			if (dens > 0.002) {
 				float sE = dens * sigma;
-				float od = light_od(W, wt, sigma);
+				// The light reaching here changes slowly along the ray: its own
+				// march (the costly part of a sample) is made every third sample.
+				if (lit_run == 0) od = light_od(W, wt, sigma);
+				lit_run = (lit_run + 1) % 3;
 				vec3 sun_l = light_illum * trans_to_light(W + vec3(0.0, Rg, 0.0));
 				float beer = ph0 * exp(-od) + 0.5 * ph1 * exp(-od * 0.5) + 0.25 * ph2 * exp(-od * 0.25);
 				float powder = mix(1.0, 1.0 - exp(-sE * 0.15), powder_w);
@@ -246,13 +266,17 @@ void march_clouds(vec3 W0, vec3 rd, float jit, out vec3 col, out float T, out fl
 				vec3 amb = mix(amb_bot, amb_top, sat(hf)) * mix(1.0, in_scat, 0.6);
 				float under = low * pow(1.0 - sat(hf), 2.0) * 2.2 * ph1 * exp(-od * 0.1);
 				vec3 S = sun_l * (beer * powder * in_scat + under) + amb;
-				float a = 1.0 - exp(-sE * dt);
+				float a = 1.0 - exp(-sE * fine);
 				col += T * S * a;
 				dsum += T * a * t;
 				wsum += T * a;
 				T *= 1.0 - a;
 			}
-			t += dt;
+			t += fine;
+		} else if (inside) {
+			clear_run++;
+			inside = clear_run < 6;      // (the step back is four short strides: more than that of clear air is the cloud's end)
+			t += fine;
 		} else {
 			t += dt * 2.0;
 		}
@@ -267,9 +291,12 @@ float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00
 vec4 sky_color(vec3 rd, vec2 px, bool cheap) {
 	vec3 W0 = cam_km;
 	vec3 P0 = W0 + vec3(0.0, Rg, 0.0);
-	// A new pattern every frame: TAA then averages the march's grain away (a
-	// fixed pattern stays on the screen as static along the clouds' edges).
-	float jit = cheap ? 0.5 : ign(px + 5.588238 * frame);
+	// One fixed pattern of offsets. Measured on a cloudy sky (2026-11-22): with
+	// the march's short strides inside clouds the pattern leaves about as
+	// little grain as one that changes every frame for the TAA to average, and
+	// it does not flicker; a changing one showed as the clouds jittering from
+	// frame to frame.
+	float jit = cheap ? 0.5 : ign(px);
 	float t_planet = ray_sphere(P0, rd, Rg);
 	float D = t_planet > 0.0 ? t_planet : max(ray_sphere(P0, rd, Rt), 0.0);
 	vec3 L;
