@@ -42,14 +42,20 @@ const BIOMES := {
 		"bush": 0.0, "rock": Color(0.3, 0.29, 0.28), "rocks": 1.0},
 }
 
+const WOODS := 2.0               ## tree density that means a wood (a true-map ride's forest squares)
 const GRASS_REACH := 22.0        ## metres either side of the trail that get grass
 const GRASS_VISIBLE := 65.0      ## grass stops drawing past this (fog hides the edge)
 const TREE_DETAIL_RANGE := 80.0  ## each tree crossfades to its distant version around here (in the shaders)
 const TREE_FADE := 20.0
+const TREE_SHADOWS := 90.0       ## trees cast shadows within this
 const TREE_FAR := 300.0          ## and dithers away by here; new chunks are built further out
 const SMALL_FAR := 180.0         ## bushes and rocks
 
 static var _cache: Dictionary = {}   # biome id -> RealFlora
+## Where close-up trees hand over to their distant versions for the ride now
+## showing: TREE_DETAIL_RANGE on the strip; nearer on a true-map ride, whose
+## trees stand all round the rider, not only along the trail.
+static var detail_range := TREE_DETAIL_RANGE
 
 var biome: Dictionary = {}
 var meshes: Array[Mesh] = []
@@ -153,9 +159,19 @@ var _singles: Dictionary = {}       # base material and role -> its copy
 
 static func _lod(m: ShaderMaterial, role: int, end: float) -> void:
 	m.set_shader_parameter("lod_role", role)
-	m.set_shader_parameter("lod_range", TREE_DETAIL_RANGE)
+	m.set_shader_parameter("lod_range", detail_range)
 	m.set_shader_parameter("lod_fade", TREE_FADE)
 	m.set_shader_parameter("far_end", end)
+
+
+## Move the hand-over for every biome's plants (materials are shared and cached).
+static func set_detail_range(r: float) -> void:
+	if is_equal_approx(r, detail_range):
+		return
+	detail_range = r
+	for f: RealFlora in _cache.values():
+		for m: ShaderMaterial in f._tree_near.values() + f._singles.values():
+			m.set_shader_parameter("lod_range", r)
 
 
 func _near(m: ShaderMaterial) -> ShaderMaterial:
@@ -378,6 +394,9 @@ func scatter_area(x0: float, z0: float, size: float, near: Callable, height: Cal
 				continue
 			var clump := _clump.get_noise_2d(x, z) * 0.5 + 0.5
 			var p := tree_share * o.y * (1.0 if ad < 70.0 else 0.6) * smoothstep(0.25, 0.65, clump)
+			if o.y >= WOODS:
+				# A wood: thick along the trail, thinner deeper in (its edge still reads as woods).
+				p = tree_share * o.y * lerpf(0.5, 0.85, clump) * (1.0 if ad < 90.0 else 0.55)
 			if rng.randf() > p:
 				continue
 			var s := rng.randf_range(0.7, 1.25)

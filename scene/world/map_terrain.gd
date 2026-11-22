@@ -5,37 +5,60 @@ extends TerrainStreamer
 ## the route's real shape, a fine ribbon for the trail itself, and a far ring
 ## out to the horizon. Plants come from the same biomes as the strip world,
 ## placed in world space. Uses TerrainStreamer's materials and plant meshes.
+## With a cover grid (stage 2) woods, fields and scrub stand where the map has
+## them, lakes and rivers are water with their beds carved out, and the trail
+## crosses on timber bridges.
 
 const TILE := 64.0
 const REACH := 704.0          ## tiles kept within this distance of the rider
 const FLORA_REACH := 330.0    ## tiles with plants (trees fade out by ~300 m)
 const BED := 4.0              ## within this of the path the ground is the trail's bed
 const BLEND_OUT := 16.0       ## ...blending back to the real ground by here
+const THIN_TREES_AT := 150.0  ## half the trees fade out past this
+const DETAIL_RANGE := 50.0    ## close-up trees within this (a full circle of them, not a strip)
+const DECK_IN := 3.0          ## the trail's bed and ribbon run this far under each end of a bridge deck
 const FAR_IN := 640.0
 const FAR_OUT := 7000.0
 
 var rt: RouteTrail
 var dem: RouteDem
+var grid: CoverGrid               ## null: plants by the route's biomes alone
+var _bridges: Dictionary = {}     ## index in rt.bridges -> MeshInstance3D
 var _tiles: Dictionary = {}       ## Vector2i -> {node, lod, flora}
 var _queue: Array = []            ## [{key, lod, flora, d}] nearest first
 var _job: Thread
 var _ribbon: MeshInstance3D
 var _ring: MeshInstance3D
+var _ring_water: MeshInstance3D
 var _ring_at := Vector2(INF, INF)
 var _rider := Vector2.ZERO
 var _first := true
 
 
-func _init(t: RouteTrail, d: RouteDem) -> void:
+func _init(t: RouteTrail, d: RouteDem, g: CoverGrid = null) -> void:
 	super(t)
 	rt = t
 	dem = d
+	grid = g if g != null and not g.is_empty() else null
+
+
+func use_real_ground(kind: String, plants: RealFlora) -> void:
+	super(kind, plants)
+	RealFlora.set_detail_range(DETAIL_RANGE)
+	if grid != null and grid.has_water() and _water_material == null:
+		_make_water_materials("river")
 
 
 func height(x: float, z: float, _t: Trail = null) -> float:
 	var h := dem.height(x, z)
+	if grid != null:
+		h = _wet(h, x, z)
 	var n := rt.nearest(x, z, BLEND_OUT)
 	if n.z == 0.0:
+		return h
+	# On a bridge the ground below is the river's; the deck carries the trail.
+	var keep := 1.0 - smoothstep(DECK_IN, DECK_IN + 3.0, rt.bridge_depth(n.x))
+	if keep <= 0.0:
 		return h
 	var a := absf(n.y)
 	var groove := 0.0
@@ -44,11 +67,29 @@ func height(x: float, z: float, _t: Trail = null) -> float:
 	elif a < TRAIL_HALF_WIDTH + BANK_WIDTH:
 		groove = 0.09 * sin(PI * (a - TRAIL_HALF_WIDTH) / BANK_WIDTH)
 	var bed := rt.h_at(n.x) + groove
-	return lerpf(bed, h, smoothstep(BED, BLEND_OUT, a))
+	return lerpf(h, lerpf(bed, h, smoothstep(BED, BLEND_OUT, a)), keep)
 
 
+## What the wheels roll on: the deck on a bridge, else the ground.
 func surface(x: float, z: float, t: Trail = null) -> float:
+	if not rt.bridges.is_empty():
+		var n := rt.nearest(x, z, BridgeGen.DECK_HALF)
+		if n.z > 0.0 and rt.bridge_depth(n.x) > 0.0:
+			return rt.h_at(n.x)
 	return height(x, z, t)
+
+
+## Ground under and beside water: a lake or river bed 1.2 m down, its shore
+## held just above the water so the two never shimmer through each other.
+func _wet(h: float, x: float, z: float) -> float:
+	var w := grid.water_at(x, z)
+	if w <= 0.0:
+		return h
+	var lv := grid.level_at(x, z)
+	if is_nan(lv):
+		return h
+	var g := maxf(h, lv + 0.1 * smoothstep(0.0, 0.1, w) * (1.0 - smoothstep(0.2, 0.3, w)))
+	return lerpf(g, minf(g, lv - 1.2), smoothstep(0.2, 0.5, w))
 
 
 func rebuild() -> void:
@@ -95,6 +136,7 @@ func update_around(z: float) -> void:
 				_finish_tile(_build_tile(q.key, q.lod, q.flora))
 				_queue.erase(q)
 	_update_ribbon(z)
+	_update_bridges()
 	_update_far()
 	_pump_tiles()
 
@@ -211,6 +253,9 @@ func _build_tile(key: Vector2i, lod: float, with_flora: bool) -> Dictionary:
 			idx.append_array([a, a + 2, a + 1, a + 2, a + 3, a + 1, a, a + 1, a + 2, a + 2, a + 1, a + 3])   # both faces
 	var out := {"kind": "tile", "key": key, "lod": lod, "flora": with_flora, "pair": pair,
 		"verts": verts, "norms": norms, "uvs": uvs, "idx": idx}
+	if grid != null and grid.water_in(Rect2(x0, z0, TILE, TILE)):
+		out["water"] = _lake_arrays(x0, z0, maxf(lod, 4.0))
+		out["frozen"] = _frozen_at(centre.x)
 	if with_flora and flora:
 		out["plants"] = _scatter_tile(x0, z0, centre.x)
 	return out
@@ -233,6 +278,20 @@ func _finish_tile(r: Dictionary) -> void:
 	mi.mesh = m
 	mi.material_override = _chunk_ground_material(r.pair)
 	root.add_child(mi)
+	if r.has("water") and not (r.water.verts as PackedVector3Array).is_empty():
+		var wa := []
+		wa.resize(Mesh.ARRAY_MAX)
+		wa[Mesh.ARRAY_VERTEX] = r.water.verts
+		wa[Mesh.ARRAY_NORMAL] = r.water.norms
+		wa[Mesh.ARRAY_TEX_UV] = r.water.uvs
+		wa[Mesh.ARRAY_INDEX] = r.water.idx
+		var wm := ArrayMesh.new()
+		wm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, wa)
+		var wmi := MeshInstance3D.new()
+		wmi.mesh = wm
+		wmi.material_override = _ice_material if r.frozen else _water_material
+		wmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(wmi)
 	if r.has("plants"):
 		for id in r.plants:
 			_add_tile_flora(root, r.plants[id], floras.get(id, flora))
@@ -240,12 +299,53 @@ func _finish_tile(r: Dictionary) -> void:
 	_tiles[key] = {"node": root, "lod": r.lod, "flora": r.flora}
 
 
+## Worker: the water surface over one tile, step metres a square, wherever
+## any corner is wet. Flat at each lake's level; rivers follow their valley.
+func _lake_arrays(x0: float, z0: float, step: float) -> Dictionary:
+	var n := int(TILE / step)
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	var wet := PackedFloat32Array()
+	var lvl := PackedFloat32Array()
+	wet.resize((n + 1) * (n + 1))
+	lvl.resize((n + 1) * (n + 1))
+	for j in n + 1:
+		for i in n + 1:
+			var x := x0 + i * step
+			var z := z0 + j * step
+			wet[j * (n + 1) + i] = grid.water_at(x, z)
+			lvl[j * (n + 1) + i] = grid.level_at(x, z)
+	for j in n:
+		for i in n:
+			var c := [j * (n + 1) + i, j * (n + 1) + i + 1, (j + 1) * (n + 1) + i, (j + 1) * (n + 1) + i + 1]
+			var any := false
+			var level := NAN
+			for k in c:
+				if wet[k] > 0.15:
+					any = true
+				if not is_nan(lvl[k]):
+					level = lvl[k] if is_nan(level) else minf(level, lvl[k])
+			if not any or is_nan(level):
+				continue
+			var base := verts.size()
+			for k in 4:
+				var vi: int = c[k]
+				var y := lvl[vi] if not is_nan(lvl[vi]) else level
+				verts.append(Vector3(x0 + (i + (k & 1)) * step, y, z0 + (j + (k >> 1)) * step))
+				norms.append(Vector3.UP)
+				uvs.append(Vector2(verts[-1].x, verts[-1].z) * 0.1)
+			idx.append_array([base, base + 1, base + 3, base, base + 3, base + 2])
+	return {"verts": verts, "norms": norms, "uvs": uvs, "idx": idx}
+
+
 ## How far the ground mesh sinks under the trail ribbon: the ribbon carries
 ## the groove and banks, which a 2-8 m grid cannot, so the grid stays just
 ## beneath it instead of poking through.
 func _under_ribbon(x: float, z: float) -> float:
 	var n := rt.nearest(x, z, 3.0)
-	if n.z == 0.0:
+	if n.z == 0.0 or rt.bridge_depth(n.x) > 0.0:
 		return 0.0
 	return 0.35 * (1.0 - smoothstep(1.6, 2.4, absf(n.y)))
 
@@ -261,9 +361,18 @@ func _scatter_tile(x0: float, z0: float, s: float) -> Dictionary:
 				ids.append(sg.id)
 	var map := biome_map
 	var trail_ref := rt
+	var cover := grid
 	for id in ids:
 		var own := Callable()
-		if map.segments.size() > 1:
+		if cover != null:
+			own = func(x: float, z: float) -> Vector3:
+				var nn := trail_ref.nearest(x, z, 400.0)
+				var sz := nn.x if nn.z > 0.0 else s
+				var sg := map.owner(x, sz)
+				if sg.id != id or cover.water_at(x, z) > 0.15:
+					return Vector3.ZERO
+				return _cover_plants(cover.kind_at(x, z), sg)
+		elif map.segments.size() > 1:
 			own = func(x: float, z: float) -> Vector3:
 				var nn := trail_ref.nearest(x, z, 400.0)
 				var sz := nn.x if nn.z > 0.0 else s
@@ -277,18 +386,45 @@ func _scatter_tile(x0: float, z0: float, s: float) -> Dictionary:
 	return out
 
 
+## Vector3(1, tree density, tree mix) for a cover square: woods thick (and
+## needle- or broadleaf where the map says), fields open, scrub scattered.
+static func _cover_plants(k: int, sg: Dictionary) -> Vector3:
+	var mix := 1.0 if sg.mix == "conifer" else (2.0 if sg.mix == "broad" else 0.0)
+	match k:
+		CoverGrid.FOREST_CONIFER:
+			return Vector3(1.0, RealFlora.WOODS, 1.0)
+		CoverGrid.FOREST_BROAD:
+			return Vector3(1.0, RealFlora.WOODS, 2.0)
+		CoverGrid.FOREST_MIXED:
+			return Vector3(1.0, RealFlora.WOODS, mix)
+		CoverGrid.OPEN:
+			return Vector3(1.0, 0.12, mix)
+		CoverGrid.SCRUB:
+			return Vector3(1.0, 0.5, mix)
+		CoverGrid.BARREN, CoverGrid.SNOW:
+			return Vector3(1.0, 0.05, 1.0)
+	return Vector3(1.0, float(sg.trees), mix)
+
+
 func _add_tile_flora(root: Node3D, placed: Dictionary, fl: RealFlora) -> void:
 	for mi in placed:
 		var xfs: Array[Transform3D] = placed[mi][0]
 		var tints: Array[Color] = placed[mi][1]
 		if xfs.is_empty():
 			continue
-		var idx: Array = range(xfs.size())
 		var mid := Vector3.ZERO
 		for t in xfs:
 			mid += t.origin
 		mid /= float(xfs.size())
-		_flora_band(root, mi, xfs, tints, idx, mid, fl)
+		if fl.far_meshes.has(mi) and xfs.size() > 1:
+			# Trees stand all round a map ride: every other one fades out early,
+			# so the far woods cost half (they still read as woods).
+			var all_way: Array = range(0, xfs.size(), 2)
+			var early: Array = range(1, xfs.size(), 2)
+			_flora_band(root, mi, xfs, tints, all_way, mid, fl)
+			_flora_band(root, mi, xfs, tints, early, mid, fl, THIN_TREES_AT)
+		else:
+			_flora_band(root, mi, xfs, tints, range(xfs.size()), mid, fl)
 
 
 # --- the trail ribbon -------------------------------------------------------------
@@ -320,13 +456,13 @@ func _build_ribbon(c: Vector2) -> Dictionary:
 	while i < n:
 		# One run of consecutive samples near the rider (road a later pass
 		# repeats is drawn by the first pass only, or the two flicker).
-		if rt.sample_xz(i).distance_squared_to(c) > r2 or rt.is_repeat(i):
+		if rt.sample_xz(i).distance_squared_to(c) > r2 or rt.is_repeat(i) or rt.bridge_depth(rt.sample_z(i)) > DECK_IN:
 			i += 1
 			continue
 		var rows := 0
 		var base := verts.size()
 		var z := rt.sample_z(i)
-		while i < n and rt.sample_xz(i).distance_squared_to(c) <= r2 and not rt.is_repeat(i):
+		while i < n and rt.sample_xz(i).distance_squared_to(c) <= r2 and not rt.is_repeat(i) and rt.bridge_depth(rt.sample_z(i)) <= DECK_IN:
 			var near_rider := rt.sample_xz(i).distance_to(c) < 160.0
 			var sub := 4 if near_rider else 1          # 0.5 m rows close by, 2 m beyond
 			for k in sub:
@@ -372,6 +508,30 @@ func _finish_ribbon(r: Dictionary) -> void:
 	_ribbon.material_override = _chunk_ground_material(r.pair)
 
 
+# --- bridges ----------------------------------------------------------------------
+
+## A timber bridge wherever the trail crosses water, built as the rider nears it.
+func _update_bridges() -> void:
+	for k in rt.bridges.size():
+		var b: Dictionary = rt.bridges[k]
+		if b.repeat:
+			continue
+		var zc := (float(b.from) + float(b.to)) * 0.5 + rt.start
+		var p := rt.position_at(zc)
+		var near := Vector2(p.x, p.z).distance_to(_rider) < RIBBON_R
+		if near and not _bridges.has(k):
+			var half := (float(b.to) - float(b.from)) * 0.5
+			var ground := func(x: float, z: float, _t: Trail) -> float: return height(x, z)
+			var mi := MeshInstance3D.new()
+			mi.mesh = BridgeGen.mesh(BridgeGen.build(zc, half, 0.0, maxf(half - RouteTrail.BANK * RouteTrail.STEP_R, 1.0), rt, ground))
+			mi.material_override = _wood_material
+			add_child(mi)
+			_bridges[k] = mi
+		elif not near and _bridges.has(k):
+			(_bridges[k] as Node).queue_free()
+			_bridges.erase(k)
+
+
 # --- the far ring -----------------------------------------------------------------
 
 ## Real hills out to the horizon: a ring of rings around the rider, rebuilt
@@ -412,7 +572,34 @@ func _build_far(c: Vector2) -> Dictionary:
 	for i in idx:
 		st.add_index(i)
 	st.generate_normals()
-	return {"kind": "far", "mesh_arrays": st.commit_to_arrays()}
+	var out := {"kind": "far", "mesh_arrays": st.commit_to_arrays()}
+	if grid != null and grid.has_water():
+		out["water"] = _far_water(c)
+	return out
+
+
+## Lakes and rivers beyond the tiles, out to the cover grid's edge: a flat
+## square per water cell at its level (where it overlaps a tile's water the two
+## are the same surface).
+func _far_water(c: Vector2) -> Dictionary:
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	var h := CoverGrid.CELL * 0.5
+	for cell in grid.water_cells(Rect2(c - Vector2(1300, 1300), Vector2(2600, 2600))):
+		var p := Vector2((cell.x + 0.5) * CoverGrid.CELL, (cell.y + 0.5) * CoverGrid.CELL)
+		var d := p.distance_to(c)
+		if d < FAR_IN - 100.0 or d > 1300.0:
+			continue
+		var lv := grid.level_at(p.x, p.y)
+		var base := verts.size()
+		for k in 4:
+			verts.append(Vector3(p.x + (h if k & 1 else -h), lv, p.y + (h if k >> 1 else -h)))
+			norms.append(Vector3.UP)
+			uvs.append(Vector2(verts[-1].x, verts[-1].z) * 0.1)
+		idx.append_array([base, base + 1, base + 3, base, base + 3, base + 2])
+	return {"verts": verts, "norms": norms, "uvs": uvs, "idx": idx}
 
 
 func _finish_far(r: Dictionary) -> void:
@@ -424,3 +611,20 @@ func _finish_far(r: Dictionary) -> void:
 		add_child(_ring)
 	_ring.mesh = m
 	_ring.material_override = _material
+	if r.has("water"):
+		if _ring_water == null:
+			_ring_water = MeshInstance3D.new()
+			_ring_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(_ring_water)
+		_ring_water.visible = not (r.water.verts as PackedVector3Array).is_empty()
+		if _ring_water.visible:
+			var wa := []
+			wa.resize(Mesh.ARRAY_MAX)
+			wa[Mesh.ARRAY_VERTEX] = r.water.verts
+			wa[Mesh.ARRAY_NORMAL] = r.water.norms
+			wa[Mesh.ARRAY_TEX_UV] = r.water.uvs
+			wa[Mesh.ARRAY_INDEX] = r.water.idx
+			var wm := ArrayMesh.new()
+			wm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, wa)
+			_ring_water.mesh = wm
+			_ring_water.material_override = _ice_material if _frozen_at(rt.nearest_far(_ring_at.x, _ring_at.y).x) else _water_material

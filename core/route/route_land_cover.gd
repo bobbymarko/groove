@@ -7,6 +7,8 @@ extends Node
 ## either side, and any lake or river within 250 m. The result is land cover
 ## only ("cover" segments); the season and climate turn it into scenery at ride
 ## time (biomes_from_cover), so a route looks right in any month.
+## Each answer is also painted into a CoverGrid (20 m squares out to GRID_REACH
+## either side), so a true-map ride puts woods, fields and water where they are.
 ## Map data © OpenStreetMap contributors (ODbL).
 
 signal progress(fraction: float)
@@ -16,10 +18,10 @@ signal done(ok: bool, message: String)
 ## queueing, so a lookup is patient (backoff up to MAX_ATTEMPTS per stretch).
 const ENDPOINTS := ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter",
 	"https://overpass.kumi.systems/api/interpreter"]
-const MAX_ATTEMPTS := 6
+const MAX_ATTEMPTS := 9
 const STRETCH := 10000.0
 const SAMPLE := 100.0
-const MARGIN := 400.0          ## metres added around each stretch's box
+const MARGIN := 1200.0         ## metres added around each stretch's box (the cover grid's reach)
 const PROBE := 40.0            ## metres either side of the route
 const WATER_NEAR := 250.0
 const MIN_RUN := 400.0
@@ -40,6 +42,8 @@ var _next := 0
 var _samples: Array[Dictionary] = []   # land cover so far, every SAMPLE metres
 var _attempts := 0
 var _endpoint := 0
+var _grid: CoverGrid
+var _geo: Geo
 
 
 func _ready() -> void:
@@ -59,9 +63,12 @@ func look_up(route: Route, gpx_path: String) -> void:
 	_path = gpx_path
 	# Resume where an earlier lookup of this route got to (app closed, servers gave up).
 	_samples.clear()
+	_geo = Geo.for_route(route)
+	_grid = CoverGrid.new()
 	var start := 0.0
 	var part := partial_path(gpx_path)
 	if FileAccess.file_exists(part):
+		_grid = CoverGrid.load_from(grid_path(gpx_path))
 		var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(part))
 		if saved is Dictionary and saved.has("samples"):
 			for x in saved.samples:
@@ -102,6 +109,8 @@ func _on_completed(result: int, code: int, _headers: PackedStringArray, body: Pa
 		return
 	var cur: Dictionary = _stretches[_next]
 	_samples.append_array(classify(_route, data.elements, float(cur.from), float(cur.to)))
+	rasterize(_grid, data.elements, _geo, local_box(_geo, cur.bbox))
+	_grid.save(grid_path(_path))
 	var f := FileAccess.open(partial_path(_path), FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify({"done_to": float(cur.to), "samples": _samples}))
@@ -152,6 +161,15 @@ func _finish(ok: bool, message: String) -> void:
 	if ok:
 		cover = cover_from_samples(_samples, _route.length)
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(partial_path(_path)))
+	elif RouteLibrary.has_scenery(_path) and not _route.estimated:
+		# Looking up again failed: keep the scenery found last time (the
+		# stretches done so far are kept for the next try).
+		busy = false
+		status = "Could not look up again: " + message
+		print("[route lookup] kept the earlier scenery: %s" % message)
+		progress.emit(1.0)
+		done.emit(false, message)
+		return
 	else:
 		cover = [{"from": 0.0, "to": _route.length, "kind": "unknown", "water": false}]
 	RouteLibrary.save_cover(_path, cover, not ok)
@@ -167,6 +185,72 @@ func _finish(ok: bool, message: String) -> void:
 ## Where a lookup in progress keeps the stretches it has done.
 static func partial_path(gpx_path: String) -> String:
 	return gpx_path.get_basename() + ".partial.json"
+
+
+## Where the cover grid is kept.
+static func grid_path(gpx_path: String) -> String:
+	return gpx_path.get_basename() + ".cover"
+
+
+## A stretch's lat/lon box (x lon, y lat) in the route's metre frame.
+static func local_box(geo: Geo, box: Rect2) -> Rect2:
+	var a := geo.to_local(Vector2(box.position.y, box.position.x))
+	var b := geo.to_local(Vector2(box.end.y, box.end.x))
+	return Rect2(a.min(b), (a - b).abs())
+
+
+## Paint one answer's shapes into the grid, inside clip (the stretch's box in
+## metres): areas by their land cover, lakes and river areas as water, river
+## centre lines at their mapped width.
+static func rasterize(grid: CoverGrid, elements: Array, geo: Geo, clip: Rect2) -> void:
+	grid.cover_box(clip)
+	for e in elements:
+		if not (e is Dictionary) or not e.has("tags"):
+			continue
+		var tags: Dictionary = e.tags
+		var line := str(tags.get("waterway", "")) in ["river", "canal"]
+		if line and e.get("type") == "way" and e.has("geometry"):
+			var pts := PackedVector2Array()
+			for g in e.geometry:
+				if g is Dictionary and g.has("lat"):
+					pts.append(geo.to_local(Vector2(float(g.lat), float(g.lon))))
+			var w := str(tags.get("width", "")).to_float()
+			grid.draw_line(pts, w if w > 0.0 else 25.0, CoverGrid.RIVER, clip)
+			continue
+		var code := CoverGrid.NONE
+		var k := _kind_for_tags(tags)
+		if k == "water" or str(tags.get("waterway", "")) == "riverbank":
+			var wt := str(tags.get("water", ""))
+			code = CoverGrid.RIVER if (wt in ["river", "canal", "stream", "ditch", "drain"] or tags.has("waterway")) else CoverGrid.LAKE
+		elif KIND_CODES.has(k):
+			code = KIND_CODES[k]
+		if code == CoverGrid.NONE:
+			continue
+		var edges := PackedVector2Array()
+		if e.get("type") == "way" and e.has("geometry"):
+			_geo_edges(edges, e.geometry, geo, true)
+		elif e.get("type") == "relation" and e.has("members"):
+			for m in e.members:
+				if m is Dictionary and m.has("geometry"):
+					_geo_edges(edges, m.geometry, geo, false)
+		grid.fill_polygon(edges, code, clip)
+
+
+const KIND_CODES := {"open": CoverGrid.OPEN, "forest_mixed": CoverGrid.FOREST_MIXED, "forest_conifer": CoverGrid.FOREST_CONIFER,
+	"forest_broad": CoverGrid.FOREST_BROAD, "scrub": CoverGrid.SCRUB, "barren": CoverGrid.BARREN, "snow": CoverGrid.SNOW}
+
+
+static func _geo_edges(edges: PackedVector2Array, geometry: Array, geo: Geo, close: bool) -> void:
+	var pts := PackedVector2Array()
+	for g in geometry:
+		if g is Dictionary and g.has("lat"):
+			pts.append(geo.to_local(Vector2(float(g.lat), float(g.lon))))
+	for i in range(1, pts.size()):
+		edges.append(pts[i - 1])
+		edges.append(pts[i])
+	if close and pts.size() > 2 and pts[0].distance_to(pts[-1]) > 0.5:
+		edges.append(pts[-1])
+		edges.append(pts[0])
 
 
 ## The route in ~10 km stretches, each with its lat/lon box plus MARGIN.
@@ -202,7 +286,8 @@ static func query_for(box: Rect2) -> String:
 	return ("[out:json][timeout:180];(" +
 		"wr[\"natural\"~\"^(%s)$\"]%s;" % [NATURAL, b] +
 		"wr[\"landuse\"~\"^(%s)$\"]%s;" % [LANDUSE, b] +
-		"way[\"waterway\"=\"river\"]%s;);out geom%s;" % [b, b])
+		"wr[\"waterway\"=\"riverbank\"]%s;" % b +
+		"way[\"waterway\"~\"^(river|canal)$\"]%s;);out geom%s;" % [b, b])
 
 
 ## Land cover every SAMPLE metres between from and to: [{d, kind, water}].

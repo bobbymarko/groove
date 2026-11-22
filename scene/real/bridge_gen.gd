@@ -50,26 +50,34 @@ static func build(zc: float, half: float, deck_top: float, creek_half: float, t:
 					var p1: Vector3 = base + Vector3.UP * hgt
 					_box(b, (p0 + p1) * 0.5, (p1 - p0) * 0.5, Vector3.UP * (0.05 if hgt > 1.0 else 0.04), f.side * 0.045, WOOD * Color(0.95, 0.95, 0.95, 1.0))
 			prev = {"base": base}
-	# A bent on each bank: two posts to the ground, a cap beam, one diagonal brace.
-	for side in [-1.0, 1.0]:
-		var f := _frame(zc + side * (creek_half + 1.2), deck_top, t)
-		var cap: Vector3 = f.p - f.up * 0.6
-		var feet: Array[Vector3] = []
-		for lr in [-1.0, 1.0]:
-			var top: Vector3 = cap + f.side * 0.95 * lr
-			var g := float(ground.call(top.x, top.z, t)) - 0.4
-			var foot := Vector3(top.x, minf(g, top.y - 0.3), top.z)
-			feet.append(foot)
-			_box(b, (top + foot) * 0.5, (top - foot) * 0.5, f.fwd * 0.09, f.side * 0.09, WOOD * Color(0.75, 0.75, 0.75, 1.0))
-		_box(b, cap, f.side * 1.15, f.up * 0.1, f.fwd * 0.1, WOOD * Color(0.8, 0.8, 0.8, 1.0))
-		var ta: Vector3 = cap - f.side * 0.95
-		var fb: Vector3 = feet[1] + (cap + f.side * 0.95 - feet[1]) * 0.15
-		_box(b, (ta + fb) * 0.5, (fb - ta) * 0.5, f.fwd * 0.06, (fb - ta).cross(f.fwd).normalized() * 0.06, WOOD * Color(0.85, 0.85, 0.85, 1.0))
+	# A bent on each bank, and across a wide river one every ~12 m between.
+	var spots: Array[float] = [-(creek_half + 1.2), creek_half + 1.2]
+	var piers := int(floor((creek_half * 2.0 + 2.4) / 12.0))
+	for j in range(1, piers):
+		spots.append(-(creek_half + 1.2) + j * (creek_half * 2.0 + 2.4) / piers)
+	for at in spots:
+		_bent(b, _frame(zc + at, deck_top, t), t, ground)
 	# Stone abutments where the deck meets the banks.
 	for side in [-1.0, 1.0]:
 		var f := _frame(zc + side * (half - 1.0), deck_top, t)
 		_box(b, f.p - f.up * 1.05, f.side * 1.7, f.up * 0.95, f.fwd * 1.0, STONE)
 	return b
+
+
+## Two posts down to the ground (or the river bed), a cap beam, one diagonal brace.
+static func _bent(b: Dictionary, f: Dictionary, t: Trail, ground: Callable) -> void:
+	var cap: Vector3 = f.p - f.up * 0.6
+	var feet: Array[Vector3] = []
+	for lr in [-1.0, 1.0]:
+		var top: Vector3 = cap + f.side * 0.95 * lr
+		var g := float(ground.call(top.x, top.z, t)) - 0.4
+		var foot := Vector3(top.x, minf(g, top.y - 0.3), top.z)
+		feet.append(foot)
+		_box(b, (top + foot) * 0.5, (top - foot) * 0.5, f.fwd * 0.09, f.side * 0.09, WOOD * Color(0.75, 0.75, 0.75, 1.0))
+	_box(b, cap, f.side * 1.15, f.up * 0.1, f.fwd * 0.1, WOOD * Color(0.8, 0.8, 0.8, 1.0))
+	var ta: Vector3 = cap - f.side * 0.95
+	var fb: Vector3 = feet[1] + (cap + f.side * 0.95 - feet[1]) * 0.15
+	_box(b, (ta + fb) * 0.5, (fb - ta) * 0.5, f.fwd * 0.06, (fb - ta).cross(f.fwd).normalized() * 0.06, WOOD * Color(0.85, 0.85, 0.85, 1.0))
 
 
 static func mesh(b: Dictionary) -> ArrayMesh:
@@ -86,10 +94,11 @@ static func mesh(b: Dictionary) -> ArrayMesh:
 
 
 ## The deck's frame at distance z: centre point on the deck top, forward along
-## the trail, side across it, up out of the deck.
+## the trail, side across it, up out of the deck. Any trail: the strip's or a
+## real route's (R42).
 static func _frame(z: float, deck_top: float, t: Trail) -> Dictionary:
-	var p := Vector3(t.x_at(z), t.h_at(z) + deck_top, z)
-	var fwd := Vector3(t.dx_at(z), t.h_at(z + 0.5) - t.h_at(z - 0.5), 1.0).normalized()
+	var p := t.position_at(z) + Vector3.UP * deck_top
+	var fwd := t.heading_at(z)
 	var side := Vector3.UP.cross(fwd).normalized()
 	var up := fwd.cross(side).normalized()
 	if up.y < 0.0:

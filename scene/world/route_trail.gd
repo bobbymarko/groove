@@ -12,6 +12,10 @@ const CELL := 32.0           ## nearest-point grid
 const SNAP_IN := 2.5          ## a later pass this close to an earlier one is the same road
 const SNAP_OUT := 5.0
 const SNAP_GAP := 30         ## ...but not the route's own last 60 m
+const BANK := 4              ## a bridge reaches this many samples (8 m) onto each bank
+const MAX_BRIDGE := 180.0    ## longer stretches over water are a causeway, not a bridge
+const RAMP := 15             ## samples (30 m) of approach to lift a deck clear of the water
+const DECK_CLEAR := 1.3      ## deck top above the water
 const H_SMOOTH := 12         ## ground profile: moving average over ±12 samples (±24 m), twice
 
 var route: Route
@@ -27,10 +31,12 @@ var _coarse: PackedInt32Array = []   ## every 25th sample, for far lookups
 ## It depends only on where the sample is, so where the route runs over the same
 ## road twice (Freewheel's start and finish) both passes share one height.
 var _h := PackedFloat32Array()
+## Where the trail crosses water: [{from, to (route metres), level, repeat}].
+var bridges: Array[Dictionary] = []
 var _repeat := PackedFloat32Array()  ## per sample: how fully it lies on an earlier pass (0..1)
 
 
-func _init(r: Route, g: Geo, dem: RouteDem = null) -> void:
+func _init(r: Route, g: Geo, dem: RouteDem = null, grid: CoverGrid = null) -> void:
 	super()
 	route = r
 	geo = g
@@ -64,6 +70,8 @@ func _init(r: Route, g: Geo, dem: RouteDem = null) -> void:
 		_h.resize(n)
 		for i in n:
 			_h[i] = dem.height(_px[i], _pz[i])
+		if grid != null and grid.has_water():
+			_cross_water(grid)
 		for pass_i in 2:
 			_h = _box(_h, H_SMOOTH)
 		# A repeated pass takes the first pass's heights too.
@@ -131,6 +139,62 @@ func _snap_repeats() -> Array:
 		at[i] = bj
 		wt[i] = w
 	return [at, wt]
+
+
+## Where the path runs over water, carry it across: a straight deck from bank
+## to bank, lifted clear of the water with ramps up to it (the elevation data
+## has no bridges: it dips to the water). Long stretches over water (a road
+## along a shore the map draws a little wide) become a raised causeway.
+func _cross_water(grid: CoverGrid) -> void:
+	var n := _px.size()
+	var runs: Array[Vector2i] = []
+	var i := 0
+	while i < n:
+		if grid.water_at(_px[i], _pz[i]) <= 0.5:
+			i += 1
+			continue
+		var a := i
+		while i < n and grid.water_at(_px[i], _pz[i]) > 0.5:
+			i += 1
+		var run := Vector2i(maxi(a - BANK, 0), mini(i - 1 + BANK, n - 1))
+		if not runs.is_empty() and run.x <= runs[-1].y:
+			runs[-1].y = run.y            # two channels close together: one bridge
+		else:
+			runs.append(run)
+	for run in runs:
+		var level := -INF
+		for j in range(run.x, run.y + 1):
+			var lv := grid.level_at(_px[j], _pz[j])
+			if not is_nan(lv):
+				level = maxf(level, lv)
+		if level == -INF:
+			continue
+		var bridge := (run.y - run.x) * STEP_R <= MAX_BRIDGE
+		var ha := _h[run.x]
+		var hb := _h[run.y]
+		var lift := maxf(level + (DECK_CLEAR if bridge else 0.5) - minf(ha, hb), 0.0)
+		for j in range(maxi(run.x - RAMP, 0), mini(run.y + RAMP, n - 1) + 1):
+			if j >= run.x and j <= run.y:
+				var deck := lerpf(ha, hb, float(j - run.x) / maxf(run.y - run.x, 1)) + lift
+				_h[j] = deck if bridge else maxf(_h[j], deck)
+			else:
+				var out := float(run.x - j) if j < run.x else float(j - run.y)
+				var end := ha if j < run.x else hb
+				_h[j] = maxf(_h[j], end + lift * smoothstep(0.0, 1.0, 1.0 - out / RAMP))
+		if bridge:
+			bridges.append({"from": run.x * STEP_R, "to": run.y * STEP_R, "level": level,
+				"repeat": is_repeat((run.x + run.y) / 2)})
+
+
+## How far inside a bridge span trail z is (metres from its nearer end; 0 off any bridge).
+func bridge_depth(z: float) -> float:
+	if bridges.is_empty():
+		return 0.0
+	var s := _route_s(z).x
+	for b in bridges:
+		if s >= float(b.from) and s <= float(b.to):
+			return minf(s - float(b.from), float(b.to) - s)
+	return 0.0
 
 
 ## Moving average over ±k samples (shorter at the ends), by running sums.

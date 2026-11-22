@@ -144,6 +144,7 @@ func _init(t: Trail) -> void:
 ## The realistic look's ground: one shader for field, trail and rock, fed the
 ## distance from the trail centre through UV.x. Call before the first update.
 func use_real_ground(kind: String, plants: RealFlora) -> void:
+	RealFlora.set_detail_range(RealFlora.TREE_DETAIL_RANGE)
 	real_ground = true
 	flora = plants
 	ahead_chunks = 16                 # built ~380 m out, beyond where trees fade in
@@ -180,38 +181,7 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 			step *= 1.22
 		_coarse_columns_r.append(x)
 	if water:
-		var wm := ShaderMaterial.new()
-		wm.shader = load("res://scene/real/real_ice.gdshader" if kind_water == "ice" else "res://scene/real/real_water.gdshader")
-		var wn := FastNoiseLite.new()
-		wn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-		wn.fractal_octaves = 3
-		wn.frequency = 0.02
-		var wt := NoiseTexture2D.new()
-		wt.width = 256
-		wt.height = 256
-		wt.seamless = true
-		wt.as_normal_map = true
-		wt.bump_strength = 6.0
-		wt.noise = wn
-		wt.generate_mipmaps = true
-		wm.set_shader_parameter("ripples", wt)
-		if plants.biome.has("water_tint"):
-			wm.set_shader_parameter("deep", plants.biome.water_tint)
-		_water_material = wm
-		var cm: ShaderMaterial = wm.duplicate()
-		cm.set_shader_parameter("flow_dir", Vector2(1.0, 0.0))
-		cm.set_shader_parameter("rapids_on", true)
-		_creek_material = cm
-		# A route can have open water in one place and ice in another.
-		var im: ShaderMaterial = wm.duplicate()
-		im.shader = load("res://scene/real/real_ice.gdshader")
-		_ice_material = im
-		var icm: ShaderMaterial = im.duplicate()
-		_ice_creek_material = icm
-		var wood := ShaderMaterial.new()
-		wood.shader = load("res://scene/real/real_wood.gdshader")
-		wood.set_shader_parameter("snow", 1.0 if kind_water == "ice" else 0.0)
-		_wood_material = wood
+		_make_water_materials(kind_water)
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://scene/real/real_ground.gdshader")
 	mat.set_shader_parameter("ground_a", GROUND_IDS.get(kind, 0))
@@ -360,6 +330,42 @@ func _creek_level(d: float, c: Vector2, t: Trail) -> float:
 		design = lerpf(deck - CREEK_CLEAR, r.z + 0.05, clampf((d - 6.0) / (end - 6.0), 0.0, 1.0))
 	var cz := _creek_z(d, c)
 	return minf(design, _land(t.x_at(cz) + d, cz, t) - 0.5)
+
+
+## River, side-stream, ice and bridge-timber materials (kind_water "ice" for a frozen world).
+func _make_water_materials(kind_water: String) -> void:
+	var wm := ShaderMaterial.new()
+	wm.shader = load("res://scene/real/real_ice.gdshader" if kind_water == "ice" else "res://scene/real/real_water.gdshader")
+	var wn := FastNoiseLite.new()
+	wn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	wn.fractal_octaves = 3
+	wn.frequency = 0.02
+	var wt := NoiseTexture2D.new()
+	wt.width = 256
+	wt.height = 256
+	wt.seamless = true
+	wt.as_normal_map = true
+	wt.bump_strength = 6.0
+	wt.noise = wn
+	wt.generate_mipmaps = true
+	wm.set_shader_parameter("ripples", wt)
+	if flora.biome.has("water_tint"):
+		wm.set_shader_parameter("deep", flora.biome.water_tint)
+	_water_material = wm
+	var cm: ShaderMaterial = wm.duplicate()
+	cm.set_shader_parameter("flow_dir", Vector2(1.0, 0.0))
+	cm.set_shader_parameter("rapids_on", true)
+	_creek_material = cm
+	# A route can have open water in one place and ice in another.
+	var im: ShaderMaterial = wm.duplicate()
+	im.shader = load("res://scene/real/real_ice.gdshader")
+	_ice_material = im
+	var icm: ShaderMaterial = im.duplicate()
+	_ice_creek_material = icm
+	var wood := ShaderMaterial.new()
+	wood.shader = load("res://scene/real/real_wood.gdshader")
+	wood.set_shader_parameter("snow", 1.0 if kind_water == "ice" else 0.0)
+	_wood_material = wood
 
 
 ## Is the water frozen here? A winter stretch of a route (ice biome) or the
@@ -955,7 +961,7 @@ func _add_flora(root: Node3D, placed: Dictionary, z0: float, fl: RealFlora) -> v
 			_flora_band(root, mi, xfs, tints, idx, mid, fl)
 
 
-func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3, fl: RealFlora) -> void:
+func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3, fl: RealFlora, tree_far := RealFlora.TREE_FAR) -> void:
 	var mm := _band_multimesh(fl.meshes[mi], xfs, tints, idx, mid)
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
@@ -966,18 +972,21 @@ func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Co
 		var far := MultiMeshInstance3D.new()
 		far.multimesh = fmm
 		far.position = mid
-		far.visibility_range_begin = maxf(RealFlora.TREE_DETAIL_RANGE - BAND_PAD, 0.0)
-		far.visibility_range_end = RealFlora.TREE_FAR + BAND_PAD
+		far.visibility_range_begin = maxf(RealFlora.detail_range - BAND_PAD, 0.0)
+		far.visibility_range_end = tree_far + BAND_PAD
 		root.add_child(far)
-		mmi.visibility_range_end = RealFlora.TREE_DETAIL_RANGE + BAND_PAD
+		mmi.visibility_range_end = RealFlora.detail_range + BAND_PAD
 		# Up close the shadow comes from the cheaper twin too: soft shadows hide the difference.
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var shade := MultiMeshInstance3D.new()
 		shade.multimesh = fmm
 		shade.position = mid
 		shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-		shade.visibility_range_end = RealFlora.TREE_DETAIL_RANGE + BAND_PAD
+		shade.visibility_range_end = maxf(RealFlora.detail_range, RealFlora.TREE_SHADOWS) + BAND_PAD
 		root.add_child(shade)
+		# Beyond that no tree shadows: far off they are specks, and every tree all
+		# round would be drawn again for the sun.
+		far.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	match fl.kinds[mi]:
 		"grass":
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

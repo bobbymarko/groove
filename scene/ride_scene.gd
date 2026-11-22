@@ -153,15 +153,20 @@ func _ready() -> void:
 	# True map (R42): in the realistic look, a route with its real ground fetched
 	# is ridden on that ground, along its real shape.
 	var dem: RouteDem = null
+	var cover: CoverGrid = null
 	if real and route != null and route.source != "" and RouteElevation.has_dem(route.source):
 		var geo := Geo.for_route(route)
 		dem = RouteDem.load_for(route.source, geo)
 		if dem.has_data():
-			var rtr := RouteTrail.new(route, geo, dem)
+			# Woods, fields and water square by square, where the lookup kept them (stage 2).
+			cover = CoverGrid.load_from(RouteLandCover.grid_path(route.source))
+			if not cover.is_empty():
+				cover.compute_levels(dem.height)
+			var rtr := RouteTrail.new(route, geo, dem, cover)
 			rtr.start = route_start
 			trail = rtr
 			map_mode = true
-	terrain = MapTerrain.new(trail, dem) if map_mode else TerrainStreamer.new(trail)
+	terrain = MapTerrain.new(trail, dem, cover) if map_mode else TerrainStreamer.new(trail)
 	if real:
 		if route != null:
 			terrain.biome_map = BiomeMap.for_route(route, route_start)
