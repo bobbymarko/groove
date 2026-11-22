@@ -9,7 +9,7 @@ RUNNER="$ROOT/build/GrooveDev.app"
 OUT="$2"; case "$OUT" in /*) ;; *) OUT="$ROOT/$OUT";; esac
 GODOT_BIN="$RUNNER/Contents/MacOS/Godot"
 "$GODOT_BIN" --headless --path "$ROOT" --import > "$ROOT/build/import.log" 2>&1 || true
-LOG="$ROOT/build/shot.log"; : > "$LOG"
+LOG="${SHOT_LOG:-$ROOT/build/shot.log}"; : > "$LOG"   # SHOT_LOG: a log of your own when several shots run at once
 # Preview rides run with the radio off so they never take over the real trainer.
 RADIO=(); [ "${3:-}" = "ride" ] && RADIO=(no-radio)
 open -W -n "$RUNNER" --args --path "$ROOT" --resolution 1280x800 --log-file "$LOG" \
