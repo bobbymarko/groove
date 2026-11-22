@@ -55,6 +55,7 @@ Manual hardware test procedures are in `tests/manual.md`.
 ## Assets and licences
 - Quaternius Stylized Nature MegaKit and Ultimate Nature Pack: CC0.
 - "Animated Zombie" by Quaternius (via Poly Pizza): CC BY 3.0, attribution required and given here.
+- Realistic-look textures (ground, rock, snow, bark, planks): photo-scanned PBR sets from Poly Haven and ambientCG, CC0, fetched at 1K by `tools/fetch-textures.sh` into `assets/textures/` (per-texture sources in `assets/textures/README.md`).
 - Route scenery: map data © OpenStreetMap contributors, available under the Open Database Licence (openstreetmap.org/copyright), fetched through the public Overpass API.
 - Route terrain: elevation from AWS Terrain Tiles (Registry of Open Data on AWS), built by Mapzen from sources including USGS 3DEP and NED, SRTM, GMTED2010, ETOPO1, Canada's CDEM, the EU-DEM (produced using Copernicus data and information funded by the European Union) and others; see github.com/tilezen/joerd/blob/master/docs/attribution.md.
 - Fonts: Departure Mono, Outfit and DM Sans (SIL Open Font License), and Pixel Operator (CC0).

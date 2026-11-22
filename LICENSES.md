@@ -15,3 +15,5 @@ The pixel art (wordmark, coach portrait, icon sprite sheet, menu background) is 
 - Outfit by The Outfit Project Authors — SIL Open Font License 1.1. Camp's interface font. https://github.com/Outfitio/Outfit-Fonts
 - DM Sans by The DM Sans Project Authors — SIL Open Font License 1.1 (assets/fonts/DMSans-LICENSE.txt). The ride HUD's font. https://github.com/googlefonts/dm-fonts
 - Quaternius, Universal Base Characters (Superhero male, Standard tier) — CC0 1.0. The rider. https://quaternius.com
+- Poly Haven photo-scanned PBR textures (Rocky Trail, Forest Ground 06, Forest Leaves 04, Grass Ground, Dense Sand, Gravelly Sand, Weathered Brown Planks; authors Amal Kumar, Charlotte Baglioni, Rob Tuytel, Dimitrios Savva, Dario Barresi, Rico Cilliers) — CC0 1.0. The Realistic look's ground and planks. https://polyhaven.com
+- ambientCG photo-scanned PBR textures (Rock 032, Rock 011, Snow 001, Snow 013, Bark 001, Bark 004, Bark 007) — CC0 1.0. The Realistic look's rock, snow and bark. https://ambientcg.com
