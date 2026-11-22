@@ -318,14 +318,15 @@ func _build_ribbon(c: Vector2) -> Dictionary:
 	var r2 := (RIBBON_R + 300.0) * (RIBBON_R + 300.0)
 	var i := 0
 	while i < n:
-		# One run of consecutive samples near the rider.
-		if rt.sample_xz(i).distance_squared_to(c) > r2:
+		# One run of consecutive samples near the rider (road a later pass
+		# repeats is drawn by the first pass only, or the two flicker).
+		if rt.sample_xz(i).distance_squared_to(c) > r2 or rt.is_repeat(i):
 			i += 1
 			continue
 		var rows := 0
 		var base := verts.size()
 		var z := rt.sample_z(i)
-		while i < n and rt.sample_xz(i).distance_squared_to(c) <= r2:
+		while i < n and rt.sample_xz(i).distance_squared_to(c) <= r2 and not rt.is_repeat(i):
 			var near_rider := rt.sample_xz(i).distance_to(c) < 160.0
 			var sub := 4 if near_rider else 1          # 0.5 m rows close by, 2 m beyond
 			for k in sub:
@@ -347,7 +348,7 @@ func _build_ribbon(c: Vector2) -> Dictionary:
 			for a in across:
 				var v := base + row * (across + 1) + a
 				var w := v + across + 1
-				idx.append_array([v, v + 1, w + 1, v, w + 1, w])
+				idx.append_array([v, w + 1, v + 1, v, w, w + 1])   # facing up
 	return {"kind": "ribbon", "verts": verts, "norms": norms, "uvs": uvs, "idx": idx,
 		"pair": _ground_pair(rt.nearest_far(c.x, c.y).x)}
 

@@ -9,6 +9,10 @@ extends Trail
 const STEP_R := 2.0          ## metres between path samples
 const SMOOTH := 4            ## moving average over ±4 samples (±8 m), twice
 const CELL := 32.0           ## nearest-point grid
+const SNAP_IN := 2.5          ## a later pass this close to an earlier one is the same road
+const SNAP_OUT := 5.0
+const SNAP_GAP := 30         ## ...but not the route's own last 60 m
+const H_SMOOTH := 12         ## ground profile: moving average over ±12 samples (±24 m), twice
 
 var route: Route
 var geo: Geo
@@ -19,6 +23,11 @@ var _px := PackedFloat32Array()
 var _pz := PackedFloat32Array()
 var _grid: Dictionary = {}   ## Vector2i cell -> PackedInt32Array of sample indices
 var _coarse: PackedInt32Array = []   ## every 25th sample, for far lookups
+## Height of each path sample, from the elevation data along the path (smoothed).
+## It depends only on where the sample is, so where the route runs over the same
+## road twice (Freewheel's start and finish) both passes share one height.
+var _h := PackedFloat32Array()
+var _repeat := PackedFloat32Array()  ## per sample: how fully it lies on an earlier pass (0..1)
 
 
 func _init(r: Route, g: Geo, dem: RouteDem = null) -> void:
@@ -47,20 +56,98 @@ func _init(r: Route, g: Geo, dem: RouteDem = null) -> void:
 			_px[i] = ax / c
 			_pz[i] = az / c
 	is_loop = Vector2(_px[0], _pz[0]).distance_to(Vector2(_px[n - 1], _pz[n - 1])) < 60.0
-	for i in n:
+	_build_grid()
+	var snaps := _snap_repeats()
+	_repeat = snaps[1]
+	_build_grid()
+	if dem != null and dem.has_data():
+		_h.resize(n)
+		for i in n:
+			_h[i] = dem.height(_px[i], _pz[i])
+		for pass_i in 2:
+			_h = _box(_h, H_SMOOTH)
+		# A repeated pass takes the first pass's heights too.
+		for i in n:
+			var at: float = snaps[0][i]
+			if at >= 0.0:
+				var j := int(at)
+				var hj := lerpf(_h[j], _h[mini(j + 1, n - 1)], at - j)
+				_h[i] = lerpf(_h[i], hj, snaps[1][i])
+
+
+func _build_grid() -> void:
+	_grid.clear()
+	_coarse.clear()
+	for i in _px.size():
 		var key := Vector2i(floori(_px[i] / CELL), floori(_pz[i] / CELL))
 		var cell: PackedInt32Array = _grid.get(key, PackedInt32Array())
 		cell.append(i)
 		_grid[key] = cell          # packed arrays are values: store the grown copy back
 		if i % 25 == 0:
 			_coarse.append(i)
-	if dem != null and dem.has_data():
-		# Sit the route's (smoothed GPX) heights on the elevation data.
-		var diffs: Array[float] = []
-		for i in range(0, n, 50):
-			diffs.append(dem.height(_px[i], _pz[i]) - r.ele_at(i * STEP_R))
-		diffs.sort()
-		datum = diffs[diffs.size() / 2]
+
+
+## Where the route runs over road it has already ridden (an out-and-back, a
+## loop's shared start and finish), two GPS lines lie a metre or so apart; each
+## would carve its own groove and the wheels would hop between them. Pull every
+## later pass onto the first one (fully within SNAP_IN, easing off by SNAP_OUT).
+## Returns [earlier sample position per sample (-1: none), pull weight].
+func _snap_repeats() -> Array:
+	var n := _px.size()
+	var at := PackedFloat32Array()
+	var wt := PackedFloat32Array()
+	at.resize(n)
+	wt.resize(n)
+	at.fill(-1.0)
+	for i in range(SNAP_GAP, n):
+		var p := Vector2(_px[i], _pz[i])
+		var best := SNAP_OUT * SNAP_OUT
+		var bq := Vector2.ZERO
+		var bj := -1.0
+		var cx := floori(p.x / CELL)
+		var cz := floori(p.y / CELL)
+		for gx in range(cx - 1, cx + 2):
+			for gz in range(cz - 1, cz + 2):
+				var cell: Variant = _grid.get(Vector2i(gx, gz))
+				if cell == null:
+					continue
+				for j in cell as PackedInt32Array:
+					if j + 1 >= i - SNAP_GAP:
+						continue
+					var a := Vector2(_px[j], _pz[j])
+					var ab := Vector2(_px[j + 1], _pz[j + 1]) - a
+					var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+					var q := a + ab * t
+					var d2 := p.distance_squared_to(q)
+					if d2 < best:
+						best = d2
+						bq = q
+						bj = j + t
+		if bj < 0.0:
+			continue
+		var w := 1.0 - smoothstep(SNAP_IN, SNAP_OUT, sqrt(best))
+		_px[i] = lerpf(p.x, bq.x, w)
+		_pz[i] = lerpf(p.y, bq.y, w)
+		at[i] = bj
+		wt[i] = w
+	return [at, wt]
+
+
+## Moving average over ±k samples (shorter at the ends), by running sums.
+static func _box(v: PackedFloat32Array, k: int) -> PackedFloat32Array:
+	var n := v.size()
+	var sums := PackedFloat64Array()
+	sums.resize(n + 1)
+	sums[0] = 0.0
+	for i in n:
+		sums[i + 1] = sums[i] + v[i]
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for i in n:
+		var lo := maxi(i - k, 0)
+		var hi := mini(i + k, n - 1)
+		out[i] = (sums[hi + 1] - sums[lo]) / float(hi - lo + 1)
+	return out
 
 
 ## Trail distance z -> (route metres, direction): loops wrap, others turn back.
@@ -87,8 +174,12 @@ func _xz(s: float) -> Vector2:
 
 
 func h_at(z: float) -> float:
-	var rs := _route_s(z)
-	return route.ele_at(maxf(rs.x, 0.0)) + datum
+	var s := maxf(_route_s(z).x, 0.0)
+	if _h.is_empty():
+		return route.ele_at(s) + datum
+	var f := minf(s, route.length) / STEP_R
+	var i := mini(int(f), _h.size() - 2)
+	return lerpf(_h[i], _h[i + 1], clampf(f - i, 0.0, 1.0))
 
 
 func x_at(z: float) -> float:
@@ -111,9 +202,13 @@ func heading_at(z: float) -> Vector3:
 	return (b - a).normalized()
 
 
+## Grade (%) the way the rider is going: from the same heights the ground shows,
+## so the trainer climbs what the screen climbs (and flips on the way back).
 func grade_at(z: float) -> float:
-	var rs := _route_s(z)
-	return route.grade_at(maxf(rs.x, 0.0)) * rs.y
+	if _h.is_empty():
+		var rs := _route_s(z)
+		return route.grade_at(maxf(rs.x, 0.0)) * rs.y
+	return clampf((h_at(z + 10.0) - h_at(z - 10.0)) / 20.0 * 100.0, -Route.MAX_GRADE, Route.MAX_GRADE)
 
 
 ## Signed curvature (1/m) in the ground plane; positive turns toward +x of the travel direction's left… as Trail: bends right positive.
@@ -132,27 +227,33 @@ func river_base(z: float) -> float:
 
 ## Nearest point of the path to (x, z) within `reach` metres:
 ## Vector3(trail z, signed lateral offset, 1) or Vector3(0, 0, 0) when none.
+## Measured to the path's segments, not its sample points, so a second pass of
+## the same road a few centimetres off never beats the line you are on.
 func nearest(x: float, z: float, reach: float) -> Vector3:
-	var best := reach * reach
-	var bi := -1
-	var r := int(ceil(reach / CELL))
+	var p := Vector2(x, z)
+	var best := reach
+	var out := Vector3.ZERO
+	var r := int(ceil((reach + STEP_R) / CELL))
 	var cx := floori(x / CELL)
 	var cz := floori(z / CELL)
+	var last := _px.size() - 1
 	for gx in range(cx - r, cx + r + 1):
 		for gz in range(cz - r, cz + r + 1):
 			var cell: Variant = _grid.get(Vector2i(gx, gz))
 			if cell == null:
 				continue
-			for i in cell as PackedInt32Array:
-				var dx := _px[i] - x
-				var dz := _pz[i] - z
-				var d2 := dx * dx + dz * dz
-				if d2 < best:
-					best = d2
-					bi = i
-	if bi < 0:
-		return Vector3.ZERO
-	return _refine(bi, x, z)
+			for j in cell as PackedInt32Array:
+				if j >= last:
+					continue
+				var dx := _px[j] - x
+				var dz := _pz[j] - z
+				if dx * dx + dz * dz > (best + STEP_R) * (best + STEP_R):
+					continue                   # its segment cannot be nearer
+				var hit := _on_segment(j, p)
+				if absf(hit.y) < best:
+					best = absf(hit.y)
+					out = hit
+	return out
 
 
 ## The nearest point however far (coarse search, then refined): Vector3(trail z, lateral, 1).
@@ -186,17 +287,26 @@ func _refine(i: int, x: float, z: float) -> Vector3:
 	for j in [i - 1, i]:
 		if j < 0 or j + 1 >= _px.size():
 			continue
-		var a := Vector2(_px[j], _pz[j])
-		var b := Vector2(_px[j + 1], _pz[j + 1])
-		var ab := b - a
-		var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
-		var q := a + ab * t
-		var d := p.distance_to(q)
-		if d < best:
-			best = d
-			var side := signf(ab.x * (p.y - a.y) - ab.y * (p.x - a.x))
-			out = Vector3((j + t) * STEP_R + start, d * (side if side != 0.0 else 1.0), 1.0)
+		var hit := _on_segment(j, p)
+		if absf(hit.y) < best:
+			best = absf(hit.y)
+			out = hit
 	return out
+
+
+## p projected onto segment j..j+1: Vector3(trail z, signed lateral, 1).
+func _on_segment(j: int, p: Vector2) -> Vector3:
+	var a := Vector2(_px[j], _pz[j])
+	var ab := Vector2(_px[j + 1], _pz[j + 1]) - a
+	var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 1e-6), 0.0, 1.0)
+	var d := p.distance_to(a + ab * t)
+	var side := signf(ab.x * (p.y - a.y) - ab.y * (p.x - a.x))
+	return Vector3((j + t) * STEP_R + start, d * (side if side != 0.0 else 1.0), 1.0)
+
+
+## Sample i lies on road an earlier pass already covers (draw that road once).
+func is_repeat(i: int) -> bool:
+	return i < _repeat.size() and _repeat[i] > 0.99
 
 
 func sample_count() -> int:
