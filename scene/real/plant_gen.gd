@@ -80,7 +80,12 @@ class Builder:
 		bent.append(bend.x); bent.append(bend.y); bent.append(bend.z)
 		return v.size() - 1
 
-	## Clockwise front faces, as Godot expects.
+	## A triangle whose corners come anticlockwise as seen from its front
+	## (stored clockwise, as Godot expects front faces). The tubes and blades
+	## once passed theirs the other way round: every trunk, limb and stem was
+	## inside out, so the bark showed the inside of its far wall, lit from the
+	## wrong side, and wood riding in a card surface (which turns a back
+	## face's normal round) took no sunlight at all and went black.
 	func tri(a: int, b: int, cc: int) -> void:
 		idx.append(a)
 		idx.append(cc)
@@ -169,8 +174,8 @@ static func tube(b: Builder, pts: PackedVector3Array, radii: PackedFloat32Array,
 		for s in sides:
 			var r0 := first + i * (sides + 1) + s
 			var r1 := r0 + sides + 1
-			b.tri(r0, r1, r0 + 1)
-			b.tri(r0 + 1, r1, r1 + 1)
+			b.tri(r0, r0 + 1, r1)
+			b.tri(r0 + 1, r1 + 1, r1)
 
 
 ## A blade or frond: a strip along pts, cross-section left edge, raised middle,
@@ -202,10 +207,10 @@ static func blade(b: Builder, pts: PackedVector3Array, side: Vector3, widths: Pa
 	for i in count - 1:
 		var r0 := first + i * 3
 		var r1 := r0 + 3
-		b.tri(r0, r1, r0 + 1)
-		b.tri(r0 + 1, r1, r1 + 1)
-		b.tri(r0 + 1, r1 + 1, r0 + 2)
-		b.tri(r0 + 2, r1 + 1, r1 + 2)
+		b.tri(r0, r0 + 1, r1)
+		b.tri(r0 + 1, r1 + 1, r1)
+		b.tri(r0 + 1, r0 + 2, r1 + 1)
+		b.tri(r0 + 2, r1 + 2, r1 + 1)
 
 
 
@@ -419,13 +424,15 @@ static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, need
 
 
 ## One spruce bough. Its line droops from the trunk and lifts again at the tip.
-## Close up (lod 0) it is a narrow tent of needles along that line, two side
-## sprays leaving it part way out with their outer edges hanging, a curtain of
-## twigs under the bough and under each spray, and a skirt across its tip: so
-## it has depth from every side and never shows as one flat mat. lod 1: one
-## broad flat card and the skirt. lod 2: the card alone. lod 3: a short inner
-## bough (the tent alone). Every die is thrown whether or not the bough is
-## drawn, so each version of a tree throws the same ones.
+## Close up (lod 0) a short bough is a narrow tent of needles along that line,
+## two side sprays leaving it part way out with their outer edges hanging, a
+## curtain of twigs under it and a skirt across its tip. A long one is built
+## of more, smaller pieces instead (_bough_long), so that no card shows the
+## atlas much past its sharpness: stretched over three or four metres a spray's
+## needles became slabs and a curtain's hanging twigs a picket fence.
+## lod 1: one broad flat card and the skirt. lod 2: the card alone. lod 3: a
+## short inner bough (the tent alone). Every die is thrown whether or not the
+## bough is drawn, so each version of a tree throws the same ones.
 static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, dir: Vector3, L: float, needle: Color,
 		u: float, lod: int, gap: float, draw: bool) -> void:
 	var side := dir.cross(Vector3.UP).normalized()
@@ -443,16 +450,21 @@ static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, d
 	var len: Array[float] = [rng.randf_range(0.48, 0.68), rng.randf_range(0.48, 0.68)]
 	if not draw:
 		return
+	var ao0 := 0.12 + 0.3 * minf(u, 1.0)
+	var bend := (dir * 0.55 + Vector3.UP * 0.75).normalized()
+	# The bough's line, by how far along it (0 at the trunk .. 1 at the tip).
+	var line := func(k: float) -> Vector3:
+		var sag := droop * (0.25 * k + 0.75 * k * k) - upturn * k * k * k * 0.6   # sags, then flicks up a little at the tip
+		return origin + dir * L * k + Vector3.UP * (rise * L * k - sag)
+	if lod == 0 and L > LONG_BOUGH:
+		_bough_long(leaf, line, dir, L, col, cell, hang_cell, hang, roll, ao0, bend, gap)
+		return
 	var close := lod == 0 or lod == 3
 	var segs := 3 if lod == 0 else 2
 	var hw := L * ((0.27 if lod == 0 else 0.42) if close else 0.55)
-	var ao0 := 0.12 + 0.3 * minf(u, 1.0)
-	var bend := (dir * 0.55 + Vector3.UP * 0.75).normalized()
 	var pts := PackedVector3Array()
 	for i in segs + 1:
-		var k := float(i) / float(segs)
-		var sag := droop * (0.25 * k + 0.75 * k * k) - upturn * k * k * k * 0.6   # sags, then flicks up a little at the tip
-		pts.append(origin + dir * L * k + Vector3.UP * (rise * L * k - sag))
+		pts.append(line.call(float(i) / float(segs)))
 	# Further off a bough is one flat card: rolled well over to one side or the
 	# other, so it shows a face (not an edge, a line with sky above and below)
 	# to an eye level with it.
@@ -480,9 +492,7 @@ static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, d
 	# Side sprays: the bough forks, and each fork's outer edge hangs lower than its inner one.
 	for s in 2:
 		var sgn := 1.0 if s == 0 else -1.0
-		var f := at[s] * float(segs)
-		var i0 := mini(int(f), segs - 1)
-		var o := pts[i0].lerp(pts[i0 + 1], f - float(i0))
+		var o: Vector3 = line.call(at[s])
 		var sdir := dir.rotated(Vector3.UP, sgn * turn[s])
 		var ls := L * len[s]
 		var sp := PackedVector3Array()
@@ -491,9 +501,74 @@ static func _bough(leaf: Builder, rng: RandomNumberGenerator, origin: Vector3, d
 			sp.append(o + sdir * ls * kk + Vector3.UP * ((rise - 0.12) * ls * kk - 0.3 * ls * kk * kk))
 		var ss := (sdir.cross(Vector3.UP).normalized() + Vector3.UP * 0.45 * sgn).normalized()
 		ribbon(leaf, sp, ss, L * 0.2, 0.0, SPRUCE_B if cell == SPRUCE_A else SPRUCE_A, col.darkened(0.06), ao1, 1.0, bend, 0.3, 1.0)
-		if L > 1.4:
-			curtain(leaf, sp[0].lerp(sp[1], 0.5), sp[2], Vector3.DOWN * hang * 0.7, Vector3.DOWN * hang * 0.55, HANG_B if hang_cell == HANG_A else HANG_A, hc,
-					ao1 * 0.85, ao1 * 0.7, (sdir * 0.8 + Vector3.UP * 0.3).normalized(), 0.5)
+
+
+const LONG_BOUGH := 1.7          ## a bough longer than this is built of smaller pieces close up (metres)
+
+## A long bough close up, as a real one grows: a bare woody axis out from the
+## trunk; at its end a spray of needles a metre or two long (a tent, as a short
+## bough is); side sprays about a metre long leaving the axis alternately, each
+## tilted and drooping its own way; under the axis short curtains of hanging
+## twigs, each swung a little off the bough's line so they never stand in one
+## plane; and a narrow skirt across the tip. No piece shows an atlas cell more
+## than about two metres across. `line`: the bough's line (0 trunk .. 1 tip).
+## It throws its own dice (the far versions of the tree throw none of them).
+static func _bough_long(leaf: Builder, line: Callable, dir: Vector3, L: float, col: Color, cell: int, hang_cell: int,
+		hang: float, roll: float, ao0: float, bend: Vector3, gap: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector3(L, hang, roll))
+	var side := dir.cross(Vector3.UP).normalized()
+	var other := SPRUCE_B if cell == SPRUCE_A else SPRUCE_A
+	var other_hang := HANG_B if hang_cell == HANG_A else HANG_A
+	var hc := col.darkened(0.12)
+	var ao1 := lerpf(ao0, 1.0, 0.5)
+	# The end spray, and the wood that carries it.
+	var T := clampf(L * 0.55, 1.3, 2.1)
+	var k0 := 1.0 - T / L
+	var tip := PackedVector3Array([line.call(k0), line.call(k0 + (1.0 - k0) * 0.5), line.call(1.0)])
+	ribbon(leaf, tip, (side + Vector3.UP * roll).normalized(), T * 0.29, T * 0.12, cell, col, lerpf(ao0, 1.0, k0), 1.0, bend, k0, 1.0)
+	var first := leaf.v.size()
+	tube(leaf, PackedVector3Array([line.call(0.0), line.call(k0 + 0.04)]), PackedFloat32Array([0.035 + L * 0.006, 0.02]), 3, Color(0.2, 0.15, 0.11), 0.35, 0.0)
+	leaf.mark_solid(first)
+	# Side sprays, alternately left and right, shorter toward the tip.
+	var count := clampi(roundi((L - T * 0.5) / 0.8), 2, 5)
+	for s in count:
+		var k := lerpf(0.14, k0 + 0.12, (float(s) + rng.randf_range(0.15, 0.85)) / float(count))
+		var sgn := 1.0 if s % 2 == 0 else -1.0
+		var o: Vector3 = line.call(k)
+		var along: Vector3 = (line.call(k + 0.05) - o).normalized()
+		var sdir := dir.rotated(Vector3.UP, sgn * rng.randf_range(0.6, 1.05))
+		var ls := clampf((L * (1.0 - k) * 0.6 + 0.45) * rng.randf_range(0.8, 1.2), 0.7, 1.7)
+		var slope := along.y - rng.randf_range(0.05, 0.3)
+		var sag := rng.randf_range(0.15, 0.4)
+		var sp := PackedVector3Array()
+		for i in 3:
+			var kk := float(i) * 0.5
+			sp.append(o + sdir * ls * kk + Vector3.UP * (slope * ls * kk - sag * ls * kk * kk))
+		# (its outer edge hangs lower than its inner one, by its own amount)
+		var ss := (sdir.cross(Vector3.UP).normalized() + Vector3.UP * sgn * rng.randf_range(0.15, 0.75)).normalized()
+		ribbon(leaf, sp, ss, ls * rng.randf_range(0.3, 0.38), 0.0, other if s % 2 == 0 else cell, _col(col.darkened(0.05), rng, 0.08, 1.0),
+				lerpf(ao0, 1.0, k * 0.7), 1.0, bend, k, 1.0)
+	# Curtains of hanging twigs under the axis.
+	var hb := (dir * 0.8 + Vector3.UP * 0.3).normalized()
+	var hung := clampi(int(ceil(L * 0.78 / 1.5)), 2, 3)
+	for c in hung:
+		var ka := lerpf(0.2, 1.0, float(c) / float(hung))
+		var kb := lerpf(0.2, 1.0, float(c + 1) / float(hung))
+		var pa: Vector3 = line.call(ka)
+		var pb: Vector3 = line.call(kb)
+		var mid := (pa + pb) * 0.5
+		var half := ((pb - pa) * 0.5 * rng.randf_range(0.85, 1.1)).rotated(Vector3.UP, rng.randf_range(-0.45, 0.45))
+		var h := clampf(hang * rng.randf_range(0.7, 1.1), 0.45, 1.05)
+		var k := (ka + kb) * 0.5
+		curtain(leaf, mid - half, mid + half, Vector3.DOWN * h, Vector3.DOWN * h * rng.randf_range(0.7, 1.0), hang_cell if c % 2 == 0 else other_hang, hc,
+				lerpf(ao0, 1.0, k) * 0.9, lerpf(ao0, 1.0, k) * 0.75, hb, 0.4)
+	# The skirt across the tip, facing out; long enough to reach the boughs below.
+	var sk: Vector3 = line.call(1.0 - 0.2 * T / L)
+	var sw := side * minf(L * 0.4, 0.7)
+	var fall := clampf(maxf(hang * 1.15, gap * 1.25), 0.5, 1.15)
+	var drop := Vector3.DOWN * fall + dir * fall * 0.18
+	curtain(leaf, sk + sw, sk - sw, drop, drop, other_hang, hc, 0.95, 0.75, (dir * 0.75 + Vector3.UP * 0.45).normalized(), 0.5)
 
 
 ## A young spruce, 1 to 3.5 m: bushy, boughs to the ground, a long leader.
@@ -1076,6 +1151,8 @@ static func atlas_cells() -> Array:
 	var out := []
 	out.resize(ATLAS_COLS * ATLAS_ROWS)
 	var rng := RandomNumberGenerator.new()
+	var made: Array[Builder] = []
+	made.resize(out.size())
 	for cell in out.size():
 		rng.seed = 9100 + cell
 		var b: Builder = null
@@ -1094,10 +1171,14 @@ static func atlas_cells() -> Array:
 				b = Builder.new()
 				_bare2(b, rng, Vector2.ZERO, Vector2(0.0, 1.0), 0.36, 0.011, 4)
 				_fit(b)
-			SPRUCE_A, SPRUCE_B:
+			SPRUCE_A:
 				b = _cell_spruce(rng)
-			HANG_A, HANG_B:
+			HANG_A:
 				b = _cell_hang(rng)
+			SPRUCE_B, HANG_B:
+				# The A cell's mirror image: these four hold far more needles than any
+				# other cell, and building them is most of the atlas's time.
+				b = _mirrored(made[cell - 1])
 			GRASS_A, GRASS_B:
 				b = _cell_grass(rng)
 			FERN_A:
@@ -1125,11 +1206,27 @@ static func atlas_cells() -> Array:
 				for i in 3:
 					_bare2(b, rng, Vector2(rng.randf_range(-0.05, 0.05), 0.0), Vector2(0.0, 1.0).rotated((float(i) - 1.0) * 0.45), 0.3, 0.008, 3, 0.6)
 				_fit(b)
+		made[cell] = b
 		if b != null and not b.empty():
 			var m := ArrayMesh.new()
 			m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, b.arrays())
 			out[cell] = m
 	return out
+
+
+## A cell's shapes mirrored left to right (the atlas is drawn two-sided, so the turned triangles do not matter).
+static func _mirrored(src: Builder) -> Builder:
+	var b := Builder.new()
+	b.v = src.v.duplicate()
+	b.n = src.n.duplicate()
+	for i in b.v.size():
+		b.v[i].x = -b.v[i].x
+		b.n[i].x = -b.n[i].x
+	b.c = src.c
+	b.uv = src.uv
+	b.uv2 = src.uv2
+	b.idx = src.idx
+	return b
 
 
 ## Scale and shift a cell's shapes to fill it (a small margin kept).
@@ -1333,12 +1430,13 @@ static func _needles2(b: Builder, rng: RandomNumberGenerator, a: Vector2, c: Vec
 		return
 	var d := seg / L
 	var count := int(L / step) + 1
-	var bw := 0.0045
+	var bw := length * 0.17
 	for i in count:
 		var q := a + d * L * (float(i) + rng.randf()) / float(count)
 		for s: float in [-1.0, 1.0]:
-			var nd := d.rotated(s * rng.randf_range(0.55, 1.05))
-			var ln := length * rng.randf_range(0.7, 1.15)
+			# (every needle at its own rake and length: a brush, not a comb)
+			var nd := d.rotated(s * rng.randf_range(0.4, 1.2))
+			var ln := length * rng.randf_range(0.55, 1.2)
 			var z := rng.randf() * 0.05
 			var g := grey * rng.randf_range(0.7, 1.05) * (0.8 + 4.0 * z)
 			var col := Color(g * 0.95, g, g * 0.9, _leaf_a(0.45 + 11.0 * z))
@@ -1350,37 +1448,44 @@ static func _needles2(b: Builder, rng: RandomNumberGenerator, a: Vector2, c: Vec
 			b.tri(i0, i0 + 1, i0 + 2)
 
 
-## A spruce twig with its needles and (depth > 0) side twigs; `curl` bends it as it goes.
-static func _spruce_twig(b: Builder, rng: RandomNumberGenerator, o: Vector2, dir: Vector2, L: float, depth: int, curl: float, grey: float) -> void:
+## A spruce twig with its needles and (depth > 0) side twigs; `curl` bends it
+## as it goes. Short needles, close set, on a thin dark core of inner needles
+## (a broad pale core under long needles read, magnified, as flat slats with a
+## herringbone of twigs). Side twigs leave at `fork` radians, give or take a
+## quarter, one every `every` of the twig's length or so (close enough that
+## neighbours' needles meet: the mass is needles, with twigs barely showing);
+## uneven in length, and now and then one is missing.
+static func _spruce_twig(b: Builder, rng: RandomNumberGenerator, o: Vector2, dir: Vector2, L: float, depth: int, curl: float, grey: float, fork := 0.72, every := 0.07) -> void:
 	var segs := 4
 	var pts := PackedVector2Array([o])
 	var d := dir
 	var q := o
 	for i in segs:
-		d = d.rotated(curl + rng.randf_range(-0.05, 0.05))
+		d = d.rotated(curl + rng.randf_range(-0.07, 0.07))
 		q += d * L / float(segs)
 		pts.append(q)
-	_body2(b, pts, 0.034 if depth > 0 else 0.022, 0.012, grey * 0.62)
-	_twig2(b, pts, 0.0035 + 0.0025 * depth, 0.0018, -0.01, 0.85)
+	_body2(b, pts, 0.012 if depth > 0 else 0.009, 0.004, grey * 0.45)
+	_twig2(b, pts, 0.003 + 0.002 * depth, 0.0016, -0.01, 0.85)
 	for i in segs:
 		# New growth at the tips is paler.
-		_needles2(b, rng, pts[i], pts[i + 1], 0.03, 0.0085, grey * lerpf(0.82, 1.12, float(i) / float(segs - 1)))
+		_needles2(b, rng, pts[i], pts[i + 1], 0.02, 0.0052, grey * lerpf(0.82, 1.12, float(i) / float(segs - 1)))
 	if depth <= 0:
 		return
-	var t := 0.22
-	var side := 1.0
-	while t < 0.9:
+	var t := rng.randf_range(0.1, 0.18)
+	var side := 1.0 if rng.randf() < 0.5 else -1.0
+	while t < 0.92:
 		var f := t * float(segs)
 		var i0 := mini(int(f), segs - 1)
 		var p := pts[i0].lerp(pts[i0 + 1], f - float(i0))
 		var td := (pts[i0 + 1] - pts[i0]).normalized()
-		_spruce_twig(b, rng, p, td.rotated(side * rng.randf_range(0.6, 0.85)), L * 0.42 * (1.0 - t * 0.55), depth - 1, -side * 0.04, grey)
+		if rng.randf() > 0.1:
+			_spruce_twig(b, rng, p, td.rotated(side * fork * rng.randf_range(0.75, 1.25)), L * 0.44 * (1.0 - t * 0.55) * rng.randf_range(0.6, 1.2), depth - 1, -side * 0.05, grey, fork)
 		side = -side
-		t += rng.randf_range(0.13, 0.19)
+		t += every * rng.randf_range(0.7, 1.3)
 
 
 ## A spruce bough from above: a stem with side twigs raked forward, longest a
-## third of the way out, all in needles.
+## third of the way out, all in needles; the twigs uneven, so its outline is ragged.
 static func _cell_spruce(rng: RandomNumberGenerator) -> Builder:
 	var b := Builder.new()
 	var bow := rng.randf_range(-0.03, 0.03)
@@ -1388,33 +1493,40 @@ static func _cell_spruce(rng: RandomNumberGenerator) -> Builder:
 	for i in 9:
 		var k := float(i) / 8.0
 		main.append(Vector2(bow * sin(PI * k), 0.97 * k))
-	_body2(b, main, 0.045, 0.015, 0.6)
-	_twig2(b, main, 0.011, 0.003, -0.012, 0.85)
+	_body2(b, main, 0.016, 0.005, 0.45)
+	_twig2(b, main, 0.009, 0.003, -0.012, 0.85)
 	for i in 8:
-		_needles2(b, rng, main[i], main[i + 1], 0.032, 0.009, 0.9)
+		_needles2(b, rng, main[i], main[i + 1], 0.022, 0.0055, 0.9)
 	var t := 0.05
 	var s := 1.0
 	while t < 0.95:
-		var reach := 0.47 * pow(1.0 - t, 0.7) * smoothstep(-0.3, 0.12, t) + 0.025
-		var ang := lerpf(1.1, 0.65, t)
+		var reach := (0.47 * pow(1.0 - t, 0.7) * smoothstep(-0.3, 0.12, t) + 0.025) * rng.randf_range(0.72, 1.05)
+		var ang := lerpf(1.1, 0.65, t) + rng.randf_range(-0.1, 0.1)
 		_spruce_twig(b, rng, Vector2(bow * sin(PI * t / 0.97), t), Vector2(0.0, 1.0).rotated(-s * ang), reach, 1, s * 0.07, rng.randf_range(0.82, 1.0))
 		s = -s
-		t += rng.randf_range(0.03, 0.043)
+		t += rng.randf_range(0.026, 0.044)
 	_fit(b)
 	return b
 
 
-## The twigs hanging under a bough, from the side: the bough runs along the top.
+## The twigs hanging under a bough, from the side. No rail along the top (the
+## card hangs from a bough that is drawn by other cards, or from nothing at
+## all across a bough's tip, where a ruled top edge with evenly spaced twigs
+## under it read as a fence): the twigs start at uneven heights, stand unevenly
+## apart with gaps, hang to very different lengths, each a little its own way,
+## and their side twigs hang too.
 static func _cell_hang(rng: RandomNumberGenerator) -> Builder:
 	var b := Builder.new()
 	var top := 0.955
-	_twig2(b, PackedVector2Array([Vector2(-0.48, top), Vector2(0.0, top - 0.01), Vector2(0.48, top)]), 0.008, 0.005, -0.012, 0.85)
-	_needles2(b, rng, Vector2(-0.48, top), Vector2(0.48, top), 0.03, 0.01, 0.9)
-	var x := -0.44
+	var x := -0.45 + rng.randf() * 0.04
 	while x < 0.46:
-		var reach := rng.randf_range(0.3, 0.88) * (1.0 - 0.5 * absf(x))
-		_spruce_twig(b, rng, Vector2(x, top), Vector2(rng.randf_range(-0.12, 0.25), -1.0).normalized(), reach, 1, rng.randf_range(-0.03, 0.03), rng.randf_range(0.8, 1.0))
-		x += rng.randf_range(0.05, 0.085)
+		if rng.randf() < 0.1:
+			x += rng.randf_range(0.05, 0.1)        # a gap
+			continue
+		var y0 := top - rng.randf() * rng.randf() * 0.2
+		var reach := lerpf(0.16, 0.9, pow(rng.randf(), 1.3)) * (1.0 - 0.45 * absf(x))
+		_spruce_twig(b, rng, Vector2(x, y0), Vector2(rng.randf_range(-0.3, 0.3), -1.0).normalized(), reach, 1, rng.randf_range(-0.07, 0.07), rng.randf_range(0.8, 1.0), 0.4, 0.085)
+		x += rng.randf_range(0.014, 0.05)
 	_fit(b, 0.47, 0.96, true)
 	return b
 
@@ -1643,17 +1755,25 @@ static func _cell_fireweed(rng: RandomNumberGenerator) -> Builder:
 	return b
 
 
-## Fallen leaves lying on the ground, from above: thick in the middle of the
-## patch, strays toward its edge; each a little different in colour (the
-## card's own colour multiplies it: gold to brown).
+## Fallen leaves lying on the ground, from above: a few loose clumps of
+## different sizes off the patch's middle and strays between them, so the
+## patch has no outline of its own (one even disc of leaves read as a mat
+## laid on the grass); each leaf a little different in colour (the card's own
+## colour multiplies it: gold to brown).
 static func _cell_litter(rng: RandomNumberGenerator) -> Builder:
 	var b := Builder.new()
 	var tones: Array[Color] = [Color(1.0, 1.0, 1.0), Color(1.0, 0.85, 0.55), Color(0.7, 0.5, 0.36), Color(1.0, 0.62, 0.34), Color(0.45, 0.36, 0.3), Color(0.85, 0.95, 0.6),
 			Color(0.6, 0.42, 0.3), Color(0.8, 0.7, 0.5)]
-	for i in 70:
-		var a := rng.randf() * TAU
-		var r := pow(rng.randf(), 0.7) * 0.43
-		var p := Vector2(cos(a) * r, 0.5 + sin(a) * r)
+	var clumps: Array[Vector3] = []          # x, y, radius
+	for k in 4:
+		clumps.append(Vector3(rng.randf_range(-0.27, 0.27), 0.5 + rng.randf_range(-0.27, 0.27), rng.randf_range(0.07, 0.2)))
+	for i in 60:
+		var p := Vector2(rng.randf_range(-0.4, 0.4), rng.randf_range(0.1, 0.9))     # a stray
+		if i < 46:
+			var c := clumps[rng.randi() % clumps.size()]
+			var a := rng.randf() * TAU
+			var r := pow(rng.randf(), 0.8) * c.z
+			p = Vector2(clampf(c.x + cos(a) * r, -0.41, 0.41), clampf(c.y + sin(a) * r, 0.09, 0.91))
 		_leaf2(b, rng, p, Vector2.from_angle(rng.randf() * TAU), rng.randf_range(0.04, 0.068), rng.randf_range(0.015, 0.024), tones[rng.randi() % tones.size()])
 	return b
 
@@ -1845,8 +1965,8 @@ static func ribbed_tube(b: Builder, pts: PackedVector3Array, radii: PackedFloat3
 		for s in sides:
 			var r0 := first + i * (sides + 1) + s
 			var r1 := r0 + sides + 1
-			b.tri(r0, r1, r0 + 1)
-			b.tri(r0 + 1, r1, r1 + 1)
+			b.tri(r0, r0 + 1, r1)
+			b.tri(r0 + 1, r1 + 1, r1)
 
 
 ## Column points rising from `base` to `top`, with a rounded crown.

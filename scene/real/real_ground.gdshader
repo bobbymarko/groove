@@ -353,7 +353,7 @@ void fragment() {
 				vec3 rn;
 				float rr;
 				float rh;
-				rock_surface(wpos, dwx, dwy, wn, dist, rock_tint, vec3(0.0, 1.0, 0.0), rock_moss, rock_snow * snowy, ra, rn, rr, rh);
+				rock_surface(wpos, dwx, dwy, wn, dist, rock_tint, vec3(0.0, 1.0, 0.0), rock_moss, rock_snow * snowy, 1000.0, 10.0, ra, rn, rr, rh);
 				float k = height_blend(s.h, rh, rock * (1.0 - trail), 0.15);
 				s.col = mix(s.col, ra, k);
 				n_near = normalize(mix(n_near, rn, k));

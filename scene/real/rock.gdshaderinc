@@ -102,8 +102,15 @@ float rock_hash(float x) {
 // outside any branch, n0: world normal, dist: metres from the eye, tint: the
 // biome's rock colour, bed: the direction the beds stack along (up for a bank;
 // tilted per boulder), moss 0..1, snow 0..1.
+// size: how big the rock is, in metres (a bank or cliff: big). The shapes of
+// the height field are 10 m and 2.3 m across: on a stone smaller than a shape
+// the whole stone sits at one spot of it, so it would take that spot's slope
+// as one tilt of all its normals (a face in full sun turned from the light:
+// pure black) and that spot's depth as its colour (a whole stone "in a
+// crevice"). So each scale fades out on rocks smaller than it.
+// peak: the bare stone's brightest albedo (it rolls off toward this; 10: no limit).
 // Out: albedo (linear), world normal, roughness, height (0 crevice .. 1 ridge).
-void rock_surface(vec3 p, vec3 dpx, vec3 dpy, vec3 n0, float dist, vec3 tint, vec3 bed, float moss, float snow,
+void rock_surface(vec3 p, vec3 dpx, vec3 dpy, vec3 n0, float dist, vec3 tint, vec3 bed, float moss, float snow, float size, float peak,
 		out vec3 alb, out vec3 nrm, out float rough, out float hgt) {
 	vec3 w = pow(abs(n0), vec3(4.0));
 	w /= (w.x + w.y + w.z);
@@ -117,6 +124,8 @@ void rock_surface(vec3 p, vec3 dpx, vec3 dpy, vec3 n0, float dist, vec3 tint, ve
 		hgt = n1;
 		return;
 	}
+	float ka = smoothstep(0.4, 2.0, size);      // the 10 m shapes' share on a rock this size
+	float kb = smoothstep(0.1, 0.7, size);      // the 2.3 m shapes'
 	float fk = smoothstep(10.0, 1.5, dist);     // the finest grain, near only
 	float ck = smoothstep(60.0, 12.0, dist);    // the fine scale
 	RockTri A = rock_tri(p, w, 0.1, dpx, dpy);
@@ -142,15 +151,15 @@ void rock_surface(vec3 p, vec3 dpx, vec3 dpy, vec3 n0, float dist, vec3 tint, ve
 	}
 	float big = textureGrad(rock_detail, p.xz * 0.013 + p.y * 0.021, dpx.xz * 0.013, dpy.xz * 0.013).a;
 	float big2 = textureGrad(rock_detail, p.zx * 0.031 + p.y * 0.043 + 0.37, dpx.zx * 0.031, dpy.zx * 0.031).a;
-	hgt = A.h * 0.5 + B.h * 0.35 + mix(0.5, C.h, ck) * 0.15;
+	hgt = mix(0.5, A.h, ka) * 0.5 + mix(0.5, B.h, kb) * 0.35 + mix(0.5, C.h, ck) * 0.15;
 	// Beds: stacked along `bed`, warped by the big shapes; each its own tint, a dark joint at each.
 	float st = dot(p, bed) * 0.55 + A.h * 1.6 + big * 5.0 + big2 * 3.0;
 	float bd = rock_hash(floor(st));
 	float sf = fract(st);
 	float side = 1.0 - abs(dot(n0, bed));
-	alb = mix(tint * 0.45, tint * 0.95, clamp(A.c * 1.5 - 0.25, 0.0, 1.0));
+	alb = mix(tint * 0.45, tint * 0.95, clamp(mix(0.6, A.c, max(ka, 0.4)) * 1.5 - 0.25, 0.0, 1.0));
 	alb = mix(alb, mix(tint * vec3(1.1, 0.96, 0.8), tint * vec3(0.86, 0.92, 0.9), bd), smoothstep(0.42, 0.66, big) * 0.6);
-	alb *= mix(0.76, 1.14, bd) * (1.0 - 0.45 * smoothstep(0.12, 0.0, sf) * side);
+	alb *= mix(0.76, 1.14, bd) * (1.0 - 0.45 * smoothstep(0.12, 0.0, sf) * side * kb);
 	// Lichen on the raised parts only, pale specks of other minerals.
 	float enc = smoothstep(0.5, 0.64, big2 * 0.6 + B.c * 0.5) * smoothstep(0.35, 0.6, hgt);
 	vec3 lichen = mix(vec3(0.4, 0.42, 0.37), vec3(0.46, 0.4, 0.22), smoothstep(0.5, 0.62, A.c));
@@ -165,8 +174,14 @@ void rock_surface(vec3 p, vec3 dpx, vec3 dpy, vec3 n0, float dist, vec3 tint, ve
 	alb = mix(alb, vec3(0.06, 0.1, 0.025) * (0.6 + 0.8 * B.h), alg * 0.92);
 	// Crevices dark, ridges light; the scan's grain on top.
 	alb *= (0.22 + 1.35 * hgt) * mix(1.0, 0.65 + 0.7 * F.h, fk) * mix(1.0, grain, ck * 0.8);
-	float sgro = -smoothstep(0.14, 0.0, sf) * side * 1.2;
-	vec3 bump = A.n * 0.85 + B.n * 0.65 + C.n * 0.45 * ck + F.n * 0.5 * fk;
+	if (peak < 5.0) {
+		// Roll the brightest stone off toward `peak` (the hue kept), from half of it up.
+		float l = dot(alb, vec3(0.3333));
+		float knee = peak * 0.5;
+		alb *= l > knee ? (knee + (peak - knee) * (1.0 - exp(-(l - knee) / (peak - knee)))) / l : 1.0;
+	}
+	float sgro = -smoothstep(0.14, 0.0, sf) * side * 1.2 * kb;
+	vec3 bump = A.n * 0.85 * ka + B.n * 0.65 * kb + C.n * 0.45 * ck + F.n * 0.5 * fk;
 	nrm = normalize(n0 + bump * 1.5 * (1.0 - alg * 0.5) + bed * sgro * 0.3);
 	rough = mix(0.72, 0.9, hgt) + alg * 0.08;
 	// Snow on what faces up, first in the hollows.

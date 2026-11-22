@@ -259,7 +259,7 @@ func _scroll_field(centre: Vector2i) -> void:
 	var zs := range(old.y + FIELD, origin.y + FIELD) if origin.y > old.y else range(origin.y, old.y)
 	for z: int in zs:
 		_image.fill_rect(Rect2i(0, posmod(z, FIELD), FIELD, 1), Color(0, 0, 0, 0))
-		_rows.append(Vector3i(1, z, 0))
+		_rows.append(Vector3i(1, z, -(1 << 30)))       # from the field's low edge (x can be negative)
 
 
 ## Work out waiting rows, nearest the eye first, within this frame's time (a

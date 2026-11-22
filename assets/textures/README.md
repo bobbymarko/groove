@@ -13,7 +13,7 @@ Each slot folder holds:
 | `arm.jpg` | R = ambient occlusion, G = roughness, B = metallic (0 everywhere; none of these is metal). Import as linear data, not sRGB. Snow001 and Bark001 ship no AO map, so R is 255 there |
 | `height.jpg` | displacement, one 8-bit channel, 512 px on the long side (for height blending and parallax) |
 
-Albedo, normal and ARM are 1024 px (Bark001 is 512 x 1024: tile it at 1 : 2). Do not add `.import` files by hand; Godot makes them.
+Albedo, normal and ARM are 1024 px (Bark001 is 512 x 1024: tile it at 1 : 2). The `.import` files beside them are committed: they carry each picture's import settings (mipmaps, compression). Godot writes them; change a setting in the editor's Import dock rather than by hand. The tile sizes the shaders use are in `scene/real/surface_tex.gd` (the trail gravel is drawn finer than its scanned size, 1.25 m, so it reads as a ridden gravel path).
 
 ## Slots
 

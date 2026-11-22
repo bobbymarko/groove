@@ -20,7 +20,7 @@ const BIOMES := {
 		"bush": 0.6, "rock": Color(0.4, 0.39, 0.37), "rocks": 0.6, "moss": 0.6,
 		"under": {"fern": 1.0, "fern_col": Color(0.11, 0.25, 0.055), "herb": 1.0, "herb_col": Color(0.2, 0.36, 0.08), "umbel": 0.7, "fireweed": 0.8,
 			"seed": 0.6, "seed_col": Color(0.4, 0.4, 0.17),      # grasses gone to seed, standing over the meadow
-			"sapling": 0.7, "young": 0.4, "shrub": 0.5, "thorn": 0.4, "log": 0.5, "stump": 0.3, "stick": 0.5, "litter": 0.25, "litter_col": Color(0.3, 0.2, 0.1), "stones": 0.5}},
+			"sapling": 0.7, "young": 0.4, "shrub": 0.5, "thorn": 0.4, "log": 0.5, "stump": 0.3, "stick": 0.5, "litter": 0.07, "litter_col": Color(0.3, 0.2, 0.1), "stones": 0.5}},
 	"autumn": {"range": 800.0, "range_scrub": Color(0.3, 0.22, 0.1), "water": "river", "ground": "grass", "snow": 0.0, "spruce": 0.2, "broad": 0.8, "bare": 0.05, "trees": 0.5,
 		"needle": Color(0.06, 0.14, 0.07), "bark": Color(0.25, 0.2, 0.16),
 		"leaves": [Color(0.75, 0.32, 0.05), Color(0.8, 0.55, 0.08), Color(0.55, 0.12, 0.04), Color(0.45, 0.45, 0.08)],
@@ -35,7 +35,7 @@ const BIOMES := {
 		"flowers": [Color(0.95, 0.93, 0.85), Color(0.95, 0.8, 0.12), Color(0.55, 0.35, 0.8), Color(0.85, 0.2, 0.15)], "flower_share": 0.25,
 		"bush": 0.6, "rock": Color(0.42, 0.41, 0.39), "rocks": 0.5, "moss": 0.7,
 		"under": {"fern": 0.6, "fern_col": Color(0.2, 0.36, 0.08), "herb": 1.0, "herb_col": Color(0.24, 0.42, 0.09), "umbel": 1.2,
-			"sapling": 0.7, "young": 0.4, "shrub": 0.5, "thorn": 0.4, "log": 0.5, "stump": 0.3, "stick": 0.6, "litter": 0.3, "litter_col": Color(0.4, 0.3, 0.18), "stones": 0.5}},
+			"sapling": 0.7, "young": 0.4, "shrub": 0.5, "thorn": 0.4, "log": 0.5, "stump": 0.3, "stick": 0.6, "litter": 0.15, "litter_col": Color(0.4, 0.3, 0.18), "stones": 0.5}},
 	# Sonoran desert, after Tucson: saguaros over palo verde, ocotillo, cholla,
 	# prickly pear, barrel cactus and creosote on decomposed-granite gravel,
 	# granite boulders, rugged mountains behind, a big clear sky and a high sun.
@@ -50,7 +50,7 @@ const BIOMES := {
 		"flowers": [Color(0.95, 0.93, 0.85)], "flower_share": 0.05,
 		"bush": 0.4, "rock": Color(0.42, 0.41, 0.39), "rocks": 0.4, "moss": 0.6,
 		"under": {"fern": 1.2, "bracken": 0.7, "fern_col": Color(0.14, 0.29, 0.06), "herb": 0.8, "herb_col": Color(0.22, 0.38, 0.085), "umbel": 0.5, "fireweed": 0.5,
-			"sapling": 0.9, "shrub": 0.3, "shrub_col": Color(0.15, 0.27, 0.07), "thorn": 0.3, "log": 0.5, "stump": 0.3, "stick": 0.6, "litter": 0.2, "litter_col": Color(0.34, 0.26, 0.12), "stones": 0.3}},
+			"sapling": 0.9, "shrub": 0.3, "shrub_col": Color(0.15, 0.27, 0.07), "thorn": 0.3, "log": 0.5, "stump": 0.3, "stick": 0.6, "litter": 0.07, "litter_col": Color(0.34, 0.26, 0.12), "stones": 0.3}},
 	"apocalypse": {"range": 900.0, "range_rock": Color(0.22, 0.2, 0.19), "range_scrub": Color(0.2, 0.19, 0.16), "water": "river", "water_tint": Color(0.05, 0.05, 0.03), "ground": "grass", "snow": 0.0, "spruce": 0.0, "broad": 0.0, "bare": 1.0, "trees": 0.35,
 		"bark": Color(0.18, 0.16, 0.14), "grass": Color(0.3, 0.27, 0.16), "grass_h": 0.4, "grass_blades": 8, "grass_density": 0.3,
 		"bush": 0.0, "rock": Color(0.3, 0.29, 0.28), "rocks": 1.0,
@@ -820,7 +820,8 @@ func _boulder(out: Dictionary, rng: RandomNumberGenerator, x: float, z: float, r
 		# Most are fist to head sized; one in six a small boulder of its own.
 		var big := rng.randf() < 0.17
 		var ss := s * rng.randf_range(0.3, 0.55) if big else rng.randf_range(0.06, 0.22) * (0.6 + 0.4 * s)
-		var sb := Basis(Vector3(rng.randf_range(-1.0, 1.0), rng.randf_range(0.2, 1.0), rng.randf_range(-1.0, 1.0)).normalized(), rng.randf() * TAU)
+		# (stones lie nearly the right way up: the mesh's flat cut and dark baked underside belong on the ground)
+		var sb := Basis(Vector3(rng.randf_range(-0.35, 0.35), rng.randf_range(0.9, 1.1), rng.randf_range(-0.35, 0.35)).normalized(), rng.randf() * TAU)
 		var pool := "rock" if big and ss > 0.28 else "stone"
 		if not _has(pool):
 			continue
@@ -1019,7 +1020,7 @@ func _undergrowth(out: Dictionary, rng: RandomNumberGenerator, area: float, pick
 				continue
 			if pool == "stone":
 				var s := rng.randf_range(0.035, 0.11) * (1.0 + 2.0 * pow(rng.randf(), 5.0))
-				var sb := Basis(Vector3(rng.randf_range(-1.0, 1.0), rng.randf_range(0.2, 1.0), rng.randf_range(-1.0, 1.0)).normalized(), rng.randf() * TAU)
+				var sb := Basis(Vector3(rng.randf_range(-0.35, 0.35), rng.randf_range(0.9, 1.1), rng.randf_range(-0.35, 0.35)).normalized(), rng.randf() * TAU)
 				_put(out, _pick(rng, pool), Transform3D(sb.scaled(Vector3(s, s * rng.randf_range(0.5, 0.9), s)), Vector3(p.x, float(ground.call(p.x, p.y)) - s * 0.15, p.y)), _tint(rng, 0.14))
 			elif pool == "litter":
 				var s := rng.randf_range(0.8, 1.7)
@@ -1084,7 +1085,7 @@ func add_rock(out: Dictionary, pos: Vector3, size: float, rng: RandomNumberGener
 	for k in rng.randi_range(1, 3):
 		var a := rng.randf() * TAU
 		var ss := size * rng.randf_range(0.18, 0.4)
-		var sb := Basis(Vector3(rng.randf_range(-1.0, 1.0), rng.randf_range(0.2, 1.0), rng.randf_range(-1.0, 1.0)).normalized(), rng.randf() * TAU)
+		var sb := Basis(Vector3(rng.randf_range(-0.35, 0.35), rng.randf_range(0.9, 1.1), rng.randf_range(-0.35, 0.35)).normalized(), rng.randf() * TAU)
 		# Against the boulder's foot, a little lower: the stream's bed falls away from it.
 		_put(out, _pick(rng, "stone"), Transform3D(sb.scaled(Vector3.ONE * ss), pos + Vector3(cos(a), 0.0, sin(a)) * size * rng.randf_range(0.8, 1.15) - Vector3.UP * size * 0.3), _tint(rng, 0.12))
 
