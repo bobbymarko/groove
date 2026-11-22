@@ -11,11 +11,10 @@ extends TerrainStreamer
 
 const TILE := 64.0
 const REACH := 704.0          ## tiles kept within this distance of the rider
-const FLORA_REACH := 330.0    ## tiles with plants (trees fade out by ~300 m)
+const FLORA_REACH := 448.0    ## tiles with plants (trees, as flat pictures, dither away over the last 60 m)
 const BED := 4.0              ## within this of the path the ground is the trail's bed
 const BLEND_OUT := 16.0       ## ...blending back to the real ground by here
-const THIN_TREES_AT := 150.0  ## half the trees fade out past this
-const DETAIL_RANGE := 50.0    ## close-up trees within this (a full circle of them, not a strip)
+const DETAIL_RANGE := 60.0    ## real trees within this, flat pictures beyond (a full circle of them, not a strip)
 const DECK_IN := 3.0          ## the trail's bed and ribbon run this far under each end of a bridge deck
 const FAR_IN := 640.0
 const FAR_OUT := 7000.0
@@ -32,6 +31,7 @@ var _ring: MeshInstance3D
 var _ring_water: MeshInstance3D
 var _ring_at := Vector2(INF, INF)
 var _rider := Vector2.ZERO
+var _rider_s := 0.0               ## the rider's distance along the trail
 var _first := true
 
 
@@ -44,17 +44,22 @@ func _init(t: RouteTrail, d: RouteDem, g: CoverGrid = null) -> void:
 
 func use_real_ground(kind: String, plants: RealFlora) -> void:
 	super(kind, plants)
-	RealFlora.set_detail_range(DETAIL_RANGE)
+	# Trees are gone before the tile that would bring them in can appear (a tile's corner is 45 m nearer than its middle).
+	RealFlora.set_ranges(DETAIL_RANGE, FLORA_REACH - 48.0)
 	if grid != null and grid.has_water() and _water_material == null:
 		_make_water_materials("river")
 
 
 func height(x: float, z: float, _t: Trail = null) -> float:
+	return _height_near(x, z, rt.nearest(x, z, BLEND_OUT))
+
+
+## The ground at (x, z), given the trail's nearest point n (RouteTrail.nearest).
+func _height_near(x: float, z: float, n: Vector3) -> float:
 	var h := dem.height(x, z)
 	if grid != null:
 		h = _wet(h, x, z)
-	var n := rt.nearest(x, z, BLEND_OUT)
-	if n.z == 0.0:
+	if n.z == 0.0 or absf(n.y) >= BLEND_OUT:
 		return h
 	# On a bridge the ground below is the river's; the deck carries the trail.
 	var keep := 1.0 - smoothstep(DECK_IN, DECK_IN + 3.0, rt.bridge_depth(n.x))
@@ -68,6 +73,30 @@ func height(x: float, z: float, _t: Trail = null) -> float:
 		groove = 0.09 * sin(PI * (a - TRAIL_HALF_WIDTH) / BANK_WIDTH)
 	var bed := rt.h_at(n.x) + groove
 	return lerpf(h, lerpf(bed, h, smoothstep(BED, BLEND_OUT, a)), keep)
+
+
+## For RealGrass (see TerrainStreamer.grass_at): real ground, the trail's
+## groove left out; no grass in water, thin grass on bare rock and snow.
+func grass_at(x: float, z: float) -> Vector4:
+	var n := rt.nearest(x, z, 30.0)
+	var ad := absf(n.y) if n.z > 0.0 else 30.0
+	var h := _height_near(x, z, n)
+	if ad < BLEND_OUT and rt.bridge_depth(n.x) <= 0.0:
+		h -= _groove(ad) * (1.0 - smoothstep(BED, BLEND_OUT, ad))
+	var sg: Dictionary = biome_map.segments[0]
+	if biome_map.segments.size() > 1:
+		# Away from the trail: the biome where the rider is (a wide search for every spot would cost too much).
+		sg = biome_map.owner(x, n.x if n.z > 0.0 else _rider_s)
+	var id: String = sg.id
+	var thick := float(RealFlora.BIOMES[id].grass_density)
+	if grid != null:
+		thick *= 1.0 - smoothstep(0.05, 0.2, grid.water_at(x, z))
+		var k := grid.kind_at(x, z)
+		if k == CoverGrid.BARREN or k == CoverGrid.SNOW:
+			thick *= 0.1
+	if n.z > 0.0 and rt.bridge_depth(n.x) > 0.0 and ad < 3.0:
+		thick = 0.0
+	return Vector4(h, ad, thick, float(maxi(_grass_ids.find(id), 0)))
 
 
 ## What the wheels roll on: the deck on a bridge, else the ground.
@@ -106,6 +135,7 @@ func _lod_for(d: float) -> float:
 func update_around(z: float) -> void:
 	var p := rt.position_at(z)
 	_rider = Vector2(p.x, p.z)
+	_rider_s = z
 	var c := Vector2i(floori(p.x / TILE), floori(p.z / TILE))
 	var r := int(ceil(REACH / TILE))
 	var want := {}
@@ -294,7 +324,7 @@ func _finish_tile(r: Dictionary) -> void:
 		root.add_child(wmi)
 	if r.has("plants"):
 		for id in r.plants:
-			_add_tile_flora(root, r.plants[id], floras.get(id, flora))
+			_add_tile_flora(root, r.plants[id], floras.get(id, flora), float(r.lod) <= 2.0)
 	add_child(root)
 	_tiles[key] = {"node": root, "lod": r.lod, "flora": r.flora}
 
@@ -406,25 +436,49 @@ static func _cover_plants(k: int, sg: Dictionary) -> Vector3:
 	return Vector3(1.0, float(sg.trees), mix)
 
 
-func _add_tile_flora(root: Node3D, placed: Dictionary, fl: RealFlora) -> void:
+## One tile's plants. Far tiles (built coarse; they are built again, finer,
+## before the rider is near) carry only the trees' flat pictures. In a near
+## tile each quarter gets the real versions it can need: the close-up only
+## beside the trail, the middle version and its shadow within their range of it.
+func _add_tile_flora(root: Node3D, placed: Dictionary, fl: RealFlora, near_tile: bool) -> void:
+	var pic_xfs: Array[Transform3D] = []
+	var pic_custom: Array[Color] = []
 	for mi in placed:
 		var xfs: Array[Transform3D] = placed[mi][0]
 		var tints: Array[Color] = placed[mi][1]
 		if xfs.is_empty():
 			continue
-		var mid := Vector3.ZERO
-		for t in xfs:
-			mid += t.origin
-		mid /= float(xfs.size())
-		if fl.far_meshes.has(mi) and xfs.size() > 1:
-			# Trees stand all round a map ride: every other one fades out early,
-			# so the far woods cost half (they still read as woods).
-			var all_way: Array = range(0, xfs.size(), 2)
-			var early: Array = range(1, xfs.size(), 2)
-			_flora_band(root, mi, xfs, tints, all_way, mid, fl)
-			_flora_band(root, mi, xfs, tints, early, mid, fl, THIN_TREES_AT)
-		else:
-			_flora_band(root, mi, xfs, tints, range(xfs.size()), mid, fl)
+		var tree := fl.picture_mesh != null and fl.picture_rows.has(mi)
+		if tree:
+			for i in xfs.size():
+				var c := tints[i]
+				c.a = float(fl.picture_rows[mi]) + 1.0
+				pic_xfs.append(xfs[i])
+				pic_custom.append(c)
+		if not near_tile and (tree or fl.kinds[mi] != "tree"):
+			continue
+		var cells: Dictionary = {}
+		for i in xfs.size():
+			var o := xfs[i].origin
+			var cell := Vector2i(floori(o.x / (TILE * 0.5)), floori(o.z / (TILE * 0.5)))
+			if not cells.has(cell):
+				cells[cell] = []
+			cells[cell].append(i)
+		for cell in cells:
+			var idx: Array = cells[cell]
+			var mid := Vector3.ZERO
+			for i in idx:
+				mid += xfs[i].origin
+			mid /= float(idx.size())
+			var n := rt.nearest(mid.x, mid.z, 160.0)
+			var off := absf(n.y) if n.z > 0.0 else 999.0       # this quarter's distance from the trail
+			if tree and off > RealFlora.detail_range + RealFlora.TREE_FADE * 0.5 + BAND_PAD:
+				continue
+			if not tree and off > RealFlora.SMALL_FAR + BAND_PAD:
+				continue
+			_flora_band(root, mi, xfs, tints, idx, mid, fl, off < RealFlora.NEAR_RANGE + RealFlora.NEAR_FADE * 0.5 + BAND_PAD,
+					off < RealFlora.SHADE_RANGE + RealFlora.SHADE_FADE * 0.5 + BAND_PAD)
+	_picture_band(root, pic_xfs, pic_custom, fl, near_tile)
 
 
 # --- the trail ribbon -------------------------------------------------------------

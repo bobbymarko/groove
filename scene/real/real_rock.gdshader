@@ -10,15 +10,20 @@ uniform float moss_amount = 0.0;
 varying vec3 lp;
 varying vec3 wn;
 varying float plant_d;
+varying float gone;
 
 void vertex() {
 	plant_d = plant_distance(MODEL_MATRIX);
+	gone = far_gone(MODEL_MATRIX[3].xyz, plant_d);
 	lp = VERTEX + MODEL_MATRIX[3].xyz * 0.37;
+	if (lod_gone(plant_d, gone)) {
+		VERTEX = vec3(0.0);
+	}
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
 void fragment() {
-	if (lod_drop(plant_d, FRAGCOORD.xy)) {
+	if (lod_drop(plant_d, gone, dither_moving(FRAGCOORD.xy, TIME, PROJECTION_MATRIX[3][3] > 0.5))) {
 		discard;
 	}
 	vec3 w = abs(wn);

@@ -1,6 +1,6 @@
 shader_type spatial;
 render_mode cull_disabled;
-// Leaves, needles, grass and flowers. Both sides use the authored normal (bent
+// Solid small leaves and petals (ocotillo, a barrel cactus's flowers). Both sides use the authored normal (bent
 // toward the crown's outside), light shines through (BACKLIGHT), baked AO from
 // COLOR.a darkens the inside of a crown, snow settles on what faces up.
 #include "res://scene/real/wind.gdshaderinc"
@@ -14,12 +14,18 @@ varying float ao;
 varying vec3 tint;
 varying vec3 wn;
 varying float plant_d;
+varying float gone;
 varying vec3 wp;
 
 void vertex() {
 	plant_d = plant_distance(MODEL_MATRIX);
 	vec3 origin = MODEL_MATRIX[3].xyz;
-	VERTEX += wind_offset(origin, UV2.x, UV2.y, TIME) * sway;
+	gone = far_gone(origin, plant_d);
+	if (lod_gone(plant_d, gone)) {
+		VERTEX = vec3(0.0);
+	} else {
+		VERTEX += wind_offset(origin, UV2.x, UV2.y, TIME) * sway * sway_at(plant_d);
+	}
 	ao = COLOR.a;
 	tint = INSTANCE_CUSTOM.a > 0.0 ? INSTANCE_CUSTOM.rgb : vec3(1.0);
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -27,7 +33,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (lod_drop(plant_d, FRAGCOORD.xy)) {
+	if (lod_drop(plant_d, gone, dither_moving(FRAGCOORD.xy, TIME, PROJECTION_MATRIX[3][3] > 0.5))) {
 		discard;
 	}
 	if (!FRONT_FACING) {

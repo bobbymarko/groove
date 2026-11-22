@@ -6,29 +6,60 @@ uniform float wind_strength = 1.0;
 global uniform float rain_wet;   // 0 dry .. 1 soaked, eased by RealRain
 global uniform vec3 eye_pos;     // the rider's eye, for per-plant level of detail (same in shadow passes)
 
-// Level of detail, per plant: a tree's close-up and distant versions crossfade
-// by dithering (each keeps the pixels the other drops, so nothing doubles or
-// gaps), and everything dithers away toward its far end instead of popping.
-uniform int lod_role = 2;          // 0 close-up version, 1 distant version, 2 the only version
-uniform float lod_range = 80.0;    // where close-up hands over to distant
-uniform float lod_fade = 20.0;     // metres the handover takes
+// Level of detail, per plant: each version of a plant (close-up, middle,
+// flat picture) is drawn between lod_in and lod_out metres from the eye, and
+// neighbours crossfade by dithering (each keeps the pixels the other drops, so
+// nothing doubles or gaps); everything dithers away toward far_end instead of
+// popping (lod_drop's h is dither_moving at the pixel). far_z (strip rides) also fades by distance along the trail, where
+// the ground itself ends.
+uniform float lod_in = 0.0;        // this version fades in around here (0: from the eye)
+uniform float lod_in_fade = 8.0;   // metres that handover takes
+uniform float lod_out = 100000.0;  // and hands over to the next around here
+uniform float lod_out_fade = 20.0;
 uniform float far_end = 300.0;     // beyond this the plant is gone
 uniform float far_fade = 60.0;
+uniform float far_z = 100000.0;    // gone this far ahead along +z as well (fades over far_fade)
+uniform float sway_end = 100000.0; // wind sway dies away over the 20 m before this
 
 float plant_distance(mat4 model) {
 	return distance(model[3].xyz, eye_pos);
 }
 
-bool lod_drop(float d, vec2 frag) {
-	float h = fract(52.9829189 * fract(dot(floor(frag), vec2(0.06711056, 0.00583715))));
-	float k = clamp((d - (lod_range - lod_fade * 0.5)) / lod_fade, 0.0, 1.0);
-	if (lod_role == 0) {
-		return h < k;
-	}
-	if (lod_role == 1 && h >= k) {
+// How far past its end a plant is, 0..1 (far_end by distance, far_z along the trail).
+float far_gone(vec3 origin, float d) {
+	float k = (d - (far_end - far_fade)) / far_fade;
+	k = max(k, (abs(origin.z - eye_pos.z) - (far_z - far_fade)) / far_fade);
+	return clamp(k, 0.0, 1.0);
+}
+
+// Wholly out of its range: the vertex shader folds the plant away to nothing.
+bool lod_gone(float d, float gone) {
+	return d < lod_in - lod_in_fade * 0.5 || d > lod_out + lod_out_fade * 0.5 || gone >= 1.0;
+}
+
+float dither(vec2 frag) {
+	return fract(52.9829189 * fract(dot(floor(frag), vec2(0.06711056, 0.00583715))));
+}
+
+// The same pattern shifted every frame, so the temporal upscaler averages a
+// crossfade into a smooth blend instead of a fixed screen-door. `still` (the
+// sun's shadow maps): keep it fixed, or shadows would shimmer.
+float dither_moving(vec2 frag, float t, bool still) {
+	return dither(frag + (still ? 0.0 : 5.588238 * floor(mod(t * 60.0, 64.0))));
+}
+
+bool lod_drop(float d, float gone, float h) {
+	if (h < clamp((d - (lod_out - lod_out_fade * 0.5)) / lod_out_fade, 0.0, 1.0)) {
 		return true;
 	}
-	return h < clamp((d - (far_end - far_fade)) / far_fade, 0.0, 1.0);
+	if (lod_in > 0.0 && h >= clamp((d - (lod_in - lod_in_fade * 0.5)) / lod_in_fade, 0.0, 1.0)) {
+		return true;
+	}
+	return h < gone;
+}
+
+float sway_at(float d) {
+	return 1.0 - smoothstep(sway_end - 20.0, sway_end, d);
 }
 
 vec3 wind_offset(vec3 origin, float h, float flutter, float t) {

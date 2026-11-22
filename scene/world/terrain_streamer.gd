@@ -60,6 +60,8 @@ var flora: RealFlora                ## the realistic look's plants and rocks (re
 ## ordinary ride; a route ride's looked-up scenery otherwise (R41).
 var biome_map: BiomeMap
 var floras: Dictionary = {}         ## biome id -> RealFlora
+var grass: RealGrass                ## the realistic look's meadow, following the eye
+var _grass_ids: Array[String] = []  ## the biomes it was given, in the order of the field's index
 var _ground_materials: Dictionary = {}   ## "a_b" ground ids -> ShaderMaterial
 var _ice_material: Material         ## frozen river / creek where a route's water is in winter
 var _ice_creek_material: Material
@@ -144,10 +146,11 @@ func _init(t: Trail) -> void:
 ## The realistic look's ground: one shader for field, trail and rock, fed the
 ## distance from the trail centre through UV.x. Call before the first update.
 func use_real_ground(kind: String, plants: RealFlora) -> void:
-	RealFlora.set_detail_range(RealFlora.TREE_DETAIL_RANGE)
 	real_ground = true
 	flora = plants
-	ahead_chunks = 16                 # built ~380 m out, beyond where trees fade in
+	ahead_chunks = 16                 # built ~380 m out; trees dither in a little nearer
+	# Woods stand on every slope in sight (flat pictures far off); ahead they end where the ground does.
+	RealFlora.set_ranges(RealFlora.TREE_DETAIL_RANGE, 1000.0, ahead_chunks * CHUNK_LEN - CHUNK_LEN)
 	var kind_water := str(plants.biome.get("water", ""))
 	water = kind_water != ""
 	if biome_map == null:
@@ -218,6 +221,38 @@ func use_real_ground(kind: String, plants: RealFlora) -> void:
 	mat.set_shader_parameter("noise_tex", tex)
 	mat.set_shader_parameter("noise_nrm", nrm)
 	_material = mat
+	# The meadow follows the eye (RealGrass) instead of being built into each chunk.
+	if grass == null and not OS.get_cmdline_user_args().has("nograss"):
+		_grass_ids = biome_map.ids()
+		grass = RealGrass.new(self, tex, _grass_ids)
+		add_child(grass)
+
+
+## For RealGrass: the ground at (x, z) as grass needs it. x: height with the
+## trail's groove left out (the grass shader puts it back, exactly), y: metres
+## from the trail's middle, z: how thick grass grows (0 none .. 1), w: which
+## biome's grass (index into the ids RealGrass was given).
+func grass_at(x: float, z: float) -> Vector4:
+	var ad := absf(x - trail.x_at(z))
+	var h := height(x, z) - _groove(ad)
+	var id := flora.biome_id
+	var index := 0
+	if biome_map.segments.size() > 1:
+		id = biome_map.owner(x, z).id
+		index = maxi(_grass_ids.find(id), 0)
+	var thick := float(RealFlora.BIOMES[id].grass_density)
+	if water:
+		thick *= smoothstep(1.02, 1.3, water_depth_u(x, z))
+	return Vector4(h, minf(ad, 60.0), thick, float(index))
+
+
+## The groomed groove with a small bank each side, by distance from the trail's middle.
+static func _groove(ad: float) -> float:
+	if ad < TRAIL_HALF_WIDTH:
+		return -GROOVE_DEPTH * (1.0 - pow(ad / TRAIL_HALF_WIDTH, 2.0))
+	if ad < TRAIL_HALF_WIDTH + BANK_WIDTH:
+		return 0.09 * sin(PI * (ad - TRAIL_HALF_WIDTH) / BANK_WIDTH)
+	return 0.0
 
 
 ## The river at distance z: x = centre's offset from the trail (downhill side),
@@ -415,12 +450,7 @@ func _land(x: float, z: float, t: Trail = trail) -> float:
 	var d := x - tx
 	var ad := absf(d)
 	var base := t.h_at(z)
-	# Groomed groove with a small bank on each side.
-	var groove := 0.0
-	if ad < TRAIL_HALF_WIDTH:
-		groove = -GROOVE_DEPTH * (1.0 - pow(ad / TRAIL_HALF_WIDTH, 2.0))
-	elif ad < TRAIL_HALF_WIDTH + BANK_WIDTH:
-		groove = 0.09 * sin(PI * (ad - TRAIL_HALF_WIDTH) / BANK_WIDTH)
+	var groove := _groove(ad)
 	var off := smoothstep(TRAIL_HALF_WIDTH + BANK_WIDTH, TRAIL_HALF_WIDTH + SHOULDER, ad)
 	var rough_fade := smoothstep(SHOULDER, SHOULDER + 18.0, ad)
 	var rough := (_noise.get_noise_2d(x, z) * 2.2 + _detail.get_noise_2d(x, z) * 0.12) * rough_fade
@@ -940,15 +970,30 @@ func _finish_chunk(r: Dictionary) -> void:
 ## The realistic look's plants for one chunk. Each plant variant's instances
 ## are split into sideways bands (BAND_WIDTH) with a MultiMesh per band, sitting
 ## at the band's middle, so visibility ranges cull it tightly; each plant's
-## own fade and close-up/distant handover happen per plant in the shaders.
-func _add_flora(root: Node3D, placed: Dictionary, z0: float, fl: RealFlora) -> void:
+## own fade and the handover between its versions happen per plant in the
+## shaders. Trees beyond REAL_BANDS never come near the rider: they are flat
+## pictures only, every variant in one MultiMesh.
+const REAL_BANDS := 3
+
+func _add_flora(root: Node3D, placed: Dictionary, _z0: float, fl: RealFlora) -> void:
+	var pictures := [[[] as Array[Transform3D], [] as Array[Color]], [[] as Array[Transform3D], [] as Array[Color]], [[] as Array[Transform3D], [] as Array[Color]]]
 	for mi in placed:
 		var xfs: Array[Transform3D] = placed[mi][0]
 		var tints: Array[Color] = placed[mi][1]
+		var tree := fl.picture_mesh != null and fl.picture_rows.has(mi)
 		var bands: Dictionary = {}
 		for i in xfs.size():
 			var o := xfs[i].origin
 			var band := int(floor((o.x - trail.x_at(o.z)) / BAND_WIDTH))
+			var real := band >= -REAL_BANDS and band < REAL_BANDS
+			if tree:
+				var dst: Array = pictures[0 if real else (1 if band < 0 else 2)]
+				var c := tints[i]
+				c.a = float(fl.picture_rows[mi]) + 1.0
+				dst[0].append(xfs[i])
+				dst[1].append(c)
+				if not real:
+					continue
 			if not bands.has(band):
 				bands[band] = []
 			bands[band].append(i)
@@ -958,47 +1003,81 @@ func _add_flora(root: Node3D, placed: Dictionary, z0: float, fl: RealFlora) -> v
 			for i in idx:
 				mid += xfs[i].origin
 			mid /= float(idx.size())
-			_flora_band(root, mi, xfs, tints, idx, mid, fl)
+			_flora_band(root, mi, xfs, tints, idx, mid, fl, band == -1 or band == 0, band >= -2 and band <= 1)
+	for k in 3:
+		_picture_band(root, pictures[k][0], pictures[k][1], fl, k == 0)
 
 
-func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3, fl: RealFlora, tree_far := RealFlora.TREE_FAR) -> void:
-	var mm := _band_multimesh(fl.meshes[mi], xfs, tints, idx, mid)
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.position = mid
-	if fl.far_meshes.has(mi):
-		# Close-up tree near the camera, its cheaper twin beyond.
-		var fmm := _band_multimesh(fl.far_meshes[mi], xfs, tints, idx, mid)
-		var far := MultiMeshInstance3D.new()
-		far.multimesh = fmm
-		far.position = mid
-		far.visibility_range_begin = maxf(RealFlora.detail_range - BAND_PAD, 0.0)
-		far.visibility_range_end = tree_far + BAND_PAD
-		root.add_child(far)
-		mmi.visibility_range_end = RealFlora.detail_range + BAND_PAD
-		# Up close the shadow comes from the cheaper twin too: soft shadows hide the difference.
+## One plant variant's instances around `mid`. close: they can come within
+## reach of the rider (a tree's close-up version is only made then; small
+## plants only cast shadows then).
+func _flora_band(root: Node3D, mi: int, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3, fl: RealFlora, close: bool, shade_reach := true) -> void:
+	if fl.mid_meshes.has(mi):
+		var pictured := fl.picture_mesh != null
+		var hand := RealFlora.detail_range + RealFlora.TREE_FADE * 0.5 + BAND_PAD
+		var middle := _band_instance(fl.mid_meshes[mi], xfs, tints, idx, mid)
+		middle.visibility_range_begin = maxf(RealFlora.NEAR_RANGE - RealFlora.NEAR_FADE * 0.5 - BAND_PAD, 0.0)
+		middle.visibility_range_end = hand if pictured else RealFlora.TREE_FAR + BAND_PAD
+		middle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		middle.add_to_group("veg_mid")
+		root.add_child(middle)
+		# Near the rider the sun's shadow comes from the middle version (soft shadows
+		# hide the difference from the close-up), solid, never dithered by distance
+		# until the picture's shadow takes over (_picture_band).
+		if shade_reach:
+			var shade := _band_instance(fl.shade_meshes[mi], xfs, tints, idx, mid)
+			shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+			shade.visibility_range_end = (RealFlora.SHADE_RANGE + RealFlora.SHADE_FADE * 0.5 if pictured else 140.0) + BAND_PAD
+			shade.add_to_group("veg_shade")
+			root.add_child(shade)
+		if close:
+			var near := _band_instance(fl.meshes[mi], xfs, tints, idx, mid)
+			near.visibility_range_end = RealFlora.NEAR_RANGE + RealFlora.NEAR_FADE * 0.5 + BAND_PAD
+			near.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			near.add_to_group("veg_near")
+			root.add_child(near)
+		return
+	var mmi := _band_instance(fl.meshes[mi], xfs, tints, idx, mid)
+	mmi.visibility_range_end = RealFlora.SMALL_FAR + BAND_PAD
+	if not close:
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var shade := MultiMeshInstance3D.new()
-		shade.multimesh = fmm
-		shade.position = mid
-		shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-		shade.visibility_range_end = maxf(RealFlora.detail_range, RealFlora.TREE_SHADOWS) + BAND_PAD
-		root.add_child(shade)
-		# Beyond that no tree shadows: far off they are specks, and every tree all
-		# round would be drawn again for the sun.
-		far.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	match fl.kinds[mi]:
-		"grass":
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			mmi.visibility_range_end = RealFlora.GRASS_VISIBLE
-			mmi.visibility_range_end_margin = 10.0
-			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-		"tree":
-			if not fl.far_meshes.has(mi):
-				mmi.visibility_range_end = RealFlora.TREE_FAR + BAND_PAD
-		"rock", "bush":
-			mmi.visibility_range_end = RealFlora.SMALL_FAR + BAND_PAD
+	mmi.add_to_group("veg_small")
 	root.add_child(mmi)
+
+
+## Far trees as flat pictures: every variant in one MultiMesh (the row of the
+## picture atlas rides in each instance's custom data).
+func _picture_band(root: Node3D, xfs: Array[Transform3D], customs: Array[Color], fl: RealFlora, shadows: bool) -> void:
+	if xfs.is_empty():
+		return
+	var mid := Vector3.ZERO
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	for xf in xfs:
+		mid += xf.origin
+		lo = lo.min(xf.origin)
+		hi = hi.max(xf.origin)
+	mid /= float(xfs.size())
+	var mmi := _band_instance(fl.picture_mesh, xfs, customs, range(xfs.size()), mid)
+	# The cards are placed in the shader: say how far they can reach.
+	mmi.custom_aabb = AABB(lo - mid - Vector3(12.0, 3.0, 12.0), hi - lo + Vector3(24.0, 28.0, 24.0))
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.add_to_group("veg_picture")
+	root.add_child(mmi)
+	if shadows:
+		# Their shadows: the same cards again, which face the sun in its shadow pass.
+		var shade := _band_instance(fl.picture_shade_mesh, xfs, customs, range(xfs.size()), mid)
+		shade.custom_aabb = mmi.custom_aabb
+		shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		shade.add_to_group("veg_picture_shade")
+		root.add_child(shade)
+
+
+func _band_instance(mesh: Mesh, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3) -> MultiMeshInstance3D:
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = _band_multimesh(mesh, xfs, tints, idx, mid)
+	mmi.position = mid
+	return mmi
 
 
 func _band_multimesh(mesh: Mesh, xfs: Array[Transform3D], tints: Array[Color], idx: Array, mid: Vector3) -> MultiMesh:

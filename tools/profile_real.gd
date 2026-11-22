@@ -9,6 +9,10 @@ var rs: RideScene
 
 
 func _initialize() -> void:
+	# Never outlive the job (a script error elsewhere must not leave this rendering for good).
+	create_timer(300.0).timeout.connect(func() -> void:
+		push_error("profile timed out")
+		quit(3))
 	_run()
 
 

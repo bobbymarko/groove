@@ -10,6 +10,11 @@ func _initialize() -> void:
 		push_error("usage: -- <scene.tscn> <out.png> [ride]")
 		quit(2)
 		return
+	# Never outlive the job: a script error elsewhere (a file mid-edit) once left
+	# a shot running for good, rendering in the background.
+	create_timer(150.0).timeout.connect(func() -> void:
+		push_error("screenshot timed out")
+		quit(3))
 	_run(args[0], args[1], args[2] if args.size() > 2 else "")
 
 
