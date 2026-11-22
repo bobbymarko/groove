@@ -26,7 +26,7 @@ const TIERS := ["low", "medium", "high"]
 const TABLE := {
 	"low": {
 		"scale_max": 0.5, "range_mult": 0.7, "forest_density": 0.5, "forest_reach": 0.7,
-		"grass_pitch": 1.25, "grass_reach": 1.0, "grass_rings": 2,
+		"grass_pitch": 1.25, "grass_reach": 1.25, "grass_rings": 2,
 		"under_density": 0.4, "under_reach": 0.7,
 		"shadow_splits": 2, "shadow_dist": 70.0, "shadow_atlas": 2048,
 		"split_1": 0.2, "split_2": 0.5, "split_3": 0.8,
@@ -113,8 +113,6 @@ static func grass_rings(base: Array) -> Array:
 		ring["pitch"] = float(ring.pitch) * pitch
 		if r >= 1:
 			ring["out"] = float(ring.out) * reach
-		if r >= 2:
-			ring["in"] = float(ring["in"]) * reach
 		out.append(ring)
 	return out
 

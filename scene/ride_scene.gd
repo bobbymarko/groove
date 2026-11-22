@@ -70,6 +70,10 @@ var target_fraction_ahead: Callable
 var debug_top_down := false
 var debug_eye := Vector3.INF      ## tooling: a free camera here, looking at debug_target
 var debug_target := Vector3.ZERO
+## Tooling (`lodback=<m>`): levels of detail are worked out as if the eye stood
+## this many metres further back, so one fixed view shows the ground ahead as
+## it looks from further off (compare shots to see what changes on approach).
+var debug_lod_back := 0.0
 ## Debug: close three-quarter view of the rider, no post-process.
 var debug_closeup := false
 ## Debug: close view of the hands on the bars (with debug_closeup).
@@ -568,7 +572,12 @@ func _process(raw_delta: float) -> void:
 	snow.follow(camera.global_position)
 	if real:
 		real_rain.follow(camera, raw_delta)
-		real.update(camera.global_position, raw_delta, real_rain.wetness())
+		var lod_eye := camera.global_position
+		if debug_lod_back != 0.0:
+			lod_eye += (camera.global_basis.z * Vector3(1.0, 0.0, 1.0)).normalized() * debug_lod_back
+			if terrain.grass:
+				terrain.grass.eye_override = lod_eye
+		real.update(lod_eye, raw_delta, real_rain.wetness())
 	rain.follow(camera.global_position)
 	backdrop.follow(rider.global_position)
 	if far_range:

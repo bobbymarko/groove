@@ -79,6 +79,8 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 					rs.debug_eye = Vector3(v[0], v[1], v[2])
 				else:
 					rs.debug_target = Vector3(v[0], v[1], v[2])
+			if a.begins_with("lodback="):
+				rs.debug_lod_back = float(a.trim_prefix("lodback="))
 			if a.begins_with("yaw="):
 				rs.camera_yaw = deg_to_rad(float(a.trim_prefix("yaw=")))
 			if a.begins_with("hour="):

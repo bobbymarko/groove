@@ -94,6 +94,10 @@ func _run() -> void:
 	await _measure("no plants at all")
 	for m: MultiMeshInstance3D in plants:
 		m.visible = true
+	if rs.terrain.grass:
+		rs.terrain.grass._eye = Vector3.INF      # (the meadow sorts out again which of its tiles show)
+	for i in 3:
+		await process_frame
 	sun.shadow_enabled = false
 	await _measure("no sun shadows")
 	sun.shadow_enabled = true

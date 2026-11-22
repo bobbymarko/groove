@@ -98,6 +98,8 @@ static var debug_version := ""
 
 ## Where a small plant's close-up hands over to its cheap version, for the quality tier.
 static func small_near() -> float:
+	if debug_version != "":
+		return 5000.0 if debug_version == "near" else 0.0
 	return SMALL_NEAR * float(RealQuality.get_value("range_mult"))
 
 

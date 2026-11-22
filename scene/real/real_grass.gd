@@ -2,12 +2,16 @@ class_name RealGrass
 extends Node3D
 ## The realistic look's meadow. Instead of baking grass into every terrain
 ## chunk, three rings of tufts follow the eye: fine blades within a few metres,
-## coarser tufts to ~30 m, broad sparse ones to ~56 m. Each ring is a square
-## block of small tiles that all share one MultiMesh (a grid of tuft slots) and
-## step along with the eye a tile at a time; only the tiles its ring actually
+## coarser ones to ~30 m, the coarsest to ~56 m. Each ring is a square block of
+## small tiles that all share one MultiMesh (a grid of tuft slots) and step
+## along with the eye a tile at a time; only the tiles its ring actually
 ## reaches are shown. The shader makes every tuft from its slot's place in the
-## world, so nothing changes as tiles step, and thins tufts out with distance
-## one by one (real_grass.gdshader).
+## world, so nothing changes as tiles step.
+## The rings are one meadow, not three: each ring's slots are twice as far
+## apart as the last's, and a coarser ring's tuft IS one of the finer ring's
+## (the same root, blades, lean and colour, from the same numbers). Nearer the
+## eye more tufts stand between the ones already there and every blade grows
+## thinner; no tuft is ever swapped for another (real_grass.gdshader).
 ## What the shader cannot know, the ground, is kept in a small "field" texture
 ## round the eye, one texel a metre: height, distance from the trail, how thick
 ## grass grows there (none in water, little in snow) and which biome's grass it
@@ -15,13 +19,15 @@ extends Node3D
 
 const FIELD := 128                 ## texels across the field texture (metres)
 const BUDGET_USEC := 1200          ## time a frame may spend filling the field
-## The rings: tile size and tiles a side, slot pitch, blades a tuft, rows a
-## blade, blade width, tuft radius, where it grows in (over `fade` metres) and
-## where it is gone.
+## The rings: tile size and tiles a side, slot pitch (each ring's twice the
+## last's: the shader counts on it), rows a blade, blade width, tuft radius,
+## where the ring's own tufts are gone and the next ring takes over the rest
+## (they shrink away one by one over the `fade` metres before), flower size.
+const BLADES := 5                  ## blades a tuft, the same in every ring
 const RINGS := [
-	{"tile": 4.0, "side": 6, "pitch": 0.25, "blades": 5, "rows": 3, "width": 0.011, "radius": 0.16, "in": 0.0, "out": 9.0, "fade": 3.0, "flower": 0.8},
-	{"tile": 10.0, "side": 8, "pitch": 0.625, "blades": 4, "rows": 2, "width": 0.028, "radius": 0.34, "in": 9.0, "out": 30.0, "fade": 8.0, "flower": 1.3},
-	{"tile": 20.0, "side": 8, "pitch": 1.25, "blades": 5, "rows": 1, "width": 0.06, "radius": 0.6, "in": 30.0, "out": 56.0, "fade": 8.0, "flower": 0.0},
+	{"tile": 4.0, "side": 6, "pitch": 0.25, "rows": 3, "width": 0.011, "radius": 0.16, "out": 9.0, "fade": 4.0, "flower": 0.8},
+	{"tile": 10.0, "side": 8, "pitch": 0.5, "rows": 2, "width": 0.028, "radius": 0.34, "out": 24.0, "fade": 9.0, "flower": 1.3},
+	{"tile": 20.0, "side": 8, "pitch": 1.0, "rows": 1, "width": 0.06, "radius": 0.6, "out": 56.0, "fade": 8.0, "flower": 0.0},
 ]
 
 var terrain: TerrainStreamer
@@ -35,12 +41,24 @@ var _cells: Array[Vector2i] = []      ## per ring: the tile the eye was last in
 var _eye := Vector3(INF, INF, INF)    ## where the eye was when the tiles were last sorted out
 var _materials: Array[ShaderMaterial] = []
 var _first := true
+var eye_override := Vector3.INF      ## tooling: the meadow follows this point, not the camera (RideScene.debug_lod_back)
 
 
 func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 	terrain = t
 	name = "RealGrass"
 	_rings = RealQuality.grass_rings(RINGS)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("grassnear=") and not _rings.is_empty():
+			# Tooling: the finest ring alone out to this many metres, the picture the coarser rings should match.
+			var reach := float(a.trim_prefix("grassnear="))
+			_rings = [(_rings[0] as Dictionary).duplicate()]
+			_rings[0]["out"] = reach
+			_rings[0]["fade"] = 0.01
+			_rings[0]["side"] = int(ceil(reach * 2.0 / float(_rings[0].tile))) + 2
+	# A tile is a whole number of slots, so every ring's slots sit on one grid across its tiles.
+	for ring: Dictionary in _rings:
+		ring["tile"] = roundf(float(ring.tile) / float(ring.pitch)) * float(ring.pitch)
 	_image = Image.create(FIELD, FIELD, false, Image.FORMAT_RGBAF)
 	_texture = ImageTexture.create_from_image(_image)
 	var shader := load("res://scene/real/real_grass.gdshader") as Shader
@@ -69,8 +87,23 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 		roots.append(Vector4(-1.0, -1.0, -1.0, -1.0) if field == null else
 				Vector4(field.x, field.y, field.z, clampf(float(b.get("grass_density", 0.0)), 0.0, 1.0)))
 	var meadow_end := float(_rings[_rings.size() - 1].out) if not _rings.is_empty() else 56.0
+	var meadow_thin := Vector2(float(_rings[0].out) - float(_rings[0].fade), float(_rings[0].out)) if _rings.size() > 1 else Vector2(meadow_end, meadow_end + 1.0)
 	if terrain._material is ShaderMaterial:
 		(terrain._material as ShaderMaterial).set_shader_parameter("meadow_end", meadow_end)
+		(terrain._material as ShaderMaterial).set_shader_parameter("meadow_thin", meadow_thin)
+	# What the rings share (a missing ring repeats the last one's).
+	var outs := PackedFloat32Array()
+	var fades := PackedFloat32Array()
+	var widths := PackedFloat32Array()
+	var radii := PackedFloat32Array()
+	var flower_sizes := PackedFloat32Array()
+	for i in 3:
+		var ring: Dictionary = _rings[mini(i, _rings.size() - 1)] if not _rings.is_empty() else RINGS[i]
+		outs.append(float(ring.out))
+		fades.append(float(ring.fade))
+		widths.append(float(ring.width))
+		radii.append(float(ring.radius))
+		flower_sizes.append(float(ring.flower))
 	for r in _rings.size():
 		var ring: Dictionary = _rings[r]
 		var mat := ShaderMaterial.new()
@@ -78,13 +111,14 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 		mat.set_shader_parameter("field", _texture)
 		mat.set_shader_parameter("noise_tex", noise)
 		mat.set_shader_parameter("field_size", float(FIELD))
-		mat.set_shader_parameter("pitch", ring.pitch)
-		mat.set_shader_parameter("fade_in", ring["in"])
-		mat.set_shader_parameter("fade_out", ring.out)
-		mat.set_shader_parameter("fade_width", ring.fade)
-		mat.set_shader_parameter("fade_in_width", 3.0 if r == 1 else float(ring.fade))
-		mat.set_shader_parameter("blade_width", ring.width)
-		mat.set_shader_parameter("tuft_radius", ring.radius)
+		mat.set_shader_parameter("pitch", float(_rings[0].pitch))
+		mat.set_shader_parameter("level", r)
+		mat.set_shader_parameter("levels", _rings.size())
+		mat.set_shader_parameter("ring_out", outs)
+		mat.set_shader_parameter("ring_fade", fades)
+		mat.set_shader_parameter("ring_width", widths)
+		mat.set_shader_parameter("ring_radius", radii)
+		mat.set_shader_parameter("ring_flower", flower_sizes)
 		mat.set_shader_parameter("trail_half_width", TerrainStreamer.TRAIL_HALF_WIDTH)
 		mat.set_shader_parameter("groove_depth", TerrainStreamer.GROOVE_DEPTH)
 		mat.set_shader_parameter("bank_width", TerrainStreamer.BANK_WIDTH)
@@ -96,8 +130,9 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 		mat.set_shader_parameter("flower_color", flowers)
 		mat.set_shader_parameter("root_ground", roots)
 		mat.set_shader_parameter("meadow_end", meadow_end)
+		mat.set_shader_parameter("meadow_thin", meadow_thin)
 		_materials.append(mat)
-		var mm := _slots(float(ring.tile), float(ring.pitch), _tuft(ring, mat))
+		var mm := _slots(float(ring.tile), float(ring.pitch), _tuft(ring, mat, r == 0))
 		var ring_tiles: Array[MultiMeshInstance3D] = []
 		for i in int(ring.side) * int(ring.side):
 			var mmi := MultiMeshInstance3D.new()
@@ -114,20 +149,22 @@ func _init(t: TerrainStreamer, noise: Texture2D, biomes: Array[String]) -> void:
 
 
 ## One tuft: blades fanned out from a small patch, and a flower head (shown on few).
+## Every ring's tuft has the same blades (one seed): only the rows a blade is
+## cut into and the flower's petals differ (fine: the nearest ring's).
 ## Vertex data for the shader: VERTEX the blade's foot in the tuft (-1..1),
 ## UV x across the blade (-1, 1; 0 at the tip) and y along it, UV2 x the way it
 ## leans (radians) and y its height share, COLOR r bend, g width share (a flower:
 ## its corner), b 1 on a flower head and 0.5 on its stalk, a a little shade of its own.
-static func _tuft(ring: Dictionary, mat: Material) -> ArrayMesh:
+static func _tuft(ring: Dictionary, mat: Material, fine: bool) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 5150 + int(float(ring.tile))
+	rng.seed = 5154
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
 	var uv2s := PackedVector2Array()
 	var cols := PackedColorArray()
 	var idx := PackedInt32Array()
 	var rows := int(ring.rows)
-	for i in int(ring.blades):
+	for i in BLADES:
 		var a := rng.randf() * TAU
 		var foot := Vector3(cos(a), 0.0, sin(a)) * sqrt(rng.randf())
 		var lean := a + rng.randf_range(-0.7, 0.7)
@@ -162,21 +199,29 @@ static func _tuft(ring: Dictionary, mat: Material) -> ArrayMesh:
 			uv2s.append(Vector2(0.0, 1.12))
 			cols.append(Color(0.0, 0.3, 0.5, 0.5))
 		idx.append_array(PackedInt32Array([first, first + 2, first + 1]))
-		# (every tuft carries the head, flowering or not: the far ring's petals are plain wedges, a triangle each)
-		var fine := float(ring["in"]) <= 0.0
-		for k in 5:
-			var a := TAU * float(k) / 5.0
+		# (every tuft carries the head, flowering or not)
+		if fine:
+			for k in 5:
+				var a := TAU * float(k) / 5.0
+				first = verts.size()
+				# A petal: widest two thirds of the way out, then drawn in to a blunt tip.
+				for corner: Vector2 in [Vector2.ZERO, Vector2.from_angle(a - 0.5) * 0.68, Vector2.from_angle(a + 0.5) * 0.68, Vector2.from_angle(a)]:
+					verts.append(Vector3.ZERO)
+					uvs.append(Vector2(corner.x, 1.0))
+					uv2s.append(Vector2(0.0, 1.0))
+					cols.append(Color(0.2, corner.y * 0.5 + 0.5, 1.0, 0.5))
+				idx.append_array(PackedInt32Array([first, first + 1, first + 2, first + 1, first + 3, first + 2]))
+		else:
+			# Past the nearest ring a head is a few pixels: one five-sided disc round its middle.
 			first = verts.size()
-			# A petal: widest two thirds of the way out, then drawn in to a blunt tip.
-			var corners: Array[Vector2] = [Vector2.ZERO, Vector2.from_angle(a - 0.5) * 0.68, Vector2.from_angle(a + 0.5) * 0.68, Vector2.from_angle(a)]
-			if not fine:
-				corners = [Vector2.ZERO, Vector2.from_angle(a - 0.42), Vector2.from_angle(a + 0.42)]
-			for corner in corners:
+			for k in 6:
+				var corner := Vector2.ZERO if k == 0 else Vector2.from_angle(TAU * float(k) / 5.0) * 0.9
 				verts.append(Vector3.ZERO)
 				uvs.append(Vector2(corner.x, 1.0))
 				uv2s.append(Vector2(0.0, 1.0))
-				cols.append(Color(0.2, corner.y * 0.5 + 0.5, 1.0, 0.5 * float(ring.flower)))
-			idx.append_array(PackedInt32Array([first, first + 1, first + 2, first + 1, first + 3, first + 2] if fine else [first, first + 1, first + 2]))
+				cols.append(Color(0.2, corner.y * 0.5 + 0.5, 1.0, 0.5))
+			for k in 5:
+				idx.append_array(PackedInt32Array([first, first + 1 + k, first + 1 + (k + 1) % 5]))
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = verts
@@ -207,7 +252,7 @@ func _process(_delta: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return
-	var eye := cam.global_position
+	var eye := cam.global_position if eye_override == Vector3.INF else eye_override
 	if eye.distance_squared_to(_eye) > 0.25:
 		_eye = eye
 		_place_tiles(eye)
@@ -216,7 +261,7 @@ func _process(_delta: float) -> void:
 
 
 ## Step each ring's tiles to stay centred on the eye, and show only the tiles
-## its tufts can stand in (between where the ring grows in and where it ends).
+## its tufts can stand in (between where the ring before it ends and its own end).
 func _place_tiles(eye: Vector3) -> void:
 	for r in _rings.size():
 		var ring: Dictionary = _rings[r]
@@ -228,7 +273,7 @@ func _place_tiles(eye: Vector3) -> void:
 			_cells[r] = cell
 			for i in ring_tiles.size():
 				(ring_tiles[i] as Node3D).global_position = Vector3((cell.x - side / 2 + i % side) * tile, eye.y, (cell.y - side / 2 + i / side) * tile)
-		var inner := float(ring["in"]) - (3.0 if r == 1 else float(ring.fade))
+		var inner := float(_rings[r - 1].out) if r > 0 else 0.0
 		for i in ring_tiles.size():
 			var node := ring_tiles[i] as Node3D
 			var lo := Vector2(node.global_position.x, node.global_position.z)

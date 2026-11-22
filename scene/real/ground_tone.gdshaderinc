@@ -13,11 +13,13 @@ vec3 ground_macro(int look, float n1, float n2) {
 }
 
 // How much the bare field gives way to the meadow's colour at `dist` metres
-// from the eye: none close by, growing as the meadow's outer rings thin out
-// (more of the field shows between fewer blades), all of it a little past
-// where the last ring has shrunk away (`end`, RealGrass's).
-float meadow_share(float dist, float amount, float end) {
-	return amount * smoothstep(end * 0.3, end + 4.0, dist);
+// from the eye: none close by, a part where the finest ring of blades thins
+// out (`thin`: from, to; fewer blades stand past it and more of the field
+// shows between them), growing as the outer rings thin, all of it a little
+// past where the last ring has shrunk away (`end`, RealGrass's).
+const float MEADOW_NEAR = 0.17;
+float meadow_share(float dist, float amount, float end, vec2 thin) {
+	return amount * mix(MEADOW_NEAR * smoothstep(thin.x, thin.y, dist), 1.0, smoothstep(max(end * 0.3, thin.y), end + 4.0, dist));
 }
 
 // The meadow seen from afar: its blades' colour, a little darker for the

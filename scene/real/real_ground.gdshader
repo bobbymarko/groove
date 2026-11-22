@@ -40,6 +40,7 @@ uniform vec3 trail_tint[4];      // per look: the same for the trail
 uniform vec3 meadow_color[4];    // per look: the meadow's blades (RealFlora's grass colour)
 uniform float meadow_amount[4];  // per look: how thick that meadow grows (0: none)
 uniform float meadow_end = 56.0; // where the meadow's last ring of blades ends (RealGrass sets it)
+uniform vec2 meadow_thin = vec2(5.0, 9.0);   // and where its finest ring thins out
 uniform vec3 rock_tint = vec3(0.4, 0.39, 0.37);
 uniform float rock_moss = 0.0;
 uniform float rock_snow = 0.0;
@@ -289,7 +290,7 @@ void fragment() {
 	float snowy = mix(ground_a == 0 ? 1.0 : 0.0, ground_b == 0 ? 1.0 : 0.0, k_b);
 	float sandy = mix(ground_a == 2 ? 1.0 : 0.0, ground_b == 2 ? 1.0 : 0.0, k_b);
 	int g_main = k_b > 0.5 ? ground_b : ground_a;
-	float meadow = meadow_share(dist, mix(meadow_amount[ground_a], meadow_amount[ground_b], k_b) * (1.0 - trail), meadow_end);
+	float meadow = meadow_share(dist, mix(meadow_amount[ground_a], meadow_amount[ground_b], k_b) * (1.0 - trail), meadow_end, meadow_thin);
 	vec3 blades = mix(meadow_color[ground_a], meadow_color[ground_b], k_b);
 
 	vec3 col;
