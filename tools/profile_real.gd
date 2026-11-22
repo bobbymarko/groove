@@ -2,7 +2,7 @@ extends SceneTree
 ## Dev helper: where the realistic look's frame time goes. One launch; each
 ## feature is switched off in turn from the full scene and the median frame time
 ## printed (the display caps the low end at its refresh rate, 8.3 ms on ProMotion).
-##   tools/profile.sh [preset=summer] [at=2000] [hour=14] [route=<path>] [quality=low|medium|high] [upscaler=temporal|spatial] [quick]
+##   tools/profile.sh [preset=summer] [at=2000] [hour=14] [route=<path>] [quality=low|medium|high] [quick]
 ## "quick" prints only the moving and standing baselines.
 
 var rs: RideScene
@@ -32,7 +32,6 @@ func _run() -> void:
 	rs.cadence = 88.0
 	rs.look_override = "real"
 	rs.quality_override = _arg("quality", "")
-	rs.upscaler_override = _arg("upscaler", "temporal")    # never the app's saved choice: runs must compare
 	rs.preset_override = _arg("preset", "summer")
 	rs.distance = float(_arg("at", "2000"))
 	rs.hour_override = float(_arg("hour", "14"))
@@ -44,7 +43,7 @@ func _run() -> void:
 		await process_frame
 	var vp: SubViewport = rs._viewport
 	rs.real.governor_enabled = false      # this run sets the render scale itself
-	print("[prof] window %s, 3D viewport %s at render scale %.2f, preset %s%s, quality %s, upscaler %s" % [root.size, vp.size, vp.scaling_3d_scale, rs.preset_override, ", route" if route != "" else "", RealQuality.tier, rs.real.upscaler])
+	print("[prof] window %s, 3D viewport %s at render scale %.2f, preset %s%s, quality %s" % [root.size, vp.size, vp.scaling_3d_scale, rs.preset_override, ", route" if route != "" else "", RealQuality.tier])
 	await _measure("moving (chunks streaming)", 400)
 	rs.riding = false
 	for i in 90:
@@ -54,8 +53,9 @@ func _run() -> void:
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("aa"):
-		# The other ways to upscale and anti-alias, beside the temporal upscaler.
+		# The ways to upscale and anti-alias (the look uses MetalFX spatial + TAA).
 		var mode0 := vp.scaling_3d_mode
+		var taa0 := vp.use_taa
 		var scale0 := vp.scaling_3d_scale
 		rs.riding = OS.get_cmdline_user_args().has("aamove")    # "aamove": measured (and shot) while riding
 		for row: Array in [[Viewport.SCALING_3D_MODE_METALFX_SPATIAL, true, 0.67, "MetalFX spatial + TAA"],
@@ -65,6 +65,7 @@ func _run() -> void:
 				[Viewport.SCALING_3D_MODE_METALFX_SPATIAL, false, 0.67, "MetalFX spatial, no AA"],
 				[Viewport.SCALING_3D_MODE_METALFX_TEMPORAL, false, 0.5, "MetalFX temporal"],
 				[Viewport.SCALING_3D_MODE_METALFX_TEMPORAL, false, 0.67, "MetalFX temporal"]]:
+			vp.use_taa = false          # (a temporal upscaler cannot go on while TAA runs)
 			vp.scaling_3d_mode = row[0]
 			vp.use_taa = row[1]
 			vp.scaling_3d_scale = row[2]
@@ -73,7 +74,7 @@ func _run() -> void:
 			if shot != "":
 				root.get_texture().get_image().save_png("%s_%s_%d.png" % [shot, str(row[3]).to_snake_case().replace(",", "").replace("+", "").replace(" ", "_"), int(row[2] * 100.0)])
 		vp.scaling_3d_mode = mode0
-		vp.use_taa = false
+		vp.use_taa = taa0
 		vp.scaling_3d_scale = scale0
 		quit(0)
 		return
@@ -115,7 +116,7 @@ func _run() -> void:
 	var mode := vp.scaling_3d_mode
 	var scale := vp.scaling_3d_scale
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-	await _measure("bilinear upscale (no temporal)")
+	await _measure("bilinear upscale")
 	vp.scaling_3d_mode = mode
 	for s: float in [0.5, 0.67, 0.75, 1.0]:
 		if not is_equal_approx(s, scale):

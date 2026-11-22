@@ -267,7 +267,9 @@ float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00
 vec4 sky_color(vec3 rd, vec2 px, bool cheap) {
 	vec3 W0 = cam_km;
 	vec3 P0 = W0 + vec3(0.0, Rg, 0.0);
-	float jit = cheap ? 0.5 : ign(px);
+	// A new pattern every frame: TAA then averages the march's grain away (a
+	// fixed pattern stays on the screen as static along the clouds' edges).
+	float jit = cheap ? 0.5 : ign(px + 5.588238 * frame);
 	float t_planet = ray_sphere(P0, rd, Rg);
 	float D = t_planet > 0.0 ? t_planet : max(ray_sphere(P0, rd, Rt), 0.0);
 	vec3 L;

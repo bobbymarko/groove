@@ -345,12 +345,16 @@ static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, need
 	var lean := Vector3(rng.randf_range(-0.15, 0.15), 0.0, rng.randf_range(-0.15, 0.15))
 	var trunk := PackedVector3Array()
 	var radii := PackedFloat32Array()
-	var r0 := H * 0.022
+	# A pole, not a cone: it keeps its girth up to the crown and tapers inside
+	# it, and flares only over its lowest hand's breadths (a ring of its own
+	# just above the root, or the flare runs up to the next ring, metres up:
+	# on a spruce with a bare lower trunk that was a huge cone).
+	var r0 := H * 0.015
 	var rings := 9 if lod == 0 else 5
-	for i in rings:
-		var k := float(i) / float(rings - 1)
+	for i in rings + 1:
+		var k := 0.0 if i == 0 else (0.03 if i == 1 else float(i - 1) / float(rings - 1))
 		trunk.append(Vector3(0.0, H * k, 0.0) + lean * k * k)
-		radii.append(lerpf(r0, 0.02, pow(k, 0.8)) * (1.0 + 0.4 * maxf(0.0, 0.12 - k) / 0.12))
+		radii.append(lerpf(r0, 0.02, pow(k, 1.5)) * (1.3 if i == 0 else 1.0))
 	var first := bark.v.size()
 	tube(bark, trunk, radii, 7 if lod == 0 else 4, Color(0.24, 0.18, 0.14) if lod == 0 else Color(0.24, 0.18, 0.14) * FAR_WOOD, 0.45, 0.0, 0.2)
 	if lod > 0:
@@ -418,8 +422,21 @@ static func spruce(seed_value: int, bark_mat: Material, leaf_mat: Material, need
 		var k := float(i) / 5.0
 		var yy := lerpf(y0 + 0.3, H - 1.0, k)
 		core.append(Vector3(0.0, yy, 0.0) + lean * (yy / H) * (yy / H))
-		core_r.append(rmax * (0.26 if lod == 1 else 0.3) * pow(1.0 - k, 0.9) * (0.5 + 0.5 * smoothstep(0.0, 0.2, k)) + 0.05)
-	if lod > 0:      # (close up the inner boughs do this, and the trunk may show)
+		core_r.append(rmax * 0.3 * pow(1.0 - k, 0.9) * (0.5 + 0.5 * smoothstep(0.0, 0.2, k)) + 0.05)
+	if lod == 1:
+		# In the middle version a stack of crossed upright sprays, not a solid:
+		# through the boughs a solid showed as a huge dark cone of a trunk.
+		var cr := RandomNumberGenerator.new()
+		cr.seed = seed_value * 613 + 11
+		var cc := Color(needle.r * 0.6, needle.g * 0.6, needle.b * 0.6)
+		for i in 5:
+			var turn := cr.randf() * TAU
+			var up := (core[i + 1] - core[i]) * 1.3
+			for s in 2:
+				var a := turn + PI * 0.5 * float(s)
+				card(leaf, core[i] - up * 0.08, Vector3(cos(a), 0.0, sin(a)) * (core_r[i] * 1.15 + 0.15), up, SPRUCE_A if (i + s) % 2 == 0 else SPRUCE_B,
+						cc, [0.3, 0.3, 0.45, 0.45], core[i] + up * 0.5, 0.3)
+	elif lod > 1:      # (close up the inner boughs do this, and the trunk may show)
 		first = leaf.v.size()
 		tube(leaf, core, core_r, 5, Color(needle.r * 0.55, needle.g * 0.55, needle.b * 0.55), 0.3, 0.3, 0.0)
 		leaf.mark_solid(first)

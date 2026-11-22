@@ -77,24 +77,6 @@ static func normalize(id: String) -> String:
 	return id if TABLE.has(id) else "high"
 
 
-## How the 3D picture, rendered below the window's resolution, is brought up
-## to it (R43, on trial): "temporal" is the temporal upscaler (MetalFX on Macs,
-## FSR 2 elsewhere), which antialiases as it goes; "spatial" is the cheaper
-## spatial one (MetalFX spatial, FSR 1 elsewhere) fed by Godot's own TAA.
-const UPSCALERS := ["temporal", "spatial"]
-
-
-static func normalize_upscaler(id: String) -> String:
-	return id if UPSCALERS.has(id) else "temporal"
-
-
-## [the viewport's scaling mode, whether Godot's TAA runs] for an upscaler choice.
-static func upscaler_setup(id: String, mac: bool) -> Array:
-	if normalize_upscaler(id) == "spatial":
-		return [Viewport.SCALING_3D_MODE_METALFX_SPATIAL if mac else Viewport.SCALING_3D_MODE_FSR, true]
-	return [Viewport.SCALING_3D_MODE_METALFX_TEMPORAL if mac else Viewport.SCALING_3D_MODE_FSR2, false]
-
-
 static func set_tier(id: String) -> void:
 	tier = normalize(id)
 

@@ -41,7 +41,7 @@ float dither(vec2 frag) {
 	return fract(52.9829189 * fract(dot(floor(frag), vec2(0.06711056, 0.00583715))));
 }
 
-// The same pattern shifted every frame, so the temporal upscaler averages a
+// The same pattern shifted every frame, so the TAA averages a
 // crossfade into a smooth blend instead of a fixed screen-door. `still` (the
 // sun's shadow maps): keep it fixed, or shadows would shimmer.
 float dither_moving(vec2 frag, float t, bool still) {
@@ -62,16 +62,6 @@ float sway_at(float d) {
 	return 1.0 - smoothstep(sway_end - 20.0, sway_end, d);
 }
 
-vec3 wind_offset(vec3 origin, float h, float flutter, float t) {
-	float ph = dot(origin.xz, vec2(0.31, 0.17));
-	float a = 0.006 * pow(max(h, 0.0), 1.25) * wind_strength;
-	vec2 drift = a * (vec2(sin(t * 0.5 + ph + h * 0.09), cos(t * 0.37 + ph * 1.3 + h * 0.07))
-			+ 0.35 * vec2(sin(t * 1.3 + ph * 3.0 + h * 0.3), cos(t * 1.1 + ph * 2.0 + h * 0.23)));
-	vec3 off = vec3(drift.x, 0.0, drift.y);
-	off += flutter * 0.012 * wind_strength * vec3(sin(t * 4.1 + h * 3.0 + ph * 7.0), sin(t * 5.3 + h * 2.1 + ph * 3.0) * 0.6, cos(t * 4.6 + h * 2.7 + ph * 5.0));
-	return off;
-}
-
 float hash21(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
 	p += dot(p, p + 45.32);
@@ -84,3 +74,32 @@ float vnoise(vec2 p) {
 	vec2 u = f * f * (3.0 - 2.0 * f);
 	return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x), u.y);
 }
+
+// Wind on a plant, as an offset for a vertex h metres above the root.
+// Gusts cross the land with the wind (as over the grass, real_grass): a plant
+// leans downwind as one arrives and comes back as it passes, and rocks a
+// little at its own pace on top, all of it in step up the stem (a stem bends,
+// it does not snake). `flutter` (0 wood .. 1 the tip of a spray): boughs bob
+// and leaves shiver, small and quick. Nothing drifts in slow circles: that
+// reads as weed under water.
+const vec2 WIND_DIR = vec2(0.94, 0.33);
+
+float wind_gust(vec2 at, float t) {
+	return 0.6 * vnoise(at * 0.013 - t * WIND_DIR * 0.035) + 0.4 * vnoise(at * 0.05 - t * WIND_DIR * 0.2);
+}
+
+vec3 wind_offset(vec3 origin, float h, float flutter, float t) {
+	float ph = dot(origin.xz, vec2(0.31, 0.17));
+	float gust = wind_gust(origin.xz, t);
+	float a = 0.0035 * pow(max(h, 0.0), 1.25) * wind_strength;
+	float rock = 0.6 * sin(t * 1.7 + ph) + 0.4 * sin(t * 2.9 + ph * 1.7);
+	vec2 lean = WIND_DIR * a * (1.2 * gust + 0.35 * rock * (0.3 + gust))
+			+ vec2(-WIND_DIR.y, WIND_DIR.x) * a * 0.25 * sin(t * 1.3 + ph * 2.3) * (0.3 + gust);
+	vec3 off = vec3(lean.x, 0.0, lean.y);
+	float live = flutter * wind_strength * (0.3 + gust);
+	float bob = sin(t * 2.6 + h * 1.9 + ph * 5.0);
+	off += live * 0.016 * vec3(WIND_DIR.x * bob, 0.7 * sin(t * 3.3 + h * 2.3 + ph * 3.0), WIND_DIR.y * bob);
+	off += live * 0.005 * vec3(sin(t * 9.0 + h * 7.0 + ph * 11.0), sin(t * 11.0 + h * 5.0 + ph * 7.0), cos(t * 8.0 + h * 6.0 + ph * 9.0));
+	return off;
+}
+

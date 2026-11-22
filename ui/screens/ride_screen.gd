@@ -176,8 +176,8 @@ func _process(delta: float) -> void:
 	_controls.mouse_filter = Control.MOUSE_FILTER_STOP if _controls.modulate.a > 0.05 else Control.MOUSE_FILTER_IGNORE
 	if _fps_l.visible:      # live while paused too, so a view can be compared standing still
 		_fps_l.text = "%d fps  %.1f ms" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0]
-		if _scene.real:   # what the frame time is buying: the render scale and the upscaler (U switches)
-			_fps_l.text += "  ·  %d%% %s" % [roundi(_scene.real.render_scale() * 100.0), _scene.real.upscaler]
+		if _scene.real:   # what the frame time is buying: the render scale (the automatic render scale moves it)
+			_fps_l.text += "  ·  %d%%" % roundi(_scene.real.render_scale() * 100.0)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -202,10 +202,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_runner.time_scale = 1.0 if _runner.time_scale > 1.0 else 20.0  # dev: fast-forward
 			_scene.time_scale = _runner.time_scale
 		KEY_T: _tuning.visible = not _tuning.visible
-		KEY_U:   # realistic look, on trial (R43): the other upscaler, to compare by eye
-			if _scene.real:
-				App.real_upscaler = RealQuality.UPSCALERS[(RealQuality.UPSCALERS.find(App.real_upscaler) + 1) % RealQuality.UPSCALERS.size()]
-				App.save_settings()
 
 
 func _bind_trainer(t: Trainer) -> void:

@@ -44,9 +44,6 @@ var _mist := 0.0          ## valley mist 0..1 (mornings)
 ## The render-scale governor (RealQuality.next_scale): off for profiling
 ## (the `fixedscale` switch, or governor_enabled = false set by a tool).
 var governor_enabled := true
-## Which upscaler brings the picture up to the window (RealQuality.UPSCALERS);
-## set before setup, or changed mid-ride with set_upscaler.
-var upscaler := "temporal"
 var _viewport: SubViewport
 var _avg_ms := 0.0         ## frame cost, smoothed over about 2 s
 var _age := 0.0            ## seconds since the ride began
@@ -151,12 +148,15 @@ func setup(e: Environment, s: DirectionalLight3D, viewport: SubViewport, preset_
 	sun.shadow_blur = 1.0
 	sun.light_angular_distance = 0.5
 	sun.light_volumetric_fog_energy = 1.0
-	# Rendered below native resolution and brought up by an upscaler: by default
-	# a temporal one (MetalFX on Macs, FSR 2 elsewhere), which also antialiases
-	# and settles the sky's jittered clouds.
+	# Rendered below native resolution: Godot's TAA antialiases the picture and
+	# settles the sky's jittered clouds and the plants' dithered fades, then a
+	# spatial upscaler (MetalFX on Macs, FSR 1 elsewhere) brings it up to the
+	# window. Chosen over the temporal upscalers (MetalFX temporal, FSR 2), which
+	# cost about 2 ms more a frame at 67 % and looked no better riding (R43).
+	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_METALFX_SPATIAL if OS.get_name() == "macOS" else Viewport.SCALING_3D_MODE_FSR
+	viewport.use_taa = true
 	viewport.scaling_3d_scale = minf(0.5, RealQuality.scale_max())
 	_viewport = viewport
-	set_upscaler(upscaler)
 	viewport.msaa_3d = Viewport.MSAA_DISABLED
 	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	viewport.use_debanding = true
@@ -311,22 +311,6 @@ func leaf_green() -> float:
 	if ground_type() == "snow":
 		g *= 0.5
 	return g
-
-
-## Switches the upscaler (RealQuality.UPSCALERS), mid-ride too. The automatic
-## render scale starts its count again, since the two cost differently.
-func set_upscaler(id: String) -> void:
-	upscaler = RealQuality.normalize_upscaler(id)
-	if _viewport == null:
-		return
-	var s := RealQuality.upscaler_setup(upscaler, OS.get_name() == "macOS")
-	if not s[1]:
-		_viewport.use_taa = false      # off before a temporal upscaler goes on (the two cannot run together)
-	_viewport.scaling_3d_mode = s[0]
-	_viewport.use_taa = s[1]
-	_avg_ms = 0.0
-	_age = 0.0
-	_gov = {}
 
 
 ## The 3D render scale now, 0..1 (the automatic render scale moves it).

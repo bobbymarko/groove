@@ -18,7 +18,6 @@ var _factor := 4             ## screen pixels per texel
 var _shift := Vector2.ZERO   ## texels the frame is displaced by, from the snapped camera to the ideal one
 var look_mode := "16bit"         ## "16bit" (pixel look), "off" (native) or "real" (realistic, first person); "8bit" maps to 16bit
 var quality_override := ""       ## tooling: force a realistic-look quality tier (low | medium | high)
-var upscaler_override := ""      ## tooling: force the realistic look's upscaler (temporal | spatial)
 var look_override := ""          ## tooling: force a look regardless of settings (must be set before _ready)
 var real: RealLook               ## the realistic look's sky and lighting, only in look "real"
 var fpv := false                 ## first-person camera (the realistic look)
@@ -143,7 +142,6 @@ func _ready() -> void:
 	if look_mode == "real":
 		real = RealLook.new()
 		_world.add_child(real)
-		real.upscaler = upscaler_override if upscaler_override != "" else (str(app_q.real_upscaler) if app_q else "temporal")
 		real.setup(_env, sun, _viewport, preset_id)
 
 	trail = Trail.new()
@@ -500,10 +498,6 @@ func current_grade() -> float:
 
 func _process(raw_delta: float) -> void:
 	var delta := raw_delta * time_scale
-	if real and upscaler_override == "":      # the setting applies at once (U in a ride, or Settings)
-		var app_u := get_node_or_null("/root/App")
-		if app_u and str(app_u.real_upscaler) != real.upscaler:
-			real.set_upscaler(str(app_u.real_upscaler))
 	var grade := trail.grade_at(distance)
 	var speed := physics.step(power, grade, delta, riding)
 	if riding:

@@ -14,7 +14,6 @@ var auto_pause := true         # the workout pauses on zero watts and resumes wh
 const BIKE_KG := 14.0          # fat bike, added to the rider for the speed model
 var real_quality := ""        # "low" | "medium" | "high": how much the realistic look draws (RealQuality); chosen from the GPU on first run
 var look_mode := "16bit"    # "16bit" (pixel look) | "off" (smooth) | "real" (realistic, first person). The 8-bit palette mode was removed 2026-09-03.
-var real_upscaler := "temporal"   # "temporal" | "spatial": how the realistic look's picture is upscaled (RealQuality.UPSCALERS; on trial, R43)
 var show_fps := true
 var scene_preset := "winter"   # ScenePreset id chosen before a ride
 var time_of_day := "live"      # Daylight.MODES key: live (¼-speed real day), morning, noon, sunset, night
@@ -81,7 +80,6 @@ func _ready() -> void:
 		if look_mode == "8bit":
 			look_mode = "16bit"
 		real_quality = str(_cfg.get_value("scene", "real_quality", ""))
-		real_upscaler = RealQuality.normalize_upscaler(str(_cfg.get_value("scene", "real_upscaler", real_upscaler)))
 		show_fps = bool(_cfg.get_value("scene", "show_fps", show_fps))
 		scene_preset = str(_cfg.get_value("scene", "preset", scene_preset))
 		ride_route_path = str(_cfg.get_value("scene", "route", ride_route_path))
@@ -177,7 +175,6 @@ func save_settings() -> void:
 	_cfg.set_value("rider", "route_difficulty", route_difficulty)
 	_cfg.set_value("scene", "look_mode", look_mode)
 	_cfg.set_value("scene", "real_quality", real_quality)
-	_cfg.set_value("scene", "real_upscaler", real_upscaler)
 	_cfg.set_value("scene", "show_fps", show_fps)
 	_cfg.set_value("scene", "preset", scene_preset)
 	_cfg.set_value("scene", "route", ride_route_path)

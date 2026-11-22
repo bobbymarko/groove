@@ -12,15 +12,6 @@ func test_gpu_names_pick_the_default_tier() -> void:
 	assert_eq(RealQuality.default_for_gpu(""), "medium")
 
 
-func test_upscaler_choice_sets_the_viewport() -> void:
-	assert_eq(RealQuality.upscaler_setup("temporal", true), [Viewport.SCALING_3D_MODE_METALFX_TEMPORAL, false])
-	assert_eq(RealQuality.upscaler_setup("spatial", true), [Viewport.SCALING_3D_MODE_METALFX_SPATIAL, true])
-	assert_eq(RealQuality.upscaler_setup("temporal", false), [Viewport.SCALING_3D_MODE_FSR2, false])
-	assert_eq(RealQuality.upscaler_setup("spatial", false), [Viewport.SCALING_3D_MODE_FSR, true])
-	assert_eq(RealQuality.normalize_upscaler("bogus"), "temporal")
-	assert_eq(RealQuality.upscaler_setup("bogus", true), RealQuality.upscaler_setup("temporal", true))
-
-
 func test_tiers_get_cheaper_downwards() -> void:
 	var lo: Dictionary = RealQuality.TABLE.low
 	var med: Dictionary = RealQuality.TABLE.medium
