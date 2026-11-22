@@ -433,9 +433,9 @@ func _add_route_card(grid: GridContainer, path: String) -> void:
 		var cb := func(_f: float) -> void:
 			if App.is_looking_up(path):
 				meta_l.text = "%s %s   %s" % [App.distance_text(r.length), App.distance_unit().to_lower(),
-					App.route_lookup.status.to_lower() if App.route_lookup.status != "" else "waiting to look up the scenery…"]
-		App.route_lookup.progress.connect(cb)
-		meta_l.tree_exiting.connect(func() -> void: App.route_lookup.progress.disconnect(cb))   # cards are rebuilt often
+					App.lookup_status().to_lower() if App.lookup_status() != "" else "waiting to look up the scenery…"]
+		App.lookup_progress.connect(cb)
+		meta_l.tree_exiting.connect(func() -> void: App.lookup_progress.disconnect(cb))   # cards are rebuilt often
 	var menu := PopupMenu.new()
 	menu.add_item("Ride", 0)
 	menu.add_item("Delete", 1)

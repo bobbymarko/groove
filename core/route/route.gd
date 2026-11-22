@@ -10,6 +10,7 @@ const SMOOTH_HALF := 3          ## moving average over ±3 samples (~60 m), appl
 const MAX_GRADE := 20.0
 
 var name := ""
+var source := ""                     ## the library file it was loaded from
 var lats := PackedFloat64Array()
 var lons := PackedFloat64Array()
 var eles := PackedFloat64Array()     ## raw, per point (0 when the file has none)

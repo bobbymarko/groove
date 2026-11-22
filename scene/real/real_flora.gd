@@ -356,6 +356,84 @@ func scatter(z0: float, chunk_len: float, half_width: float, trail_clear: float,
 	return out
 
 
+## Plants for a square of real ground (map rides, R42): the same rules as
+## scatter(), but placed by world position. near(x, z) -> distance to the
+## trail (999 far away); height(x, z) -> ground; own as in scatter().
+func scatter_area(x0: float, z0: float, size: float, near: Callable, height: Callable, own: Callable, trail_clear: float) -> Dictionary:
+	var out := {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(int(x0), int(z0)))
+	var area := size * size
+	var tree_share := float(biome.trees)
+	# Trees: clumped by noise, thinner far from the trail (as the strip's far woods).
+	if not _trees.is_empty():
+		for i in int(area * 0.036):
+			var x := x0 + rng.randf() * size
+			var z := z0 + rng.randf() * size
+			var o := Vector3(1.0, 1.0, 0.0) if not own.is_valid() else own.call(x, z) as Vector3
+			if o.x <= 0.0:
+				continue
+			var ad := float(near.call(x, z))
+			if ad < trail_clear + 2.5:
+				continue
+			var clump := _clump.get_noise_2d(x, z) * 0.5 + 0.5
+			var p := tree_share * o.y * (1.0 if ad < 70.0 else 0.6) * smoothstep(0.25, 0.65, clump)
+			if rng.randf() > p:
+				continue
+			var s := rng.randf_range(0.7, 1.25)
+			_put(out, _pick_tree(rng, int(o.z)), Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, float(height.call(x, z)) - 0.1, z)), _tint(rng, 0.12))
+	# Bushes and rocks, mostly near the trail.
+	if not _bushes.is_empty():
+		for i in int(area * 0.028 * float(biome.bush)):
+			var x := x0 + rng.randf() * size
+			var z := z0 + rng.randf() * size
+			var ad := float(near.call(x, z))
+			if ad < trail_clear + 1.2 or ad > 30.0 + rng.randf() * 60.0:
+				continue
+			if own.is_valid() and (own.call(x, z) as Vector3).x <= 0.0:
+				continue
+			var s := rng.randf_range(0.6, 1.4)
+			_put(out, _bushes[rng.randi() % _bushes.size()], Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, float(height.call(x, z)) - 0.05, z)), _tint(rng, 0.15))
+	for i in int(area * 0.0042 * float(biome.rocks)):
+		var x := x0 + rng.randf() * size
+		var z := z0 + rng.randf() * size
+		if float(near.call(x, z)) < trail_clear + 0.6:
+			continue
+		if own.is_valid() and (own.call(x, z) as Vector3).x <= 0.0:
+			continue
+		var s := 0.15 + 1.5 * pow(rng.randf(), 2.6)
+		var basis := Basis(Vector3(rng.randf_range(-1.0, 1.0), 1.0, rng.randf_range(-1.0, 1.0)).normalized(), rng.randf() * TAU)
+		_put(out, _rocks[rng.randi() % _rocks.size()], Transform3D(basis.scaled(Vector3(s, s * rng.randf_range(0.7, 1.1), s)), Vector3(x, float(height.call(x, z)) - s * 0.25, z)), _tint(rng, 0.1))
+	# Grass: a jittered grid within reach of the trail, thinning with distance.
+	var density := 0.0 if OS.get_cmdline_user_args().has("nograss") else float(biome.grass_density)
+	var grass_here := float(near.call(x0 + size * 0.5, z0 + size * 0.5)) < GRASS_REACH + size * 0.75
+	if density > 0.0 and not _grass.is_empty() and grass_here:
+		var step := 0.4 / sqrt(density)
+		var gz := z0
+		while gz < z0 + size:
+			var gx := x0
+			while gx < x0 + size:
+				var x := gx + rng.randf_range(-0.2, 0.2)
+				var z := gz + rng.randf_range(-0.2, 0.2)
+				var ad := float(near.call(x, z))
+				gx += step * (1.0 + minf(ad, GRASS_REACH) * 0.06) * rng.randf_range(0.7, 1.3)
+				if ad > GRASS_REACH or ad < trail_clear * 0.8:
+					continue
+				var patch := _clump.get_noise_2d(x * 3.0, z * 3.0) * 0.5 + 0.5
+				if rng.randf() > density * smoothstep(0.15, 0.55, patch) + 0.08:
+					continue
+				if own.is_valid() and (own.call(x, z) as Vector3).x <= 0.0:
+					continue
+				var edge := smoothstep(trail_clear * 0.8, trail_clear + 0.8, ad)
+				var s := rng.randf_range(0.7, 1.3) * lerpf(0.55, 1.0, edge)
+				var mi := _grass[rng.randi() % _grass.size()]
+				if not _flowers.is_empty() and rng.randf() < float(biome.get("flower_share", 0.0)):
+					mi = _flowers[rng.randi() % _flowers.size()]
+				_put(out, mi, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * s), Vector3(x, float(height.call(x, z)) - 0.02, z)), _tint(rng, 0.2))
+			gz += step * rng.randf_range(0.8, 1.2)
+	return out
+
+
 func _pick_tree(rng: RandomNumberGenerator, mix := 0) -> int:
 	# A route's woods can be all conifer or all broadleaf (OpenStreetMap's leaf_type).
 	if mix == 1 and not _spruce.is_empty() and rng.randf() < 0.85:

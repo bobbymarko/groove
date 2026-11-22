@@ -29,8 +29,10 @@ var route_difficulty := 0.5
 ## One scenery lookup at a time, for routes imported but not yet looked up;
 ## lives here so leaving the home screen (or starting a ride) does not cut it off.
 var route_lookup: RouteLandCover
+var route_terrain: RouteElevation    ## then the real ground (elevation tiles, R42)
 var _lookup_queue: Array[String] = []
 signal route_scenery_ready(path: String)
+signal lookup_progress(fraction: float)   ## either step, for the route cards and sheet
 
 ## Scene look, adjustable in Settings and on the ride screen (T). Applied by RideScene.apply_tuning().
 const TUNING_SPEC := [
@@ -84,15 +86,21 @@ func _ready() -> void:
 	route_lookup = RouteLandCover.new()
 	route_lookup.name = "RouteLookup"
 	add_child(route_lookup)
-	route_lookup.done.connect(func(_ok: bool, _m: String) -> void:
+	route_lookup.done.connect(func(_ok: bool, _m: String) -> void: _next_lookup())
+	route_lookup.progress.connect(func(f: float) -> void: lookup_progress.emit(f))
+	route_terrain = RouteElevation.new()
+	route_terrain.name = "RouteTerrain"
+	add_child(route_terrain)
+	route_terrain.done.connect(func(_ok: bool, _m: String) -> void:
 		var path: String = _lookup_queue.pop_front() if not _lookup_queue.is_empty() else ""
 		route_scenery_ready.emit(path)
 		_next_lookup())
+	route_terrain.progress.connect(func(f: float) -> void: lookup_progress.emit(f))
 	# Imported but the lookup never finished (the app was closed): carry on. Not
 	# from headless runs (tests, tools), which would query OpenStreetMap too.
 	if DisplayServer.get_name() != "headless":
 		for path in RouteLibrary.list():
-			if not RouteLibrary.has_scenery(path):
+			if not RouteLibrary.has_scenery(path) or not RouteElevation.has_dem(path):
 				look_up_route(path)
 	Sync.configure_intervals.call_deferred(get_secret("intervals_api_key"))
 	Sync.configure_strava.call_deferred(get_secret("strava_client_id"), get_secret("strava_client_secret"))
@@ -216,15 +224,31 @@ func look_up_route(path: String) -> void:
 		_next_lookup()
 
 
+## One route at a time: its land cover (OpenStreetMap), then its real ground.
 func _next_lookup() -> void:
-	if _lookup_queue.is_empty() or route_lookup.busy:
+	if _lookup_queue.is_empty() or route_lookup.busy or route_terrain.busy:
 		return
-	var r := RouteLibrary.load_route(_lookup_queue[0])
+	var path := _lookup_queue[0]
+	var r := RouteLibrary.load_route(path)
 	if r == null:
 		_lookup_queue.pop_front()
 		_next_lookup()
 		return
-	route_lookup.look_up(r, _lookup_queue[0])
+	if not RouteLibrary.has_scenery(path):
+		route_lookup.look_up(r, path)
+	elif not RouteElevation.has_dem(path):
+		route_terrain.fetch(r, path)
+	else:
+		_lookup_queue.pop_front()
+		route_scenery_ready.emit(path)
+		_next_lookup()
+
+
+## What the lookup in progress is doing, for the cards and sheet.
+func lookup_status() -> String:
+	if route_terrain.busy:
+		return route_terrain.status
+	return route_lookup.status
 
 
 func is_looking_up(path: String) -> bool:

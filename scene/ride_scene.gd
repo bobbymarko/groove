@@ -55,6 +55,7 @@ var distance := 20.0          ## metres along the trail
 var route: Route = null
 var route_start := 20.0
 var _biome_here := ""
+var map_mode := false         ## riding a route's real shape on its real ground (R42)
 var power := 0.0
 var cadence := 0.0
 var riding := false
@@ -148,7 +149,18 @@ func _ready() -> void:
 			physics.grade_effect = 1.0
 			physics.crr = 0.008       # gravel tyres
 			physics.cda = 0.4
-	terrain = TerrainStreamer.new(trail)
+	# True map (R42): in the realistic look, a route with its real ground fetched
+	# is ridden on that ground, along its real shape.
+	var dem: RouteDem = null
+	if real and route != null and route.source != "" and RouteElevation.has_dem(route.source):
+		var geo := Geo.for_route(route)
+		dem = RouteDem.load_for(route.source, geo)
+		if dem.has_data():
+			var rtr := RouteTrail.new(route, geo, dem)
+			rtr.start = route_start
+			trail = rtr
+			map_mode = true
+	terrain = MapTerrain.new(trail, dem) if map_mode else TerrainStreamer.new(trail)
 	if real:
 		if route != null:
 			terrain.biome_map = BiomeMap.for_route(route, route_start)
@@ -163,6 +175,7 @@ func _ready() -> void:
 	if fpv:
 		rider.visible = false     # first person: the rider is the camera
 		backdrop.visible = false  # the real sky, the terrain and FarRange make the horizon
+	if fpv and not map_mode:          # a map ride's horizon is its real hills
 		far_range = FarRange.new()
 		var range_biome: Dictionary = real.flora.biome if route == null else RealFlora.for_biome(route.main_biome()).biome
 		far_range.build(float(range_biome.get("range", 800.0)), range_biome)
@@ -347,7 +360,8 @@ func _apply_daylight() -> void:
 		snow.set_tint(st.tint)
 	if real:
 		real.apply_daylight(st, _rain)
-		far_range.set_light(lerpf(0.06, 1.0, float(st.daylight)) * (1.0 - 0.35 * _rain))
+		if far_range:
+			far_range.set_light(lerpf(0.06, 1.0, float(st.daylight)) * (1.0 - 0.35 * _rain))
 
 
 ## Kept for callers that only know the on/off toggle.

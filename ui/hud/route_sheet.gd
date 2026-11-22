@@ -67,8 +67,8 @@ func _build(v: VBoxContainer) -> void:
 	var cb := func(_f: float) -> void:
 		if App.is_looking_up(path):
 			scen.text = _scenery_text()
-	App.route_lookup.progress.connect(cb)
-	scen.tree_exiting.connect(func() -> void: App.route_lookup.progress.disconnect(cb))
+	App.lookup_progress.connect(cb)
+	scen.tree_exiting.connect(func() -> void: App.lookup_progress.disconnect(cb))
 	scen.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if route.estimated:
 		var h := HBoxContainer.new()
@@ -142,7 +142,7 @@ func _build(v: VBoxContainer) -> void:
 ## "4.2 km of woods, 6.1 km of open fields, water near the trail in 2 places."
 func _scenery_text() -> String:
 	if App.is_looking_up(path):
-		return App.route_lookup.status if App.route_lookup.status != "" else "Looking up the scenery along the route…"
+		return App.lookup_status() if App.lookup_status() != "" else "Looking up the scenery along the route…"
 	if route.biomes.is_empty():
 		return "Scenery not looked up yet."
 	var by := {}

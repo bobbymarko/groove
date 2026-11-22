@@ -54,6 +54,7 @@ static func load_route(gpx_path: String) -> Route:
 	if r == null:
 		last_error = GpxParser.last_error
 		return null
+	r.source = gpx_path
 	var side := sidecar_path(gpx_path)
 	if FileAccess.file_exists(side):
 		var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(side))
@@ -86,8 +87,8 @@ static func delete(gpx_path: String) -> bool:
 		return false
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DELETED_DIR))
 	var stamp := int(Time.get_unix_time_from_system())
-	for p in [gpx_path, sidecar_path(gpx_path), RouteLandCover.partial_path(gpx_path)]:
-		if FileAccess.file_exists(p):
+	for p in [gpx_path, sidecar_path(gpx_path), RouteLandCover.partial_path(gpx_path), RouteElevation.dem_dir(gpx_path)]:
+		if FileAccess.file_exists(p) or DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(p)):
 			var dest := DELETED_DIR.path_join("%d-%s" % [stamp, p.get_file()])
 			DirAccess.rename_absolute(ProjectSettings.globalize_path(p), ProjectSettings.globalize_path(dest))
 	return true
