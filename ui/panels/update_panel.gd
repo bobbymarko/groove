@@ -24,9 +24,18 @@ func _build_ui() -> void:
 	var head := HudStyle.label(self, "Groove %s is ready. You have %s." % [l.version, Updates.current_version], 18, 700)
 	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var notes := HudStyle.section(self, "What's new")
-	var body := HudStyle.label(notes, str(l.notes) if str(l.notes) != "" else "No notes for this release.", 13, 500, HudStyle.TEXT_DIM)
+	# The notes scroll in the space left, so long notes never push the buttons
+	# off the bottom of the sheet (Bob, 2026-11-22: 0.0.6's notes hid them).
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(scroll)
+	var notes := HudStyle.section(scroll, "What's new")
+	(scroll.get_child(0) as Control).size_flags_horizontal = Control.SIZE_EXPAND_FILL   # the card
+	var text := str(l.notes).replace("**", "").replace("`", "")    # GitHub's Markdown, shown as plain text
+	var body := HudStyle.label(notes, text if text != "" else "No notes for this release.", 13, 500, HudStyle.TEXT_DIM)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size.x = 1      # wrap to the sheet's width, never widen it
 
 	var blocker := Updates.install_blocker()
 	var bar := HBoxContainer.new()
@@ -43,8 +52,8 @@ func _build_ui() -> void:
 		var dl := HudStyle.button(bar, "Download from GitHub", 16, func() -> void: OS.shell_open(str(l.url)), "primary")
 		dl.custom_minimum_size.y = 44
 	var size_mb := float(l.asset_size) / 1048576.0
-	HudStyle.label(bar, ("%s, %.0f MB" % [l.asset_name, size_mb]) if str(l.asset_name) != "" else "", 12, 500, HudStyle.TEXT_DIM) \
-		.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if str(l.asset_name) != "":
+		HudStyle.label(self, "%s, %.0f MB" % [l.asset_name, size_mb], 12, 500, HudStyle.TEXT_DIM)
 	_status = HudStyle.label(self, "", 13, 700, HudStyle.TEXT_DIM)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_bar = HudStyle.bar(self, 10, 5)

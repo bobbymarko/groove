@@ -205,6 +205,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				if updates.last_check > 0 or updates.last_error != "":
 					break
 			print("[dbg] update available %s (%s)" % [updates.update_available(), updates.last_error])
+			for a in OS.get_cmdline_user_args():
+				if a.begins_with("notes="):      # notes=<file>: show these release notes instead (long-notes layout)
+					updates.latest.notes = FileAccess.get_file_as_string(a.trim_prefix("notes="))
 		if mode == "about":
 			# What macOS sends from the app menu's "About Groove".
 			await process_frame
