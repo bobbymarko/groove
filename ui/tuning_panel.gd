@@ -14,6 +14,33 @@ var _values: Dictionary = {}
 ## provides those (the Settings sheet puts it in a card with its own Reset).
 var embedded := false
 
+## Which looks each slider changes anything in (Bob, 2026-11-22: most did
+## nothing in the realistic look). Pixel draws them all. Smooth has no pixel
+## filter, so the filter's sliders do nothing there; the realistic look has its
+## own sun, light, fog, camera and plants, and only the sun's direction carries over.
+const PIXEL_FILTER := ["dither", "outline", "internal_height", "sharpen", "motion_blur", "color_levels"]
+const REALISTIC := ["sun_azimuth"]
+
+var _lines: Dictionary = {}
+
+
+## Whether a slider does anything in this look ("16bit", "off" or "real").
+static func applies(key: String, look: String) -> bool:
+	if look == "real":
+		return key in REALISTIC
+	if look == "off":
+		return key not in PIXEL_FILTER
+	return true
+
+
+## Show only the sliders that change something in this look. Returns how many show.
+func show_for_look(look: String) -> int:
+	var n := 0
+	for key in _lines:
+		_lines[key].visible = applies(key, look)
+		n += 1 if _lines[key].visible else 0
+	return n
+
 
 func _ready() -> void:
 	var m := MarginContainer.new()
@@ -50,6 +77,7 @@ func _ready() -> void:
 		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		val.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		_sliders[key] = s
+		_lines[key] = line
 		_values[key] = val
 		_refresh_value(key)
 

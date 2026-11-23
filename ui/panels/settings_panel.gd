@@ -14,6 +14,11 @@ var _strava_secret: LineEdit
 var _strava_status: Label
 var _strava_connect: Button
 var _update_status: Label
+var _preview: RideScene          ## the Look tab's preview, built on first view
+var _preview_slot: Label         ## stands where the preview goes until then
+var _tuning: TuningPanel
+var _preview_building := false
+var _tuning_card: Control       ## the Scene tuning card, hidden when no slider applies
 var _about: Control
 
 
@@ -105,6 +110,33 @@ func show_about() -> void:
 func _show_page(i: int) -> void:
 	for p in _pages.size():
 		_pages[p].visible = p == i
+	if i == 1 and _preview == null and _preview_slot != null:
+		_build_preview.call_deferred()
+
+
+## The Look tab's live preview, built the first time the tab is shown (after a
+## frame, so the tab and its "Loading preview…" line appear first).
+func _build_preview() -> void:
+	if _preview != null or _preview_slot == null or _preview_building:
+		return
+	_preview_building = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_instance_valid(_preview_slot):
+		return
+	_preview = RideScene.new()
+	_preview.custom_minimum_size = Vector2(0, 240)
+	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview.riding = true
+	_preview.power = 200.0
+	_preview.cadence = 88.0
+	var parent := _preview_slot.get_parent()
+	parent.add_child(_preview)
+	parent.move_child(_preview, _preview_slot.get_index())
+	_preview_slot.queue_free()
+	_preview_slot = null
+	if _tuning:
+		_tuning.scene = _preview
 
 
 func _page() -> VBoxContainer:
@@ -206,12 +238,6 @@ func _build_ui() -> void:
 	# --- Look ---
 	var look := _page()
 	var l := HudStyle.section(look, "Look")
-	var preview := RideScene.new()
-	preview.custom_minimum_size = Vector2(0, 240)
-	preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	preview.riding = true
-	preview.power = 200.0
-	preview.cadence = 88.0
 	var looks := ["16bit", "off", "real"]
 	var look_note := HudStyle.label(l, "", 12, 500, HudStyle.TEXT_DIM)
 	look_note.visible = false
@@ -230,7 +256,9 @@ func _build_ui() -> void:
 			var was_real: bool = App.look_mode == "real"
 			App.look_mode = looks[i]
 			App.save_settings()
-			preview.set_look_mode(App.look_mode)
+			if _preview:
+				_preview.set_look_mode(App.look_mode)
+			_show_tuning_for(App.look_mode)
 			# The realistic look (first person, its own sky and plants) is built with the world.
 			look_note.text = "Realistic shows from the next ride." if (App.look_mode == "real") != was_real else ""
 			quality_row.visible = App.look_mode == "real"
@@ -242,19 +270,33 @@ func _build_ui() -> void:
 		func(i: int) -> void:
 			App.time_of_day = times[i]
 			App.save_settings()
-			preview.set_time_mode(App.time_of_day))
+			if _preview:
+				_preview.set_time_mode(App.time_of_day))
 	HudStyle.segmented(HudStyle.row(l, "FPS readout"), ["Hide", "Show"], 1 if App.show_fps else 0,
 		func(i: int) -> void:
 			App.show_fps = i == 1
 			App.save_settings())
-	l.add_child(preview)
+	# The preview is a whole ride scene (the realistic one is heavy), so it is
+	# built only when the Look tab is first opened, not when Settings opens.
+	_preview_slot = HudStyle.label(l, "Loading preview…", 12, 500, HudStyle.TEXT_DIM)
+	_preview_slot.custom_minimum_size = Vector2(0, 240)
+	_preview_slot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_preview_slot.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	var tuning := TuningPanel.new()
 	tuning.embedded = true
-	tuning.scene = preview
+	_tuning = tuning
 	var t := HudStyle.section(look, "Scene tuning", "", "Reset", tuning.reset)
 	t.add_child(tuning)
+	_tuning_card = t.get_parent() as Control
+	_show_tuning_for(App.look_mode)
 	_show_page(0)
+
+
+## Only the tuning sliders that change something in this look; no card when none do.
+func _show_tuning_for(look: String) -> void:
+	if _tuning and _tuning_card:
+		_tuning_card.visible = _tuning.show_for_look(look) > 0
 
 
 func _status_line(parent: Control, text: String, ok: bool) -> Label:

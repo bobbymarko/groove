@@ -216,7 +216,9 @@ func _run(scene_path: String, out_path: String, mode: String) -> void:
 				await process_frame
 		if mode in ["settings", "devices", "rides", "licenses", "update"]:
 			await process_frame
+			var t0 := Time.get_ticks_usec()
 			scene.call("open_" + mode)
+			print("[dbg] open_%s took %.0f ms (look %s)" % [mode, (Time.get_ticks_usec() - t0) / 1000.0, root.get_node("App").look_mode])
 			for i in 30:
 				await process_frame
 			if mode == "settings" and OS.get_cmdline_user_args().has("look"):
